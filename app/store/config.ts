@@ -15,6 +15,7 @@ import {
   ServiceProvider,
 } from "../constant";
 import { createPersistStore } from "../utils/store";
+import { getModelKey, mergeModelLists } from "../utils/model-list";
 import type { Voice } from "rt-client";
 
 export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
@@ -178,12 +179,12 @@ export const useAppConfig = createPersistStore(
 
       for (const model of oldModels) {
         model.available = false;
-        modelMap[`${model.name}@${model?.provider?.id}`] = model;
+        modelMap[getModelKey(model)] = model;
       }
 
       for (const model of newModels) {
         model.available = true;
-        modelMap[`${model.name}@${model?.provider?.id}`] = model;
+        modelMap[getModelKey(model)] = model;
       }
 
       set(() => ({
@@ -200,14 +201,7 @@ export const useAppConfig = createPersistStore(
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
       if (!state) return { ...currentState };
-      const models = currentState.models.slice();
-      state.models.forEach((pModel) => {
-        const idx = models.findIndex(
-          (v) => v.name === pModel.name && v.provider === pModel.provider,
-        );
-        if (idx !== -1) models[idx] = pModel;
-        else models.push(pModel);
-      });
+      const models = mergeModelLists(currentState.models, state.models);
       return { ...currentState, ...state, models: models };
     },
 
