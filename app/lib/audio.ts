@@ -1,7 +1,7 @@
 export class AudioHandler {
   private context: AudioContext;
   private mergeNode: ChannelMergerNode;
-  private analyserData: Uint8Array;
+  private analyserData: Uint8Array<ArrayBuffer>;
   public analyser: AnalyserNode;
   private workletNode: AudioWorkletNode | null = null;
   private stream: MediaStream | null = null;
@@ -169,7 +169,9 @@ export class AudioHandler {
     view.setUint32(40, byteLength, true); // data chunk length
 
     // using data.buffer, so no need to setUint16 to view.
-    return new Blob([view, data.buffer], { type: "audio/mpeg" });
+    const pcmBytes = new Uint8Array(data.byteLength);
+    pcmBytes.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+    return new Blob([view, pcmBytes], { type: "audio/mpeg" });
   }
   savePlayFile() {
     // @ts-ignore

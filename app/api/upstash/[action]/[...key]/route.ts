@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 async function handle(
   req: NextRequest,
-  { params }: { params: { action: string; key: string[] } },
+  context: RouteContext<"/api/upstash/[action]/[...key]">,
 ) {
+  const params = await context.params;
   const requestUrl = new URL(req.url);
   const endpoint = requestUrl.searchParams.get("endpoint");
 

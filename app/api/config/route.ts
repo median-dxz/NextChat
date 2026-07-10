@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getServerSideConfig } from "../../config/server";
+import type { DangerConfig } from "../../config/types";
 
 const serverConfig = getServerSideConfig();
 
@@ -15,11 +16,7 @@ const DANGER_CONFIG = {
   customModels: serverConfig.customModels,
   defaultModel: serverConfig.defaultModel,
   visionModels: serverConfig.visionModels,
-};
-
-declare global {
-  type DangerConfig = typeof DANGER_CONFIG;
-}
+} satisfies DangerConfig;
 
 async function handle() {
   return NextResponse.json(DANGER_CONFIG);

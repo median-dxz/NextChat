@@ -19,8 +19,9 @@ const normalizeUrl = (url: string) => {
 
 async function handle(
   req: NextRequest,
-  { params }: { params: { path: string[] } },
+  context: RouteContext<"/api/webdav/[...path]">,
 ) {
+  const params = await context.params;
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
   }

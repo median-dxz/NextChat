@@ -11,6 +11,7 @@
 # next.js
 /.next/
 /out/
+/.nextchat-export-api/
 
 # production
 /build

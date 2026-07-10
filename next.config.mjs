@@ -1,4 +1,5 @@
 import webpack from "webpack";
+import { PHASE_PRODUCTION_BUILD } from "next/constants.js";
 
 const mode = process.env.BUILD_MODE ?? "standalone";
 console.log("[Next] build mode", mode);
@@ -6,8 +7,17 @@ console.log("[Next] build mode", mode);
 const disableChunk = !!process.env.DISABLE_CHUNK || mode === "export";
 console.log("[Next] build with chunk: ", !disableChunk);
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+/** @param {string} phase */
+const createNextConfig = (phase) => ({
+  reactCompiler: true,
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
@@ -17,23 +27,21 @@ const nextConfig = {
     if (disableChunk) {
       config.plugins.push(
         new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
+        new webpack.NormalModuleReplacementPlugin(
+          /[\\/]mcp[\\/]actions$/,
+          "@/app/mcp/actions.export",
+        ),
       );
     }
 
-    config.resolve.fallback = {
-      child_process: false,
-    };
-
     return config;
   },
-  output: mode,
+  output:
+    mode === "export" && phase !== PHASE_PRODUCTION_BUILD ? undefined : mode,
   images: {
     unoptimized: mode === "export",
   },
-  experimental: {
-    forceSwcTransforms: true,
-  },
-};
+});
 
 const CorsHeaders = [
   { key: "Access-Control-Allow-Credentials", value: "true" },
@@ -52,7 +60,9 @@ const CorsHeaders = [
   },
 ];
 
-if (mode !== "export") {
+const withServerRoutes = (nextConfig) => {
+  if (mode === "export") return nextConfig;
+
   nextConfig.headers = async () => {
     return [
       {
@@ -106,6 +116,7 @@ if (mode !== "export") {
       beforeFiles: ret,
     };
   };
-}
+  return nextConfig;
+};
 
-export default nextConfig;
+export default (phase) => withServerRoutes(createNextConfig(phase));
