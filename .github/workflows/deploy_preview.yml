@@ -21,7 +21,7 @@ jobs:
   deploy-preview:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -31,7 +31,7 @@ jobs:
         id: extract_branch
 
       - name: Hash branch name
-        uses: pplanel/hash-calculator-action@v1.3.1
+        uses: pplanel/hash-calculator-action@v1.3.2
         id: hash_branch
         with:
           input: ${{ steps.extract_branch.outputs.branch }}
@@ -47,7 +47,7 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-npm
         with:
           path: ~/.npm
@@ -74,7 +74,7 @@ jobs:
           echo "New alias URL: ${ALIAS_URL}"
           echo "VERCEL_URL=${ALIAS_URL}" >> "$GITHUB_OUTPUT"
 
-      - uses: mshick/add-pr-comment@v2
+      - uses: mshick/add-pr-comment@v3
         with:
           message: |
             Your build has completed!

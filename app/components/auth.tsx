@@ -1,7 +1,7 @@
 import styles from "./auth.module.scss";
 import { IconButton } from "./button";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Path, SAAS_CHAT_URL } from "../constant";
 import { useAccessStore } from "../store";
 import Locale from "../locales";
@@ -128,20 +128,14 @@ export function AuthPage() {
 
 function TopBanner() {
   const [isHovered, setIsHovered] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
-  const isMobile = useMobileScreen();
-  useEffect(() => {
-    // 检查 localStorage 中是否有标记
+  const [isVisible, setIsVisible] = useState(() => {
     const bannerDismissed = storage.getItem("bannerDismissed");
-    // 如果标记不存在，存储默认值并显示横幅
-    if (!bannerDismissed) {
+    if (bannerDismissed === null) {
       storage.setItem("bannerDismissed", "false");
-      setIsVisible(true); // 显示横幅
-    } else if (bannerDismissed === "true") {
-      // 如果标记为 "true"，则隐藏横幅
-      setIsVisible(false);
     }
-  }, []);
+    return bannerDismissed !== "true";
+  });
+  const isMobile = useMobileScreen();
 
   const handleMouseEnter = () => {
     setIsHovered(true);

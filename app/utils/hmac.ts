@@ -6,8 +6,6 @@
 // Chrome loaded over HTTP instead of HTTPS), this library can create SHA-256
 // HMAC signatures using nothing but raw JavaScript
 
-/* eslint-disable no-magic-numbers, id-length, no-param-reassign, new-cap */
-
 // By giving internal functions names that we can mangle, future calls to
 // them are reduced to a single byte (minor space savings in minified file)
 const uint8Array = Uint8Array;

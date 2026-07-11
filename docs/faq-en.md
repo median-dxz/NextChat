@@ -62,25 +62,6 @@ Please check and troubleshoot the following issues:
 - Is the route to the server okay?
 - Is the domain name resolved correctly?
 
-## You may encounter an "Error: Loading CSS chunk xxx failed..."
-
-To reduce the initial white screen time, Next.js enables chunking by default. You can find the technical details here:
-
-- https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading
-- https://stackoverflow.com/questions/55993890/how-can-i-disable-chunkcode-splitting-with-webpack4
-- https://github.com/vercel/next.js/issues/38507
-- https://stackoverflow.com/questions/55993890/how-can-i-disable-chunkcode-splitting-with-webpack4
-
-However, Next.js has limited compatibility with older browsers, which can result in this error.
-
-You can disable chunking during building.
-
-For Vercel platform, you can add `DISABLE_CHUNK=1` to the environment variables and redeploy.
-For self-deployed projects, you can use `DISABLE_CHUNK=1 pnpm run build` during the build process.
-For Docker users, as the build is already completed during packaging, disabling this feature is currently not supported.
-
-Note that when you disable this feature, all resources will be loaded on the user's first visit. This may result in a longer white screen time if the user has a poor network connection, affecting the user experience. Please consider this when making a decision.
-
 # Usage Related Questions
 
 ## Why does it always prompt "An error occurred, please try again later"

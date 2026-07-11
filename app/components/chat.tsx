@@ -98,7 +98,7 @@ import {
   showPrompt,
   showToast,
 } from "./ui-lib";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   CHAT_PAGE_SIZE,
   DEFAULT_TTS_ENGINE,
@@ -123,7 +123,7 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
-import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
+import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 
 const localStorage = safeLocalStorage();
 
@@ -319,11 +319,11 @@ export function PromptHints(props: {
 }) {
   const noPrompts = props.prompts.length === 0;
   const [selectIndex, setSelectIndex] = useState(0);
+  const effectiveSelectIndex = Math.min(
+    selectIndex,
+    Math.max(0, props.prompts.length - 1),
+  );
   const selectedRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSelectIndex(0);
-  }, [props.prompts.length]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -336,7 +336,7 @@ export function PromptHints(props: {
         e.preventDefault();
         const nextIndex = Math.max(
           0,
-          Math.min(props.prompts.length - 1, selectIndex + delta),
+          Math.min(props.prompts.length - 1, effectiveSelectIndex + delta),
         );
         setSelectIndex(nextIndex);
         selectedRef.current?.scrollIntoView({
@@ -349,7 +349,7 @@ export function PromptHints(props: {
       } else if (e.key === "ArrowDown") {
         changeIndex(-1);
       } else if (e.key === "Enter") {
-        const selectedPrompt = props.prompts.at(selectIndex);
+        const selectedPrompt = props.prompts.at(effectiveSelectIndex);
         if (selectedPrompt) {
           props.onPromptSelect(selectedPrompt);
         }
@@ -359,17 +359,16 @@ export function PromptHints(props: {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.prompts.length, selectIndex]);
+  }, [effectiveSelectIndex, noPrompts, props]);
 
   if (noPrompts) return null;
   return (
     <div className={styles["prompt-hints"]}>
       {props.prompts.map((prompt, i) => (
         <div
-          ref={i === selectIndex ? selectedRef : null}
+          ref={i === effectiveSelectIndex ? selectedRef : null}
           className={clsx(styles["prompt-hint"], {
-            [styles["prompt-hint-selected"]]: i === selectIndex,
+            [styles["prompt-hint-selected"]]: i === effectiveSelectIndex,
           })}
           key={prompt.title + i.toString()}
           onClick={() => props.onPromptSelect(prompt)}
@@ -508,6 +507,7 @@ export function ChatActions(props: {
   setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+  const { setAttachImages, setUploading } = props;
   const config = useAppConfig();
   const navigate = useNavigate();
   const chatStore = useChatStore();
@@ -577,8 +577,8 @@ export function ChatActions(props: {
     const show = isVisionModel(currentModel);
     setShowUploadImage(show);
     if (!show) {
-      props.setAttachImages([]);
-      props.setUploading(false);
+      setAttachImages([]);
+      setUploading(false);
     }
 
     // if current model is not available
@@ -598,7 +598,7 @@ export function ChatActions(props: {
           : nextModel.name,
       );
     }
-  }, [chatStore, currentModel, models, session]);
+  }, [chatStore, currentModel, models, session, setAttachImages, setUploading]);
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -1002,26 +1002,18 @@ function ChatView() {
   const [showExport, setShowExport] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [userInput, setUserInput] = useState("");
+  const [userInput, setUserInput] = useState(() => {
+    if (typeof localStorage === "undefined") return "";
+    const key = UNFINISHED_INPUT(session.id);
+    const unfinishedInput = localStorage.getItem(key) ?? "";
+    if (unfinishedInput) localStorage.removeItem(key);
+    return unfinishedInput;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isScrolledToBottom = scrollRef?.current
-    ? Math.abs(
-        scrollRef.current.scrollHeight -
-          (scrollRef.current.scrollTop + scrollRef.current.clientHeight),
-      ) <= 1
-    : false;
-  const isAttachWithTop = useMemo(() => {
-    const lastMessage = scrollRef.current?.lastElementChild as HTMLElement;
-    // if scrolllRef is not ready or no message, return false
-    if (!scrollRef?.current || !lastMessage) return false;
-    const topDistance =
-      lastMessage!.getBoundingClientRect().top -
-      scrollRef.current.getBoundingClientRect().top;
-    // leave some space for user question
-    return topDistance < 100;
-  }, [scrollRef?.current?.scrollHeight]);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [isAttachWithTop, setIsAttachWithTop] = useState(false);
 
   const isTyping = userInput !== "";
 
@@ -1334,9 +1326,9 @@ function ChatView() {
     }
   }
 
-  const context: RenderMessage[] = useMemo(() => {
-    return session.mask.hideContext ? [] : session.mask.context.slice();
-  }, [session.mask.context, session.mask.hideContext]);
+  const context: RenderMessage[] = session.mask.hideContext
+    ? []
+    : session.mask.context.slice();
 
   if (
     context.length === 0 &&
@@ -1350,42 +1342,28 @@ function ChatView() {
   }
 
   // preview messages
-  const renderMessages = useMemo(() => {
-    return context
-      .concat(session.messages as RenderMessage[])
-      .concat(
-        isLoading
-          ? [
-              {
-                ...createMessage({
-                  role: "assistant",
-                  content: "……",
-                }),
-                preview: true,
-              },
-            ]
-          : [],
-      )
-      .concat(
-        userInput.length > 0 && config.sendPreviewBubble
-          ? [
-              {
-                ...createMessage({
-                  role: "user",
-                  content: userInput,
-                }),
-                preview: true,
-              },
-            ]
-          : [],
-      );
-  }, [
-    config.sendPreviewBubble,
-    context,
-    isLoading,
-    session.messages,
-    userInput,
-  ]);
+  const renderMessages = context
+    .concat(session.messages as RenderMessage[])
+    .concat(
+      isLoading
+        ? [
+            {
+              ...createMessage({ role: "assistant", content: "……" }),
+              preview: true,
+            },
+          ]
+        : [],
+    )
+    .concat(
+      userInput.length > 0 && config.sendPreviewBubble
+        ? [
+            {
+              ...createMessage({ role: "user", content: userInput }),
+              preview: true,
+            },
+          ]
+        : [],
+    );
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
     Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
@@ -1397,13 +1375,11 @@ function ChatView() {
     _setMsgRenderIndex(newIndex);
   }
 
-  const messages = useMemo(() => {
-    const endRenderIndex = Math.min(
-      msgRenderIndex + 3 * CHAT_PAGE_SIZE,
-      renderMessages.length,
-    );
-    return renderMessages.slice(msgRenderIndex, endRenderIndex);
-  }, [msgRenderIndex, renderMessages]);
+  const endRenderIndex = Math.min(
+    msgRenderIndex + 3 * CHAT_PAGE_SIZE,
+    renderMessages.length,
+  );
+  const messages = renderMessages.slice(msgRenderIndex, endRenderIndex);
 
   const onChatBodyScroll = (e: HTMLElement) => {
     const bottomHeight = e.scrollTop + e.clientHeight;
@@ -1425,6 +1401,15 @@ function ChatView() {
 
     setHitBottom(isHitBottom);
     setAutoScroll(isHitBottom);
+    setIsScrolledToBottom(Math.abs(e.scrollHeight - bottomHeight) <= 1);
+
+    const lastMessage = e.lastElementChild as HTMLElement | null;
+    setIsAttachWithTop(
+      lastMessage !== null &&
+        lastMessage.getBoundingClientRect().top -
+          e.getBoundingClientRect().top <
+          100,
+    );
   };
 
   function scrollToBottom() {
@@ -1440,7 +1425,7 @@ function ChatView() {
 
   const [showPromptModal, setShowPromptModal] = useState(false);
 
-  const clientConfig = useMemo(() => getClientConfig(), []);
+  const [clientConfig] = useState(getClientConfig);
 
   const autoFocus = !isMobileScreen; // wont auto focus on mobile screen
   const showMaxIcon = !isMobileScreen && !clientConfig?.isApp;
@@ -1498,20 +1483,12 @@ function ChatView() {
 
   // remember unfinished input
   useEffect(() => {
-    // try to load from local storage
     const key = UNFINISHED_INPUT(session.id);
-    const mayBeUnfinishedInput = localStorage.getItem(key);
-    if (mayBeUnfinishedInput && userInput.length === 0) {
-      setUserInput(mayBeUnfinishedInput);
-      localStorage.removeItem(key);
-    }
-
     const dom = inputRef.current;
     return () => {
       localStorage.setItem(key, dom?.value ?? "");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [session.id]);
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1822,8 +1799,7 @@ function ChatView() {
                                       10,
                                     );
                                     let newContent:
-                                      | string
-                                      | MultimodalContent[] = newMessage;
+                                      string | MultimodalContent[] = newMessage;
                                     const images = getMessageImages(message);
                                     if (images.length > 0) {
                                       newContent = [
@@ -1990,11 +1966,15 @@ function ChatView() {
                               defaultShow={i >= messages.length - 6}
                             />
                             {getMessageImages(message).length == 1 && (
-                              <img
-                                className={styles["chat-message-item-image"]}
-                                src={getMessageImages(message)[0]}
-                                alt=""
-                              />
+                              <>
+                                {/* External and data URLs cannot use Next image optimization. */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  className={styles["chat-message-item-image"]}
+                                  src={getMessageImages(message)[0]}
+                                  alt=""
+                                />
+                              </>
                             )}
                             {getMessageImages(message).length > 1 && (
                               <div
@@ -2009,16 +1989,18 @@ function ChatView() {
                                 {getMessageImages(message).map(
                                   (image, index) => {
                                     return (
-                                      <img
-                                        className={
-                                          styles[
-                                            "chat-message-item-image-multi"
-                                          ]
-                                        }
-                                        key={index}
-                                        src={image}
-                                        alt=""
-                                      />
+                                      <React.Fragment key={index}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          className={
+                                            styles[
+                                              "chat-message-item-image-multi"
+                                            ]
+                                          }
+                                          src={image}
+                                          alt=""
+                                        />
+                                      </React.Fragment>
                                     );
                                   },
                                 )}

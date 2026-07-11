@@ -35,7 +35,7 @@ const MermaidRenderer = dynamic(
   },
 );
 
-export function PreCode(props: { children: any }) {
+export function PreCode(props: { children?: React.ReactNode }) {
   const ref = useRef<HTMLPreElement>(null);
   const previewRef = useRef<HTMLPreviewHandler>(null);
   const [mermaidCode, setMermaidCode] = useState("");
@@ -92,7 +92,7 @@ export function PreCode(props: { children: any }) {
       });
       setTimeout(renderArtifacts, 1);
     }
-  }, []);
+  }, [renderArtifacts]);
 
   return (
     <>
@@ -137,7 +137,7 @@ export function PreCode(props: { children: any }) {
   );
 }
 
-function CustomCode(props: { children: any; className?: string }) {
+function CustomCode(props: { children?: React.ReactNode; className?: string }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
@@ -257,7 +257,7 @@ function MarkdownLink({
   }
 
   const isInternal = /^\/#/i.test(href);
-  const linkTarget = isInternal ? "_self" : target ?? "_blank";
+  const linkTarget = isInternal ? "_self" : (target ?? "_blank");
   return <a {...anchorProps} href={href} target={linkTarget} />;
 }
 

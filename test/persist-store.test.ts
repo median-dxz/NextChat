@@ -1,9 +1,9 @@
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import { createPersistStore } from "../app/utils/store";
 
 describe("createPersistStore", () => {
   test("marks hydration complete and preserves the configured finish callback", async () => {
-    const onFinishHydration = jest.fn();
+    const onFinishHydration = vi.fn();
     const useTestStore = createPersistStore(
       { count: 0 },
       (set) => ({

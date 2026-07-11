@@ -19,7 +19,7 @@ jobs:
   delete-deployments:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
 
       - name: Extract branch name
         shell: bash
@@ -27,7 +27,7 @@ jobs:
         id: extract_branch
 
       - name: Hash branch name
-        uses: pplanel/hash-calculator-action@v1.3.1
+        uses: pplanel/hash-calculator-action@v1.3.2
         id: hash_branch
         with:
           input: ${{ steps.extract_branch.outputs.branch }}

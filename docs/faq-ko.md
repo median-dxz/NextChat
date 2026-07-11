@@ -105,23 +105,6 @@ https://github.com/Yidadaa/ChatGPT-Next-Web/issues/1569 에서 토론을 참조�
 
 API 키에 문제가 있습니다. 잔액이 부족합니다.
 
-## "오류: CSS 청크 xxx를 로드하지 못했습니다..."와 함께 사용.
-
-첫 번째 화이트 스크린 시간을 줄이기 위해 청크 컴파일이 기본적으로 활성화되어 있으며, 기술 원칙은 아래를 참조하세요:
-
-- https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading
-- https://stackoverflow.com/questions/55993890/how-can-i-disable-chunkcode-splitting-with-webpack4
-- https://github.com/vercel/next.js/issues/38507
-- https://stackoverflow.com/questions/55993890/how-can-i-disable-chunkcode-splitting-with-webpack4
-
-그러나 NextJS는 호환성이 좋지 않아 구형 브라우저에서 이 오류가 발생할 수 있으므로 컴파일 시 청크 컴파일을 비활성화할 수 있습니다.
-
-버셀 플랫폼의 경우 환경 변수에 `DISABLE_CHUNK=1`을 추가하고 다시 배포합니다;
-자체 컴파일 및 배포한 프로젝트의 경우, 빌드 시 `DISABLE_CHUNK=1 pnpm run build`를 사용하여 빌드합니다;
-Docker 사용자의 경우, Docker가 프로젝트를 패키징할 때 이미 빌드하기 때문에 이 기능을 해제하는 것은 지원되지 않습니다.
-
-이 기능을 끄면 사용자가 웹사이트를 처음 방문할 때 모든 리소스를 로드하므로 인터넷 연결 상태가 좋지 않은 경우 흰색 화면이 길게 표시되어 사용자 경험에 영향을 줄 수 있으므로 사용자가 직접 고려하시기 바랍니다.
-
 "## NotFoundError: '노드': 노드....에서 'removeChild'를 실행하지 못했습니다." 오류가 발생했습니다.
 브라우저의 자체 자동 번역 기능을 비활성화하고 모든 자동 번역 플러그인을 닫아주세요.
 

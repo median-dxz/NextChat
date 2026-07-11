@@ -34,7 +34,7 @@ import {
 } from "./ui-lib";
 import { Avatar, AvatarPicker } from "./emoji";
 import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 import chatStyle from "./chat.module.scss";
 import { useState } from "react";
@@ -76,7 +76,7 @@ export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
-  extraListItems?: JSX.Element;
+  extraListItems?: React.ReactElement;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {

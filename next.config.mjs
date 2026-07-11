@@ -1,48 +1,33 @@
-import webpack from "webpack";
 import { PHASE_PRODUCTION_BUILD } from "next/constants.js";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+
+const tauriConfig = JSON.parse(
+  readFileSync(new URL("./src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+);
 
 const mode = process.env.BUILD_MODE ?? "standalone";
 console.log("[Next] build mode", mode);
 
-const disableChunk = !!process.env.DISABLE_CHUNK || mode === "export";
-console.log("[Next] build with chunk: ", !disableChunk);
-
 /** @param {string} phase */
 const createNextConfig = (phase) => ({
   reactCompiler: true,
+  env: {
+    BUILD_VERSION: tauriConfig.version,
+  },
   turbopack: {
+    resolveAlias:
+      mode === "export"
+        ? {
+            "@/app/mcp/actions": "./app/mcp/actions.export.ts",
+            "rt-client": "./node_modules/rt-client/dist/browser/index.js",
+          }
+        : {},
     rules: {
       "*.svg": {
         loaders: ["@svgr/webpack"],
         as: "*.js",
       },
     },
-  },
-  webpack(config) {
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: ["@svgr/webpack"],
-    });
-
-    // rt-client 0.5.0 exposes a browser bundle, but webpack can otherwise pick
-    // its Node ESM entry and warn about ws' optional native accelerators.
-    config.resolve.alias["rt-client$"] = path.resolve(
-      process.cwd(),
-      "node_modules/rt-client/dist/browser/index.js",
-    );
-
-    if (disableChunk) {
-      config.plugins.push(
-        new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
-        new webpack.NormalModuleReplacementPlugin(
-          /[\\/]mcp[\\/]actions$/,
-          "@/app/mcp/actions.export",
-        ),
-      );
-    }
-
-    return config;
   },
   output:
     mode === "export" && phase !== PHASE_PRODUCTION_BUILD ? undefined : mode,
@@ -127,4 +112,6 @@ const withServerRoutes = (nextConfig) => {
   return nextConfig;
 };
 
-export default (phase) => withServerRoutes(createNextConfig(phase));
+const nextConfig = (phase) => withServerRoutes(createNextConfig(phase));
+
+export default nextConfig;

@@ -1,4 +1,6 @@
+import { fixupConfigRules } from "@eslint/compat";
 import { defineConfig, globalIgnores } from "eslint/config";
+import * as espree from "espree";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import prettier from "eslint-config-prettier/flat";
 import unusedImports from "eslint-plugin-unused-imports";
@@ -21,10 +23,25 @@ const compilerDiagnostics = [
   "use-memo",
 ];
 
+const nextConfig = fixupConfigRules(nextVitals);
+const reactHooks = nextConfig.find(
+  (config) => config.plugins?.["react-hooks"],
+)?.plugins["react-hooks"];
+
 export default defineConfig([
-  ...nextVitals,
+  ...nextConfig,
+  {
+    files: ["**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      parser: espree,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
+    },
+  },
   {
     plugins: {
+      "react-hooks": reactHooks,
       "unused-imports": unusedImports,
     },
     rules: {

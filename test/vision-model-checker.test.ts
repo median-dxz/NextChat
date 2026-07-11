@@ -1,11 +1,11 @@
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import { isVisionModel } from "../app/utils";
 
 describe("isVisionModel", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     process.env = { ...originalEnv };
   });
 

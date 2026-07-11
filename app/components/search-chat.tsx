@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ErrorBoundary } from "./error";
 import styles from "./mask.module.scss";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { IconButton } from "./button";
 import CloseIcon from "../icons/close.svg";
 import EyeIcon from "../icons/eye.svg";
@@ -27,45 +27,51 @@ export function SearchChatPage() {
 
   const previousValueRef = useRef<string>("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const doSearch = useCallback((text: string) => {
-    const lowerCaseText = text.toLowerCase();
-    const results: Item[] = [];
+  const doSearch = useCallback(
+    (text: string) => {
+      const lowerCaseText = text.toLowerCase();
+      const results: Item[] = [];
 
-    sessions.forEach((session, index) => {
-      const fullTextContents: string[] = [];
+      sessions.forEach((session, index) => {
+        const fullTextContents: string[] = [];
 
-      session.messages.forEach((message) => {
-        const content = message.content as string;
-        if (!content.toLowerCase || content === "") return;
-        const lowerCaseContent = content.toLowerCase();
+        session.messages.forEach((message) => {
+          const content = message.content as string;
+          if (!content.toLowerCase || content === "") return;
+          const lowerCaseContent = content.toLowerCase();
 
-        // full text search
-        let pos = lowerCaseContent.indexOf(lowerCaseText);
-        while (pos !== -1) {
-          const start = Math.max(0, pos - 35);
-          const end = Math.min(content.length, pos + lowerCaseText.length + 35);
-          fullTextContents.push(content.substring(start, end));
-          pos = lowerCaseContent.indexOf(
-            lowerCaseText,
-            pos + lowerCaseText.length,
-          );
+          // full text search
+          let pos = lowerCaseContent.indexOf(lowerCaseText);
+          while (pos !== -1) {
+            const start = Math.max(0, pos - 35);
+            const end = Math.min(
+              content.length,
+              pos + lowerCaseText.length + 35,
+            );
+            fullTextContents.push(content.substring(start, end));
+            pos = lowerCaseContent.indexOf(
+              lowerCaseText,
+              pos + lowerCaseText.length,
+            );
+          }
+        });
+
+        if (fullTextContents.length > 0) {
+          results.push({
+            id: index,
+            name: session.topic,
+            content: fullTextContents.join("... "), // concat content with...
+          });
         }
       });
 
-      if (fullTextContents.length > 0) {
-        results.push({
-          id: index,
-          name: session.topic,
-          content: fullTextContents.join("... "), // concat content with...
-        });
-      }
-    });
+      // sort by length of matching content
+      results.sort((a, b) => b.content.length - a.content.length);
 
-    // sort by length of matching content
-    results.sort((a, b) => b.content.length - a.content.length);
-
-    return results;
-  }, []);
+      return results;
+    },
+    [sessions],
+  );
 
   useEffect(() => {
     const intervalId = setInterval(() => {

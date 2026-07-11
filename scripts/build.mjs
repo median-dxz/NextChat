@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, renameSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +16,7 @@ const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
 const tsxBin = path.join(root, "node_modules", "tsx", "dist", "cli.mjs");
 const apiDir = path.join(root, "app", "api");
 const exportApiBackup = path.join(root, ".nextchat-export-api");
+const nextDevDir = path.join(root, ".next", "dev");
 
 class CommandError extends Error {
   constructor(exitCode) {
@@ -74,12 +75,15 @@ const env = {
   BUILD_COMMIT_DATE: readGit(["log", "-1", "--format=%at000"]),
   BUILD_COMMIT_HASH: readGit(["log", "-1", "--format=%H"]),
 };
-const builderFlag = mode === "export" ? "--webpack" : "--turbopack";
-
 try {
   run(process.execPath, [tsxBin, "app/masks/build.ts"]);
-  if (mode === "export") isolateApiDirectory();
-  run(process.execPath, [nextBin, "build", builderFlag], { env });
+  if (mode === "export") {
+    // Dev route types reference API files that export mode temporarily hides.
+    // They are generated cache files and must not participate in export checks.
+    rmSync(nextDevDir, { recursive: true, force: true });
+    isolateApiDirectory();
+  }
+  run(process.execPath, [nextBin, "build", "--turbopack"], { env });
 } catch (error) {
   if (!(error instanceof CommandError)) console.error(error);
   process.exitCode = error instanceof CommandError ? error.exitCode : 1;

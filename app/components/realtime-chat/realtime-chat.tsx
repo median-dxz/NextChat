@@ -257,6 +257,7 @@ export function RealtimeChat({
     }
   };
 
+  // The audio session intentionally owns a single mount/unmount lifecycle.
   useEffect(() => {
     // 防止重复初始化
     if (initRef.current) return;
@@ -282,6 +283,8 @@ export function RealtimeChat({
       audioHandlerRef.current?.close().catch(console.error);
       disconnect();
     };
+    // handleConnect and toggleRecording capture the initial audio settings by design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -297,8 +300,6 @@ export function RealtimeChat({
       };
 
       animationFrameId = requestAnimationFrame(animationFrame);
-    } else {
-      setFrequencies(undefined);
     }
 
     return () => {
@@ -331,7 +332,10 @@ export function RealtimeChat({
           [styles["pulse"]]: isRecording,
         })}
       >
-        <VoicePrint frequencies={frequencies} isActive={isRecording} />
+        <VoicePrint
+          frequencies={isConnected && isRecording ? frequencies : undefined}
+          isActive={isRecording}
+        />
       </div>
 
       <div className={styles["bottom-icons"]}>

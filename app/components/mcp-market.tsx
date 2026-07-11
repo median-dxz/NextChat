@@ -9,7 +9,7 @@ import RestartIcon from "../icons/reload.svg";
 import EyeIcon from "../icons/eye.svg";
 import GithubIcon from "../icons/github.svg";
 import { List, ListItem, Modal, showToast } from "./ui-lib";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import {
   addMcpServer,
@@ -20,7 +20,7 @@ import {
   pauseMcpServer,
   restartAllClients,
   resumeMcpServer,
-} from "../mcp/actions";
+} from "@/app/mcp/actions";
 import {
   ListToolsResponse,
   McpConfigData,
@@ -158,6 +158,8 @@ export function McpMarketPage() {
             userConfig[key] = currentConfig.env[mapping.key];
           }
         });
+        // Switching editor records intentionally resets its controlled form.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUserConfig(userConfig);
       }
     } else {

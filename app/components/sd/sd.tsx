@@ -6,13 +6,13 @@ import { IconButton } from "@/app/components/button";
 import ReturnIcon from "@/app/icons/return.svg";
 import Locale from "@/app/locales";
 import { Path } from "@/app/constant";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   copyToClipboard,
   getMessageTextContent,
   useMobileScreen,
 } from "@/app/utils";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { useAppConfig } from "@/app/store";
 import MinIcon from "@/app/icons/min.svg";
 import MaxIcon from "@/app/icons/max.svg";
@@ -96,12 +96,8 @@ export function Sd() {
   const config = useAppConfig();
   const scrollRef = useRef<HTMLDivElement>(null);
   const sdStore = useSdStore();
-  const [sdImages, setSdImages] = useState(sdStore.draw);
+  const sdImages = sdStore.draw;
   const isSd = location.pathname === Path.Sd;
-
-  useEffect(() => {
-    setSdImages(sdStore.draw);
-  }, [sdStore.currentId]);
 
   return (
     <>
@@ -162,23 +158,27 @@ export function Sd() {
                       className={styles["sd-img-item"]}
                     >
                       {item.status === "success" ? (
-                        <img
-                          className={styles["img"]}
-                          src={item.img_data}
-                          alt={item.id}
-                          onClick={(e) =>
-                            showImageModal(
-                              item.img_data,
-                              true,
-                              isMobileScreen
-                                ? { width: "100%", height: "fit-content" }
-                                : { maxWidth: "100%", maxHeight: "100%" },
-                              isMobileScreen
-                                ? { width: "100%", height: "fit-content" }
-                                : { width: "100%", height: "100%" },
-                            )
-                          }
-                        />
+                        <>
+                          {/* Generated base64 images are not optimizable by next/image. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            className={styles["img"]}
+                            src={item.img_data}
+                            alt={item.id}
+                            onClick={() =>
+                              showImageModal(
+                                item.img_data,
+                                true,
+                                isMobileScreen
+                                  ? { width: "100%", height: "fit-content" }
+                                  : { maxWidth: "100%", maxHeight: "100%" },
+                                isMobileScreen
+                                  ? { width: "100%", height: "fit-content" }
+                                  : { width: "100%", height: "100%" },
+                              )
+                            }
+                          />
+                        </>
                       ) : item.status === "error" ? (
                         <div className={styles["pre-img"]}>
                           <ErrorIcon />
