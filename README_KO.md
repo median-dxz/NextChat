@@ -404,8 +404,9 @@ BASE_URL=https://chatgpt1.nextweb.fun/api/proxy
 # 1. Node.js와 Yarn을 먼저 설치
 # 2. `.env.local` 파일에 환경 변수 설정
 # 3. 실행
-yarn install
-yarn dev
+corepack enable
+pnpm install
+pnpm run dev
 ```
 
 ## 배포 (Deployment)

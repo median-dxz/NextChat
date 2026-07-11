@@ -255,8 +255,8 @@ OPENAI_API_KEY=<your api key here>
 ### ローカル開発
 
 1. Node.js 18 と Yarn をインストールします。具体的な方法は ChatGPT にお尋ねください。
-2. `yarn install && yarn dev` を実行します。⚠️ 注意：このコマンドはローカル開発用であり、デプロイには使用しないでください。
-3. ローカルでデプロイしたい場合は、`yarn install && yarn build && yarn start` コマンドを使用してください。プロセスを守るために pm2 を使用することもできます。詳細は ChatGPT にお尋ねください。
+2. `corepack enable && pnpm install && pnpm run dev` を実行します。⚠️ 注意：このコマンドはローカル開発用であり、デプロイには使用しないでください。
+3. ローカルでデプロイしたい場合は、`pnpm install && pnpm run build && pnpm run start` コマンドを使用してください。プロセスを守るために pm2 を使用することもできます。詳細は ChatGPT にお尋ねください。
 
 ## デプロイ
 

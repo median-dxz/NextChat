@@ -1,0 +1,7 @@
+allowBuilds:
+  '@vercel/speed-insights': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+overrides:
+  lint-staged>yaml: ^2.2.2

@@ -3,21 +3,21 @@
   "private": false,
   "license": "mit",
   "scripts": {
-    "mask": "npx tsx app/masks/build.ts",
-    "mask:watch": "npx watch \"yarn mask\" app/masks",
-    "dev": "concurrently -r \"yarn run mask:watch\" \"next dev\"",
+    "mask": "pnpm exec tsx app/masks/build.ts",
+    "mask:watch": "pnpm exec watch \"pnpm run mask\" app/masks",
+    "dev": "concurrently -r \"pnpm run mask:watch\" \"next dev\"",
     "build": "node scripts/build.mjs standalone",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "export": "node scripts/build.mjs export",
-    "export:dev": "concurrently -r \"yarn mask:watch\"  \"cross-env BUILD_MODE=export BUILD_APP=1 next dev\"",
-    "app:dev": "concurrently -r \"yarn mask:watch\" \"yarn tauri dev\"",
-    "app:build": "yarn mask && yarn tauri build",
-    "app:clear": "yarn tauri dev",
+    "export:dev": "concurrently -r \"pnpm run mask:watch\" \"cross-env BUILD_MODE=export BUILD_APP=1 next dev\"",
+    "app:dev": "concurrently -r \"pnpm run mask:watch\" \"pnpm exec tauri dev\"",
+    "app:build": "pnpm run mask && pnpm exec tauri build",
+    "app:clear": "pnpm exec tauri dev",
     "prompts": "node ./scripts/fetch-prompts.mjs",
     "prepare": "husky install",
-    "proxy-dev": "sh ./scripts/init-proxy.sh && proxychains -f ./scripts/proxychains.conf yarn dev",
+    "proxy-dev": "sh ./scripts/init-proxy.sh && proxychains -f ./scripts/proxychains.conf pnpm run dev",
     "test": "node --no-warnings --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
     "test:ci": "node --no-warnings --experimental-vm-modules ./node_modules/jest/bin/jest.js --ci"
   },
@@ -93,11 +93,8 @@
     "watch": "^1.0.2",
     "webpack": "^5.88.1"
   },
-  "resolutions": {
-    "lint-staged/yaml": "^2.2.2"
-  },
   "engines": {
     "node": ">=24 <25"
   },
-  "packageManager": "yarn@1.22.19"
+  "packageManager": "pnpm@11.11.0"
 }
