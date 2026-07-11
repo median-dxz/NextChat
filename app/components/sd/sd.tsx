@@ -26,7 +26,6 @@ import { useSdStore } from "@/app/store/sd";
 import LoadingIcon from "@/app/icons/three-dots.svg";
 import ErrorIcon from "@/app/icons/delete.svg";
 import SDIcon from "@/app/icons/sd.svg";
-import { Property } from "csstype";
 import {
   showConfirm,
   showImageModal,
@@ -40,7 +39,7 @@ import clsx from "clsx";
 
 function getSdTaskStatus(item: any) {
   let s: string;
-  let color: Property.Color | undefined = undefined;
+  let color: React.CSSProperties["color"] | undefined = undefined;
   switch (item.status) {
     case "success":
       s = Locale.Sd.Status.Success;
