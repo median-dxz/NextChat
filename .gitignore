@@ -12,6 +12,7 @@
 /.next/
 /out/
 /.nextchat-export-api/
+/src-tauri/gen/
 
 # production
 /build

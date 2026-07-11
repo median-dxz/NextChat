@@ -7,11 +7,14 @@ import {
   REQUEST_TIMEOUT_MS_FOR_THINKING,
   ServiceProvider,
 } from "./constant";
-// import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
 import { fetch as tauriStreamFetch } from "./utils/stream";
 import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
 import { ModelSize } from "./typing";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { check } from "@tauri-apps/plugin-updater";
 
 export function trimTopic(topic: string) {
   // Fix an issue where double quotes still show in the Indonesian language
@@ -28,7 +31,7 @@ export function trimTopic(topic: string) {
 export async function copyToClipboard(text: string) {
   try {
     if (window.__TAURI__) {
-      window.__TAURI__.writeText(text);
+      await writeText(text);
     } else {
       await navigator.clipboard.writeText(text);
     }
@@ -52,7 +55,7 @@ export async function copyToClipboard(text: string) {
 
 export async function downloadAs(text: string, filename: string) {
   if (window.__TAURI__) {
-    const result = await window.__TAURI__.dialog.save({
+    const result = await save({
       defaultPath: `${filename}`,
       filters: [
         {
@@ -68,7 +71,7 @@ export async function downloadAs(text: string, filename: string) {
 
     if (result !== null) {
       try {
-        await window.__TAURI__.fs.writeTextFile(result, text);
+        await writeTextFile(result, text);
         showToast(Locale.Download.Success);
       } catch (error) {
         showToast(Locale.Download.Failed);
@@ -446,27 +449,19 @@ export function getOperationId(operation: {
   );
 }
 
-export function clientUpdate() {
-  // this a wild for updating client app
-  return window.__TAURI__?.updater
-    .checkUpdate()
-    .then((updateResult) => {
-      if (updateResult.shouldUpdate) {
-        window.__TAURI__?.updater
-          .installUpdate()
-          .then((result) => {
-            showToast(Locale.Settings.Update.Success);
-          })
-          .catch((e) => {
-            console.error("[Install Update Error]", e);
-            showToast(Locale.Settings.Update.Failed);
-          });
-      }
-    })
-    .catch((e) => {
-      console.error("[Check Update Error]", e);
-      showToast(Locale.Settings.Update.Failed);
-    });
+export async function clientUpdate() {
+  if (!window.__TAURI__) return;
+
+  try {
+    const update = await check();
+    if (update?.available) {
+      await update.downloadAndInstall();
+      showToast(Locale.Settings.Update.Success);
+    }
+  } catch (e) {
+    console.error("[Check Update Error]", e);
+    showToast(Locale.Settings.Update.Failed);
+  }
 }
 
 // https://gist.github.com/iwill/a83038623ba4fef6abb9efca87ae9ccb
