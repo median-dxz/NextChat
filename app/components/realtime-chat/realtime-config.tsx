@@ -4,7 +4,7 @@ import Locale from "@/app/locales";
 import { ListItem, Select, PasswordInput } from "@/app/components/ui-lib";
 
 import { InputRange } from "@/app/components/input-range";
-import { Voice } from "rt-client";
+import type { Voice } from "rt-client";
 import { ServiceProvider } from "@/app/constant";
 
 const providers = [ServiceProvider.OpenAI, ServiceProvider.Azure];

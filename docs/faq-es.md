@@ -150,12 +150,11 @@ Vaya a chat.openai.com para registrarse. Es necesario:
 
 ## ¿Cómo activo la API de OpenAI? ¿Cómo verifico mi saldo de API?
 
-Dirección del sitio web oficial (se requiere escalera): https://platform.openai.com/account/usage
-Algunos internautas han construido un agente de consulta de saldo sin escalera, por favor pídales a los internautas que lo obtengan. Identifique si la fuente es confiable para evitar la fuga de la clave API.
+Utilice las páginas oficiales de [Uso](https://platform.openai.com/usage) y [Facturación](https://platform.openai.com/settings/organization/billing/overview). No introduzca su clave API en sitios de terceros para consultar el saldo.
 
 ## ¿Por qué mi cuenta OpenAI recién registrada no tiene un saldo API?
 
-(Actualizado el 6 de abril) Las cuentas recién registradas suelen mostrar el saldo de la API después de 24 horas. Se otorga un saldo de $ 5 a una cuenta recién registrada.
+El estado de facturación y cualquier crédito promocional dependen de la cuenta y de la política vigente de OpenAI. Consulte la página de [Facturación](https://platform.openai.com/settings/organization/billing/overview) y no dé por hecho que una cuenta nueva incluye créditos gratuitos para la API.
 
 ## ¿Cómo puedo recargar la API de OpenAI?
 
@@ -167,9 +166,7 @@ OpenAI solo acepta tarjetas de crédito en regiones seleccionadas (no se pueden 
 
 ## ¿Cómo utilizo el acceso a la API de GPT-4?
 
-*   El acceso a la API para GPT-4 requiere una solicitud independiente. Ingrese a la cola de la solicitud completando su información en la lista de espera (prepare su ID de organización OpenAI): https://openai.com/waitlist/gpt-4-api
-    Espere el mensaje de correo después.
-*   Habilitar ChatGPT Plus no significa permisos GPT-4, y los dos no tienen nada que ver entre sí.
+Ya no existe un proceso de lista de espera para la API de GPT-4. La disponibilidad de modelos depende de su cuenta y proyecto. Compruebe los modelos disponibles para su clave API y consulte la [documentación de modelos](https://developers.openai.com/api/docs/models). Las suscripciones de ChatGPT y la facturación de la API se administran por separado.
 
 ## Uso de la interfaz de Azure OpenAI
 
@@ -179,8 +176,8 @@ Por favor consulte:[#371](https://github.com/Yidadaa/ChatGPT-Next-Web/issues/371
 
 > Debates relacionados:[#518](https://github.com/Yidadaa/ChatGPT-Next-Web/issues/518)
 
-*   Si tiene permisos de GPT 4 y usa las API de GPT 4 a diario, el monto de su factura aumentará rápidamente porque el precio de GPT 4 es aproximadamente 15 veces mayor que el de GPT 3.5;
-*   Si está usando GPT 3.5 y no lo usa con mucha frecuencia y aún nota que su factura aumenta rápidamente, siga estos pasos para solucionar problemas ahora:
+*   Los precios de la API varían según el modelo y pueden cambiar; consulte la [página oficial de precios](https://developers.openai.com/api/docs/pricing).
+*   Si su factura aumenta más rápido de lo esperado, siga estos pasos para investigar el problema:
     *   Vaya al sitio web oficial de OpenAI para verificar sus registros de consumo de API Key, si su token se consume cada hora y se consumen decenas de miles de tokens cada vez, entonces su clave debe haberse filtrado, elimine y regenere inmediatamente.**No verifique su saldo en un sitio web desordenado.**
     *   Si su contraseña se acorta, como letras dentro de 5 dígitos, entonces el costo de voladura es muy bajo, se recomienda que busque en el registro de Docker para ver si alguien ha probado muchas combinaciones de contraseñas, palabra clave: got access code
 *   A través de los dos métodos anteriores, puede localizar la razón por la cual su token se consume rápidamente:
@@ -189,17 +186,8 @@ Por favor consulte:[#371](https://github.com/Yidadaa/ChatGPT-Next-Web/issues/371
 
 ## ¿Cómo se facturan las API?
 
-Instrucciones de facturación del sitio web de OpenAI: https://openai.com/pricing#language-models\
-OpenAI cobra en función del número de tokens, y 1,000 tokens generalmente representan 750 palabras en inglés o 500 caracteres chinos. Prompt y Completion cuentan los costos por separado.\
-|Modelo|Facturación de entrada de usuario (aviso)|Facturación de salida del modelo (finalización)|Número máximo de tokens por interacción|
-|----|----|----|----|
-|gpt-3.5|$0.002 / 1 mil tokens|$0.002 / 1 mil tokens|4096|
-|gpt-4|$0.03 / 1 mil tokens|$0.06 / 1 mil tokens|8192|
-|gpt-4-32K|$0.06 / 1 mil tokens|$0.12 / 1 mil tokens|32768|
+La forma de facturación varía según el modelo y el tipo de entrada, y los precios pueden cambiar. Consulte la [página oficial de precios de la API](https://developers.openai.com/api/docs/pricing) y revise su consumo real en [Uso](https://platform.openai.com/usage).
 
-## ¿Cuál es la diferencia entre los modelos GPT-3.5-TURBO y GPT3.5-TURBO-0301 (o GPT3.5-TURBO-MMDD)?
+## ¿Cómo elijo un modelo de la API de OpenAI?
 
-Descripción de la documentación oficial: https://platform.openai.com/docs/models/gpt-3-5
-
-*   GPT-3.5-Turbo es el último modelo y se actualiza constantemente.
-*   GPT-3.5-turbo-0301 es una instantánea del modelo congelada el 1 de marzo, no cambiará y se espera que sea reemplazada por una nueva instantánea en 3 meses.
+Los modelos disponibles y las recomendaciones cambian con el tiempo. Consulte la [documentación de modelos](https://developers.openai.com/api/docs/models) y la [página de obsolescencias](https://developers.openai.com/api/docs/deprecations), y use un modelo disponible para su clave API.

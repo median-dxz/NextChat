@@ -21,7 +21,13 @@
 6. 点击 Deploy，创建完成，耐心等待 5 分钟左右部署完成。
 
 ## 如何增加自定义域名
-[TODO]
+
+1. 进入 Vercel 项目控制台，打开 **Settings > Domains**；
+2. 输入要绑定的域名并添加到项目；
+3. 按 Vercel 页面显示的记录配置 DNS。具体记录取决于域名类型和 DNS 服务商，请不要照抄固定值；
+4. 等待 Vercel 验证域名并签发 HTTPS 证书。
+
+最新操作和故障排查请参考 [Vercel 官方自定义域名文档](https://vercel.com/docs/domains/set-up-custom-domain)。
 
 ## 如何更改环境变量
 ![vercel-env-edit](./images/vercel/vercel-env-edit.jpg)

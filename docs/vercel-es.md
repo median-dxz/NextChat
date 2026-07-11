@@ -26,7 +26,12 @@ Cuando bifurca este proyecto desde Github y necesita crear un nuevo proyecto de 
 
 ## Cómo agregar un nombre de dominio personalizado
 
-\[TODO]
+1. Abra el proyecto en Vercel y vaya a **Settings > Domains**.
+2. Introduzca el dominio que desea vincular y agréguelo al proyecto.
+3. Configure el DNS siguiendo los registros que muestre Vercel. Los valores dependen del tipo de dominio y del proveedor DNS; no copie valores fijos de otra configuración.
+4. Espere a que Vercel verifique el dominio y emita el certificado HTTPS.
+
+Consulte la [documentación oficial de dominios personalizados de Vercel](https://vercel.com/docs/domains/set-up-custom-domain) para ver los pasos actuales y solucionar problemas.
 
 ## Cómo cambiar las variables de entorno
 

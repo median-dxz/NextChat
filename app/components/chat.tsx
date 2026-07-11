@@ -122,7 +122,6 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
 import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
-import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
 
@@ -133,6 +132,11 @@ const ttsPlayer = createTTSPlayer();
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
+
+const RealtimeChat = dynamic(
+  async () => (await import("@/app/components/realtime-chat")).RealtimeChat,
+  { loading: () => <LoadingIcon /> },
+);
 
 const MCPAction = () => {
   const navigate = useNavigate();
@@ -403,7 +407,7 @@ function ClearContextDivider() {
 
 export function ChatAction(props: {
   text: string;
-  icon: JSX.Element;
+  icon: React.ReactElement;
   onClick: () => void;
 }) {
   const iconRef = useRef<HTMLDivElement>(null);

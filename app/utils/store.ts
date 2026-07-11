@@ -1,16 +1,9 @@
 import { create } from "zustand";
 import { combine, persist, createJSONStorage } from "zustand/middleware";
+import type { PersistOptions } from "zustand/middleware";
 import { Updater } from "../typing";
 import { deepClone } from "./clone";
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
-
-type SecondParam<T> = T extends (
-  _f: infer _F,
-  _s: infer S,
-  ...args: infer _U
-) => any
-  ? S
-  : never;
 
 type MakeUpdater<T> = {
   lastUpdateTime: number;
@@ -23,7 +16,7 @@ type MakeUpdater<T> = {
 
 type SetStoreState<T> = (
   partial: T | Partial<T> | ((state: T) => T | Partial<T>),
-  replace?: boolean | undefined,
+  replace?: false,
 ) => void;
 
 export function createPersistStore<T extends object, M>(
@@ -32,13 +25,20 @@ export function createPersistStore<T extends object, M>(
     set: SetStoreState<T & MakeUpdater<T>>,
     get: () => T & MakeUpdater<T>,
   ) => M,
-  persistOptions: SecondParam<typeof persist<T & M & MakeUpdater<T>>>,
+  persistOptions: PersistOptions<T & M & MakeUpdater<T>>,
 ) {
-  persistOptions.storage = createJSONStorage(() => indexedDBStorage);
-  const oldOonRehydrateStorage = persistOptions?.onRehydrateStorage;
-  persistOptions.onRehydrateStorage = (state) => {
-    oldOonRehydrateStorage?.(state);
-    return () => state.setHasHydrated(true);
+  type Store = T & M & MakeUpdater<T>;
+  const oldOnRehydrateStorage = persistOptions.onRehydrateStorage;
+  const options: PersistOptions<Store> = {
+    ...persistOptions,
+    storage: createJSONStorage<Store>(() => indexedDBStorage),
+    onRehydrateStorage: (state) => {
+      const oldOnFinishHydration = oldOnRehydrateStorage?.(state);
+      return (rehydratedState, error) => {
+        oldOnFinishHydration?.(rehydratedState, error);
+        state.setHasHydrated(true);
+      };
+    },
   };
 
   return create(
@@ -49,30 +49,27 @@ export function createPersistStore<T extends object, M>(
           lastUpdateTime: 0,
           _hasHydrated: false,
         },
-        (set, get) => {
-          return {
-            ...methods(set, get as any),
+        (set, get) =>
+          ({
+            ...methods(set, get as () => T & MakeUpdater<T>),
 
             markUpdate() {
-              set({ lastUpdateTime: Date.now() } as Partial<
-                T & M & MakeUpdater<T>
-              >);
+              set({ lastUpdateTime: Date.now() } as Partial<Store>);
             },
-            update(updater) {
-              const state = deepClone(get());
-              updater(state);
+            update(updater: Updater<T>) {
+              const currentState = deepClone(get());
+              updater(currentState);
               set({
-                ...state,
+                ...currentState,
                 lastUpdateTime: Date.now(),
               });
             },
-            setHasHydrated: (state: boolean) => {
-              set({ _hasHydrated: state } as Partial<T & M & MakeUpdater<T>>);
+            setHasHydrated(hydrated: boolean) {
+              set({ _hasHydrated: hydrated } as Partial<Store>);
             },
-          } as M & MakeUpdater<T>;
-        },
+          }) as M & MakeUpdater<T>,
       ),
-      persistOptions as any,
+      options as any,
     ),
   );
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import ReactMarkdown from "react-markdown";
 import "katex/dist/katex.min.css";
 import RemarkMath from "remark-math";
@@ -7,13 +9,12 @@ import RemarkGfm from "remark-gfm";
 import RehypeHighlight from "rehype-highlight";
 import { useRef, useState, RefObject, useEffect, useMemo } from "react";
 import { copyToClipboard, useWindowSize } from "../utils";
-import mermaid from "mermaid";
 import Locale from "../locales";
 import LoadingIcon from "../icons/three-dots.svg";
 import ReloadButtonIcon from "../icons/reload.svg";
 import React from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { showImageModal, FullScreen } from "./ui-lib";
+import { FullScreen } from "./ui-lib";
 import {
   ArtifactsShareButton,
   HTMLPreview,
@@ -24,51 +25,15 @@ import { IconButton } from "./button";
 
 import { useAppConfig } from "../store/config";
 import clsx from "clsx";
+import dynamic from "next/dynamic";
 
-export function Mermaid(props: { code: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    if (props.code && ref.current) {
-      mermaid
-        .run({
-          nodes: [ref.current],
-          suppressErrors: true,
-        })
-        .catch((e) => {
-          setHasError(true);
-          console.error("[Mermaid] ", e.message);
-        });
-    }
-  }, [props.code]);
-
-  function viewSvgInNewWindow() {
-    const svg = ref.current?.querySelector("svg");
-    if (!svg) return;
-    const text = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([text], { type: "image/svg+xml" });
-    showImageModal(URL.createObjectURL(blob));
-  }
-
-  if (hasError) {
-    return null;
-  }
-
-  return (
-    <div
-      className={clsx("no-dark", "mermaid")}
-      style={{
-        cursor: "pointer",
-        overflow: "auto",
-      }}
-      ref={ref}
-      onClick={() => viewSvgInNewWindow()}
-    >
-      {props.code}
-    </div>
-  );
-}
+const MermaidRenderer = dynamic(
+  () => import("./mermaid-renderer").then((module) => module.MermaidRenderer),
+  {
+    ssr: false,
+    loading: () => <LoadingIcon />,
+  },
+);
 
 export function PreCode(props: { children: any }) {
   const ref = useRef<HTMLPreElement>(null);
@@ -145,7 +110,7 @@ export function PreCode(props: { children: any }) {
         {props.children}
       </pre>
       {mermaidCode.length > 0 && (
-        <Mermaid code={mermaidCode} key={mermaidCode} />
+        <MermaidRenderer code={mermaidCode} key={mermaidCode} />
       )}
       {htmlCode.length > 0 && enableArtifacts && (
         <FullScreen className="no-dark html" right={70}>
@@ -266,6 +231,36 @@ function tryWrapHtmlCode(text: string) {
     );
 }
 
+type MarkdownLinkProps = React.ComponentPropsWithoutRef<"a"> & {
+  node?: unknown;
+};
+
+function MarkdownLink({
+  node: _node,
+  href = "",
+  target,
+  ...anchorProps
+}: MarkdownLinkProps) {
+  if (/\.(aac|mp3|opus|wav)$/.test(href)) {
+    return (
+      <figure>
+        <audio controls src={href}></audio>
+      </figure>
+    );
+  }
+  if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
+    return (
+      <video controls width="99.9%">
+        <source src={href} />
+      </video>
+    );
+  }
+
+  const isInternal = /^\/#/i.test(href);
+  const linkTarget = isInternal ? "_self" : target ?? "_blank";
+  return <a {...anchorProps} href={href} target={linkTarget} />;
+}
+
 function MarkdownContentView(props: { content: string }) {
   const escapedContent = useMemo(() => {
     return tryWrapHtmlCode(escapeBrackets(props.content));
@@ -288,26 +283,7 @@ function MarkdownContentView(props: { content: string }) {
         pre: PreCode,
         code: CustomCode,
         p: (pProps) => <p {...pProps} dir="auto" />,
-        a: (aProps) => {
-          const href = aProps.href || "";
-          if (/\.(aac|mp3|opus|wav)$/.test(href)) {
-            return (
-              <figure>
-                <audio controls src={href}></audio>
-              </figure>
-            );
-          }
-          if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
-            return (
-              <video controls width="99.9%">
-                <source src={href} />
-              </video>
-            );
-          }
-          const isInternal = /^\/#/i.test(href);
-          const target = isInternal ? "_self" : aProps.target ?? "_blank";
-          return <a {...aProps} target={target} />;
-        },
+        a: MarkdownLink,
       }}
     >
       {escapedContent}

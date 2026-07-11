@@ -16,6 +16,7 @@ const config: Config = {
     "^@/(.*)$": "<rootDir>/$1",
     "^nanoid$": "<rootDir>/test/mocks/nanoid.ts",
   },
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   extensionsToTreatAsEsm: [".ts", ".tsx"],
   injectGlobals: true,
 };

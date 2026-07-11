@@ -1,5 +1,6 @@
 import webpack from "webpack";
 import { PHASE_PRODUCTION_BUILD } from "next/constants.js";
+import path from "node:path";
 
 const mode = process.env.BUILD_MODE ?? "standalone";
 console.log("[Next] build mode", mode);
@@ -23,6 +24,13 @@ const createNextConfig = (phase) => ({
       test: /\.svg$/,
       use: ["@svgr/webpack"],
     });
+
+    // rt-client 0.5.0 exposes a browser bundle, but webpack can otherwise pick
+    // its Node ESM entry and warn about ws' optional native accelerators.
+    config.resolve.alias["rt-client$"] = path.resolve(
+      process.cwd(),
+      "node_modules/rt-client/dist/browser/index.js",
+    );
 
     if (disableChunk) {
       config.plugins.push(

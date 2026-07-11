@@ -154,12 +154,11 @@ Go to chat.openai.com to register. You will need:
 
 ## How to activate OpenAI API? How to check API balance?
 
-Official website (requires VPN): https://platform.openai.com/account/usage
-Some users have set up a proxy to check the balance without a VPN; ask online friends for access. Please verify the source is reliable to avoid API Key leakage.
+Use the official [Usage](https://platform.openai.com/usage) and [Billing](https://platform.openai.com/settings/organization/billing/overview) pages. Do not enter your API key into third-party balance-checking sites.
 
 ## Why doesn't my new OpenAI account have an API balance?
 
-(Updated April 6th) Newly registered accounts usually display API balance within 24 hours. New accounts are currently given a $5 balance.
+API billing status and any promotional credits depend on the account and current OpenAI policy. Check the [Billing](https://platform.openai.com/settings/organization/billing/overview) page for the status of your account; do not assume that a new account includes free API credits.
 
 ## How to recharge OpenAI API?
 
@@ -171,8 +170,7 @@ OpenAI only accepts credit cards from designated regions (Chinese credit cards c
 
 ## How to access the GPT-4 API?
 
-(Updated April 6th) Access to the GPT-4 API requires a separate application. Go to the following address and enter your information to join the waitlist (prepare your OpenAI organization ID): https://openai.com/waitlist/gpt-4-api
-Wait for email updates afterwards.
+There is no GPT-4 waitlist workflow. API model availability depends on your account and project. Check the models available to your API key and consult the current [model documentation](https://developers.openai.com/api/docs/models). ChatGPT subscriptions and API billing are managed separately.
 
 ## How to use the Azure OpenAI interface
 
@@ -182,8 +180,8 @@ Please refer to: [#371](https://github.com/Yidadaa/ChatGPT-Next-Web/issues/371)
 
 > Related discussion: [#518](https://github.com/Yidadaa/ChatGPT-Next-Web/issues/518)
 
-- If you have GPT-4 access and use GPT-4 API regularly, your bill will increase rapidly since GPT-4 pricing is about 15 times higher than GPT-3.5;
-- If you are using GPT-3.5 and not using it frequently, but still find your bill increasing fast, please troubleshoot immediately using these steps:
+- API prices vary by model and can change; consult the current [official pricing page](https://developers.openai.com/api/docs/pricing).
+- If your bill is increasing faster than expected, troubleshoot immediately using these steps:
   - Check your API key consumption record on the OpenAI website; if your token is consumed every hour and each time consumes tens of thousands of tokens, your key must have been leaked. Please delete it and regenerate it immediately. **Do not check your balance on random websites.**
   - If your password is short, such as 5 characters or fewer, the cost of brute-forcing is very low. It is recommended to search docker logs to confirm whether someone has tried a large number of password combinations. Keyword: got access code
 - By following these two methods, you can locate the reason for your token's rapid consumption:

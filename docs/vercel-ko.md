@@ -21,7 +21,13 @@
 6. 배포를 클릭하여 도메인 이름 생성을 완료하고 배포가 완료될 때까지 약 5분간 기다립니다.
 
 ## 사용자 정의 도메인 네임 추가 방법
-[TODO]
+
+1. Vercel에서 프로젝트를 열고 **Settings > Domains**로 이동합니다.
+2. 연결할 도메인을 입력하고 프로젝트에 추가합니다.
+3. Vercel 화면에 표시된 레코드에 따라 DNS를 설정합니다. 필요한 값은 도메인 유형과 DNS 제공업체에 따라 다르므로 다른 설정의 고정값을 그대로 사용하지 마세요.
+4. Vercel이 도메인을 확인하고 HTTPS 인증서를 발급할 때까지 기다립니다.
+
+최신 절차와 문제 해결 방법은 [Vercel 공식 사용자 지정 도메인 문서](https://vercel.com/docs/domains/set-up-custom-domain)를 참고하세요.
 
 ## 환경 변수 변경 방법
 ![vercel-env-edit](./images/vercel/vercel-env-edit.jpg)
