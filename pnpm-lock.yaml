@@ -68,9 +68,15 @@ importers:
       idb-keyval:
         specifier: ^6.3.0
         version: 6.3.0
+      js-yaml:
+        specifier: ^4.3.0
+        version: 4.3.0
       katex:
         specifier: 0.16.47
         version: 0.16.47
+      lodash:
+        specifier: ^4.18.1
+        version: 4.18.1
       lodash-es:
         specifier: ^4.18.1
         version: 4.18.1
@@ -3912,6 +3918,9 @@ packages:
 
   lodash.unescape@4.0.1:
     resolution: {integrity: sha512-DhhGRshNS1aX6s5YdBE3njCCouPgnG29ebyHvImlZzXZf2SHgt+J08DHgytTPnpywNbO1Y8mNUFyQuIDBq2JZg==}
+
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   log-update@6.1.0:
     resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
@@ -9102,6 +9111,8 @@ snapshots:
   lodash.escape@4.0.1: {}
 
   lodash.unescape@4.0.1: {}
+
+  lodash@4.18.1: {}
 
   log-update@6.1.0:
     dependencies:
