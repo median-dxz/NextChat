@@ -326,6 +326,12 @@ export function PromptHints(props: {
   const selectedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // A new result set starts keyboard navigation from its first item.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectIndex(0);
+  }, [props.prompts]);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (noPrompts || e.metaKey || e.altKey || e.ctrlKey) {
         return;
@@ -453,7 +459,7 @@ export function ChatAction(props: {
   );
 }
 
-function useScrollToBottom(
+export function useScrollToBottom(
   scrollRef: RefObject<HTMLDivElement | null>,
   detach: boolean = false,
   messages: ChatMessage[],
@@ -491,6 +497,18 @@ function useScrollToBottom(
     autoScroll,
     setAutoScroll,
     scrollDomToBottom,
+  };
+}
+
+export function useInitialChatScrollState() {
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+  const [isAttachWithTop, setIsAttachWithTop] = useState(false);
+
+  return {
+    isScrolledToBottom,
+    setIsScrolledToBottom,
+    isAttachWithTop,
+    setIsAttachWithTop,
   };
 }
 
@@ -1012,8 +1030,12 @@ function ChatView() {
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  const [isAttachWithTop, setIsAttachWithTop] = useState(false);
+  const {
+    isScrolledToBottom,
+    setIsScrolledToBottom,
+    isAttachWithTop,
+    setIsAttachWithTop,
+  } = useInitialChatScrollState();
 
   const isTyping = userInput !== "";
 
