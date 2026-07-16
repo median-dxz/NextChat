@@ -98,7 +98,6 @@ const vi: PartialLocaleType = {
     Title: "Chia sẻ ghi chép trò chuyện",
     Copy: "Sao chép tất cả",
     Download: "Tải xuống tệp",
-    Share: "Chia sẻ lên ShareGPT",
     MessageFromYou: "Người dùng",
     MessageFromChatGPT: "ChatGPT",
     Format: {

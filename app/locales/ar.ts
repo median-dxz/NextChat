@@ -98,7 +98,6 @@ const ar: PartialLocaleType = {
     Title: "مشاركة سجل الدردشة",
     Copy: "نسخ الكل",
     Download: "تحميل الملف",
-    Share: "مشاركة على ShareGPT",
     MessageFromYou: "المستخدم",
     MessageFromChatGPT: "ChatGPT",
     Format: {

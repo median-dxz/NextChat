@@ -102,7 +102,6 @@ const no: PartialLocaleType = {
     Title: "Del samtalehistorikk",
     Copy: "Kopier alt",
     Download: "Last ned fil",
-    Share: "Del til ShareGPT",
     MessageFromYou: "Bruker",
     MessageFromChatGPT: "ChatGPT",
     Format: {

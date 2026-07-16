@@ -99,7 +99,6 @@ const de: PartialLocaleType = {
     Title: "Chatverlauf teilen",
     Copy: "Alles kopieren",
     Download: "Datei herunterladen",
-    Share: "Auf ShareGPT teilen",
     MessageFromYou: "Benutzer",
     MessageFromChatGPT: "ChatGPT",
     Format: {

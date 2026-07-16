@@ -102,7 +102,6 @@ const it: PartialLocaleType = {
     Title: "Condividi cronologia chat",
     Copy: "Copia tutto",
     Download: "Scarica file",
-    Share: "Condividi su ShareGPT",
     MessageFromYou: "Utente",
     MessageFromChatGPT: "ChatGPT",
     Format: {

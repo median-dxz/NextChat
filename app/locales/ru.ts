@@ -98,7 +98,6 @@ const ru: PartialLocaleType = {
     Title: "Поделиться историей чата",
     Copy: "Копировать все",
     Download: "Скачать файл",
-    Share: "Поделиться в ShareGPT",
     MessageFromYou: "Пользователь",
     MessageFromChatGPT: "ChatGPT",
     Format: {

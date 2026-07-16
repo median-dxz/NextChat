@@ -100,7 +100,6 @@ const sk: PartialLocaleType = {
     Download: "Stiahnuť",
     MessageFromYou: "Správa od vás",
     MessageFromChatGPT: "Správa od ChatGPT",
-    Share: "Zdieľať na ShareGPT",
     Format: {
       Title: "Formát exportu",
       SubTitle: "Markdown alebo PNG obrázok",

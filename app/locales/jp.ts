@@ -98,7 +98,6 @@ const jp: PartialLocaleType = {
     Title: "チャット履歴を共有",
     Copy: "すべてコピー",
     Download: "ファイルをダウンロード",
-    Share: "ShareGPTに共有",
     MessageFromYou: "ユーザー",
     MessageFromChatGPT: "ChatGPT",
     Format: {

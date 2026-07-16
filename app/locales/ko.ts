@@ -113,7 +113,6 @@ const ko: PartialLocaleType = {
     Title: "채팅 기록 공유",
     Copy: "모두 복사",
     Download: "파일 다운로드",
-    Share: "ShareGPT에 공유",
     MessageFromYou: "사용자",
     MessageFromChatGPT: "ChatGPT",
     Format: {

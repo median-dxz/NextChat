@@ -98,7 +98,6 @@ const bn: PartialLocaleType = {
     Title: "চ্যাট ইতিহাস শেয়ার করুন",
     Copy: "সবকিছু কপি করুন",
     Download: "ফাইল ডাউনলোড করুন",
-    Share: "ShareGPT তে শেয়ার করুন",
     MessageFromYou: "ব্যবহারকারী",
     MessageFromChatGPT: "ChatGPT",
     Format: {

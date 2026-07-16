@@ -98,7 +98,6 @@ const cs: PartialLocaleType = {
     Title: "Sdílet konverzace",
     Copy: "Kopírovat vše",
     Download: "Stáhnout soubor",
-    Share: "Sdílet na ShareGPT",
     MessageFromYou: "Uživatel",
     MessageFromChatGPT: "ChatGPT",
     Format: {
