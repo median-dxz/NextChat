@@ -47,6 +47,15 @@ describe("semverCompare", () => {
 });
 
 describe("getMessageTextContent", () => {
+  test("does not include structured reasoning in message content", () => {
+    const msg = {
+      role: "assistant",
+      content: "final answer",
+      reasoning: "private reasoning",
+    } as RequestMessage & { reasoning: string };
+    expect(getMessageTextContent(msg)).toBe("final answer");
+  });
+
   test("returns plain string content as-is", () => {
     const msg: RequestMessage = { role: "user", content: "hello" };
     expect(getMessageTextContent(msg)).toBe("hello");

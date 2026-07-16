@@ -34,6 +34,14 @@ const cn = {
   },
   Chat: {
     SubTitle: (count: number) => `共 ${count} 条对话`,
+    Reasoning: "思考过程",
+    ReasoningThinking: (duration: string) => `正在思考…（${duration}）`,
+    ReasoningThought: (duration?: string) =>
+      duration ? `已思考 ${duration}` : "已思考",
+    ReasoningDuration: (minutes: number, seconds: number) =>
+      minutes > 0
+        ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒`
+        : `${seconds} 秒`,
     EditMessage: {
       Title: "编辑消息记录",
       Topic: {
@@ -122,6 +130,10 @@ const cn = {
     IncludeContext: {
       Title: "包含面具上下文",
       SubTitle: "是否在消息中展示面具上下文",
+    },
+    IncludeReasoning: {
+      Title: "包含思考过程",
+      SubTitle: "将模型的思考过程一并导出",
     },
     Steps: {
       Select: "选取",

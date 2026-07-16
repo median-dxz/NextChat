@@ -56,6 +56,8 @@ export type ChatMessageTool = {
 
 export type ChatMessage = RequestMessage & {
   date: string;
+  reasoning?: string;
+  reasoningDurationMs?: number;
   streaming?: boolean;
   isError?: boolean;
   id: string;
@@ -438,6 +440,18 @@ export const useChatStore = createPersistStore(
           streaming: true,
           model: modelConfig.model,
         });
+        let reasoningStartedAt: number | undefined;
+        const finishReasoningTiming = () => {
+          if (
+            reasoningStartedAt !== undefined &&
+            botMessage.reasoningDurationMs === undefined
+          ) {
+            botMessage.reasoningDurationMs = Math.max(
+              0,
+              Date.now() - reasoningStartedAt,
+            );
+          }
+        };
 
         // get recent messages
         const recentMessages = await get().getMessagesWithMemory();
@@ -464,15 +478,25 @@ export const useChatStore = createPersistStore(
           onUpdate(message) {
             botMessage.streaming = true;
             if (message) {
+              finishReasoningTiming();
               botMessage.content = message;
             }
             get().updateTargetSession(session, (session) => {
               session.messages = session.messages.concat();
             });
           },
+          onReasoningUpdate(reasoning) {
+            botMessage.streaming = true;
+            reasoningStartedAt ??= Date.now();
+            botMessage.reasoning = reasoning;
+            get().updateTargetSession(session, (session) => {
+              session.messages = session.messages.concat();
+            });
+          },
           async onFinish(message) {
             botMessage.streaming = false;
-            if (message) {
+            finishReasoningTiming();
+            if (message || botMessage.reasoning) {
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
               get().onNewMessage(botMessage, session);
@@ -504,6 +528,7 @@ export const useChatStore = createPersistStore(
                 message: error.message,
               });
             botMessage.streaming = false;
+            finishReasoningTiming();
             userMessage.isError = !isAborted;
             botMessage.isError = !isAborted;
             get().updateTargetSession(session, (session) => {

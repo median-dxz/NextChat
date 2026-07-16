@@ -449,6 +449,26 @@
   transition: all ease 0.3s;
 }
 
+.chat-message-reasoning {
+  margin-bottom: 10px;
+  color: var(--black);
+
+  summary {
+    color: var(--black);
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 600;
+  }
+}
+
+.chat-message-reasoning-content {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-in-light);
+  color: var(--black);
+  opacity: 0.75;
+}
+
 .chat-message-audio {
   display: flex;
   align-items: center;

@@ -35,6 +35,14 @@ const en: LocaleType = {
   },
   Chat: {
     SubTitle: (count: number) => `${count} messages`,
+    Reasoning: "Reasoning",
+    ReasoningThinking: (duration: string) => `Thinking… (${duration})`,
+    ReasoningThought: (duration?: string) =>
+      duration ? `Thought for ${duration}` : "Thought",
+    ReasoningDuration: (minutes: number, seconds: number) =>
+      minutes > 0
+        ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec`
+        : `${seconds} sec`,
     EditMessage: {
       Title: "Edit All Messages",
       Topic: {
@@ -123,6 +131,10 @@ const en: LocaleType = {
     IncludeContext: {
       Title: "Including Context",
       SubTitle: "Export context prompts in mask or not",
+    },
+    IncludeReasoning: {
+      Title: "Include Reasoning",
+      SubTitle: "Include the model's reasoning in the export",
     },
     Steps: {
       Select: "Select",

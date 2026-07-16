@@ -114,6 +114,7 @@ import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
+import { ReasoningDisclosure } from "./reasoning";
 import { getClientConfig } from "../config/client";
 import { useAllModels } from "../utils/hooks";
 import { ClientApi, MultimodalContent } from "../client/api";
@@ -510,6 +511,19 @@ export function useInitialChatScrollState() {
     isAttachWithTop,
     setIsAttachWithTop,
   };
+}
+
+export function shouldShowMessageActions(
+  message: ChatMessage & { preview?: boolean },
+  index: number,
+  isContext: boolean,
+) {
+  return (
+    index > 0 &&
+    !message.preview &&
+    (message.content.length > 0 || Boolean(message.reasoning)) &&
+    !isContext
+  );
 }
 
 export function ChatActions(props: {
@@ -1789,10 +1803,11 @@ function ChatView() {
                 .map((message, i) => {
                   const isUser = message.role === "user";
                   const isContext = i < context.length;
-                  const showActions =
-                    i > 0 &&
-                    !(message.preview || message.content.length === 0) &&
-                    !isContext;
+                  const showActions = shouldShowMessageActions(
+                    message,
+                    i,
+                    isContext,
+                  );
                   const showTyping = message.preview || message.streaming;
 
                   const shouldShowClearContextDivider =
@@ -1844,6 +1859,9 @@ function ChatView() {
                                           .find((m) => m.id === message.id);
                                         if (m) {
                                           m.content = newContent;
+                                          if (m.role === "assistant") {
+                                            m.reasoning = undefined;
+                                          }
                                         }
                                       },
                                     );
@@ -1969,6 +1987,16 @@ function ChatView() {
                             </div>
                           )}
                           <div className={styles["chat-message-item"]}>
+                            {!isUser && (
+                              <ReasoningDisclosure
+                                reasoning={message.reasoning}
+                                content={getMessageTextContent(message)}
+                                streaming={message.streaming}
+                                reasoningDurationMs={
+                                  message.reasoningDurationMs
+                                }
+                              />
+                            )}
                             <Markdown
                               key={message.streaming ? "loading" : "done"}
                               content={getMessageTextContent(message)}

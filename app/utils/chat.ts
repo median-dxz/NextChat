@@ -11,6 +11,7 @@ import {
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./stream";
+import { createThinkingContentParser } from "./thinking";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -412,20 +413,20 @@ export function streamWithThink(
 ) {
   let responseText = "";
   let remainText = "";
+  let reasoningText = "";
+  let reasoningRemainText = "";
   let finished = false;
   let running = false;
   let runTools: any[] = [];
   let responseRes: Response;
-  let isInThinkingMode = false;
-  let lastIsThinking = false;
-  let lastIsThinkingTagged = false; //between <think> and </think> tags
+  const thinkingParser = createThinkingContentParser();
 
   // animate response to make it looks smooth
   function animateResponseText() {
     if (finished || controller.signal.aborted) {
       responseText += remainText;
       console.log("[Response Animation] finished");
-      if (responseText?.length === 0) {
+      if (responseText.length === 0 && reasoningText.length === 0) {
         options.onError?.(new Error("empty response from server"));
       }
       return;
@@ -437,6 +438,17 @@ export function streamWithThink(
       responseText += fetchText;
       remainText = remainText.slice(fetchCount);
       options.onUpdate?.(responseText, fetchText);
+    }
+
+    if (reasoningRemainText.length > 0) {
+      const fetchCount = Math.max(
+        1,
+        Math.round(reasoningRemainText.length / 60),
+      );
+      const fetchText = reasoningRemainText.slice(0, fetchCount);
+      reasoningText += fetchText;
+      reasoningRemainText = reasoningRemainText.slice(fetchCount);
+      options.onReasoningUpdate?.(reasoningText, fetchText);
     }
 
     requestAnimationFrame(animateResponseText);
@@ -515,8 +527,21 @@ export function streamWithThink(
       if (running) {
         return;
       }
+      for (const segment of thinkingParser.finish()) {
+        if (segment.isThinking) {
+          reasoningRemainText += segment.content;
+        } else {
+          remainText += segment.content;
+        }
+      }
       console.debug("[ChatAPI] end");
       finished = true;
+      if (reasoningRemainText.length > 0) {
+        const fetchText = reasoningRemainText;
+        reasoningText += fetchText;
+        reasoningRemainText = "";
+        options.onReasoningUpdate?.(reasoningText, fetchText);
+      }
       options.onFinish(responseText + remainText, responseRes);
     }
   };
@@ -599,52 +624,14 @@ export function streamWithThink(
             return;
           }
 
-          // deal with <think> and </think> tags start
-          if (!chunk.isThinking) {
-            if (chunk.content.startsWith("<think>")) {
-              chunk.isThinking = true;
-              chunk.content = chunk.content.slice(7).trim();
-              lastIsThinkingTagged = true;
-            } else if (chunk.content.endsWith("</think>")) {
-              chunk.isThinking = false;
-              chunk.content = chunk.content.slice(0, -8).trim();
-              lastIsThinkingTagged = false;
-            } else if (lastIsThinkingTagged) {
-              chunk.isThinking = true;
-            }
-          }
-          // deal with <think> and </think> tags start
-
-          // Check if thinking mode changed
-          const isThinkingChanged = lastIsThinking !== chunk.isThinking;
-          lastIsThinking = chunk.isThinking;
-
-          if (chunk.isThinking) {
-            // If in thinking mode
-            if (!isInThinkingMode || isThinkingChanged) {
-              // If this is a new thinking block or mode changed, add prefix
-              isInThinkingMode = true;
-              if (remainText.length > 0) {
-                remainText += "\n";
-              }
-              remainText += "> " + chunk.content;
+          for (const segment of thinkingParser.push(
+            chunk.content,
+            chunk.isThinking,
+          )) {
+            if (segment.isThinking) {
+              reasoningRemainText += segment.content;
             } else {
-              // Handle newlines in thinking content
-              if (chunk.content.includes("\n\n")) {
-                const lines = chunk.content.split("\n\n");
-                remainText += lines.join("\n\n> ");
-              } else {
-                remainText += chunk.content;
-              }
-            }
-          } else {
-            // If in normal mode
-            if (isInThinkingMode || isThinkingChanged) {
-              // If switching from thinking mode to normal mode
-              isInThinkingMode = false;
-              remainText += "\n\n" + chunk.content;
-            } else {
-              remainText += chunk.content;
+              remainText += segment.content;
             }
           }
         } catch (e) {
