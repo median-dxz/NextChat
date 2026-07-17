@@ -241,6 +241,7 @@ describe("chat store derived state", () => {
     expect(migrated.pinnedInputs.map((item) => item.content)).toEqual([
       "pinned system",
     ]);
+    expect((migrated.pinnedInputs[0] as any).outlineLevel).toBe(0);
     expect(migrated.messages.map((item) => item.content)).toEqual([
       "preset user",
       "preset answer",

@@ -251,7 +251,10 @@ function materializeMaskContext(session: ChatSession) {
     (message) => message.role === "user" || message.role === "assistant",
   );
   const nodes = toLevelOneConversationNodes(startingMessages);
-  session.pinnedInputs = pinnedInputs.map((message) => ({ ...message }));
+  session.pinnedInputs = pinnedInputs.map((message) => ({
+    ...message,
+    outlineLevel: 0,
+  }));
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
@@ -277,7 +280,7 @@ function migrateSessionToConversationGraph(session: any) {
   session.pinnedInputs = [
     ...(Array.isArray(session.pinnedInputs) ? session.pinnedInputs : []),
     ...maskContext.filter((message: ChatMessage) => message.role === "system"),
-  ];
+  ].map((message) => ({ ...message, outlineLevel: 0 }));
   const oldMemory = String(session.memoryPrompt ?? "");
   session.globalMemory = oldMemory.trim()
     ? {
@@ -1660,6 +1663,10 @@ export const useChatStore = createPersistStore(
 
       sessions.forEach((session) => {
         session.pinnedInputs ??= [];
+        session.pinnedInputs = session.pinnedInputs.map((message) => ({
+          ...message,
+          outlineLevel: 0,
+        }));
         session.globalMemory ??= createEmptyGlobalMemory();
         if (session.messages.length > 0) {
           session.rootNodeId ??= session.messages[0]?.id;

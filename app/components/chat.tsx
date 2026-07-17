@@ -1512,13 +1512,14 @@ function ChatView() {
 
   const onPinMessage = (message: ChatMessage) => {
     chatStore.updateTargetSession(session, (session) => {
-      session.pinnedInputs.push(
-        createMessage({
+      session.pinnedInputs.push({
+        ...createMessage({
           role: message.role,
           content: message.content,
           date: message.date,
         }),
-      );
+        outlineLevel: 0,
+      } as ChatMessage);
     });
 
     showToast(Locale.Chat.Actions.PinToastContent, {
