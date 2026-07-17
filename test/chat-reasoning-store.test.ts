@@ -19,6 +19,7 @@ import {
   ChatMessage,
   ChatSession,
   DEFAULT_TOPIC,
+  createConversationNode,
   useChatStore,
 } from "../app/store/chat";
 import { useAppConfig } from "../app/store/config";
@@ -85,6 +86,64 @@ afterEach(() => {
 });
 
 describe("chat store derived state", () => {
+  test("builds provider history from the active graph branch and fixed inputs", async () => {
+    const session = setSession([], {
+      sendMemory: false,
+      historyMessageCount: 20,
+      contextWindowTokens: 32_000,
+    });
+    const root = createConversationNode({
+      id: "root",
+      role: "user",
+      content: "root",
+      outlineLevel: 1,
+      activeBranchRootId: "active-branch",
+    });
+    const activeBranch = createConversationNode({
+      id: "active-branch",
+      role: "assistant",
+      content: "active branch",
+      outlineLevel: 2,
+      parentId: root.id,
+    });
+    const inactiveBranch = createConversationNode({
+      id: "inactive-branch",
+      role: "assistant",
+      content: "inactive branch",
+      outlineLevel: 2,
+      parentId: root.id,
+    });
+    const continuation = createConversationNode({
+      id: "continuation",
+      role: "assistant",
+      content: "continuation",
+      outlineLevel: 1,
+      parentId: root.id,
+    });
+    session.messages = [root, activeBranch, inactiveBranch, continuation];
+    session.rootNodeId = root.id;
+    session.activeCursorId = continuation.id;
+    session.pinnedInputs = [message("user", "pinned")];
+    session.globalMemory = {
+      enabled: true,
+      prompt: "",
+      content: "global memory",
+      revision: 0,
+    };
+
+    const history = await useChatStore
+      .getState()
+      .getMessagesWithMemory(message("user", "current"));
+
+    expect(history.map((item) => item.content)).toEqual([
+      "global memory",
+      "pinned",
+      "root",
+      "active branch",
+      "continuation",
+    ]);
+  });
+
   test("forks graph nodes and remaps root, cursor, and parent references", () => {
     const original = setSession([
       message("user", "question"),
@@ -342,7 +401,7 @@ describe("chat store derived state", () => {
     expect(requestedMaxOutputTokens).toBeLessThan(1_024);
   });
 
-  test("compacts all old turns when the recent history count is zero", async () => {
+  test("keeps all raw nodes when they fit even if recent history count is zero", async () => {
     const session = setSession(
       [
         message("user", "old question 1"),
@@ -356,24 +415,13 @@ describe("chat store derived state", () => {
         compressMessageLengthThreshold: 0,
       },
     );
-    apiMocks.chat.mockImplementation((options) => {
-      options.onFinish(
-        "complete history summary",
-        new Response(null, { status: 200 }),
-      );
-    });
-
     await expect(
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        role: "system",
-        content: expect.stringContaining("complete history summary"),
-      }),
-    ]);
-    expect(session.summaries).toHaveLength(1);
+    ).resolves.toHaveLength(4);
+    expect(session.summaries).toHaveLength(0);
+    expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
   test("preserves an assistant when its deleted predecessor is not migrated", async () => {
@@ -430,7 +478,7 @@ describe("chat store derived state", () => {
         }),
       ]),
     );
-    expect(session.summaries).toHaveLength(1);
+    expect(session.summaries).toHaveLength(2);
   });
 
   test("propagates the summary model error during blocking compaction", async () => {

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
+  projectActiveConversation,
+  projectConversationToCursor,
   remapConversationNodes,
   toLevelOneConversationNodes,
   validateConversationGraph,
@@ -63,6 +65,63 @@ describe("conversation graph storage", () => {
       "3A",
       "3X",
     ]);
+  });
+
+  test("projects the active deeper branch before the same-level continuation", () => {
+    const nodes = [
+      { ...node("1", 1), activeBranchRootId: "2A" },
+      { ...node("2A", 2, "1"), activeBranchRootId: "3A" },
+      node("2B", 2, "2A"),
+      node("3A", 3, "2A"),
+      node("3B", 3, "3A"),
+      node("3C", 3, "3B"),
+    ];
+    const graph = {
+      messages: nodes,
+      rootNodeId: "1",
+      activeCursorId: "2B",
+    };
+
+    expect(projectActiveConversation(graph).map((item) => item.id)).toEqual([
+      "1",
+      "2A",
+      "3A",
+      "3B",
+      "3C",
+      "2B",
+    ]);
+    expect(projectConversationToCursor(graph).map((item) => item.id)).toEqual([
+      "1",
+      "2A",
+      "3A",
+      "3B",
+      "3C",
+      "2B",
+    ]);
+
+    graph.activeCursorId = "3B";
+    expect(projectConversationToCursor(graph).map((item) => item.id)).toEqual([
+      "1",
+      "2A",
+      "3A",
+      "3B",
+    ]);
+  });
+
+  test("returns no provider history when the cursor is outside the active branch", () => {
+    const nodes = [
+      { ...node("root", 1), activeBranchRootId: "active" },
+      node("active", 2, "root"),
+      node("inactive", 2, "root"),
+    ];
+
+    expect(
+      projectConversationToCursor({
+        messages: nodes,
+        rootNodeId: "root",
+        activeCursorId: "inactive",
+      }),
+    ).toEqual([]);
   });
 
   test("rejects multiple same-level continuations and invalid active branches", () => {

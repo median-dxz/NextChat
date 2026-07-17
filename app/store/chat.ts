@@ -52,6 +52,8 @@ import {
   ConversationNode,
   GlobalMemory,
   createEmptyGlobalMemory,
+  projectActiveConversation,
+  projectConversationToCursor,
   remapConversationNodes,
   toLevelOneConversationNodes,
   validateConversationGraph,
@@ -166,6 +168,14 @@ export interface ChatSession {
   contextBoundaryAfterMessageId?: string;
 
   mask: Mask;
+}
+
+export function getSessionActiveMessages(session: ChatSession) {
+  return projectActiveConversation(session);
+}
+
+export function getSessionMessagesToCursor(session: ChatSession) {
+  return projectConversationToCursor(session);
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -384,7 +394,7 @@ export const useChatStore = createPersistStore(
       const session = get().sessions.find((item) => item.id === sessionId);
       if (!session) return;
       const projection = createContextProjection(
-        session.messages,
+        getSessionMessagesToCursor(session),
         session.contextBoundaryAfterMessageId,
       );
       const messagesById = new Map(
@@ -443,7 +453,7 @@ export const useChatStore = createPersistStore(
       const current = get().sessions.find((item) => item.id === sessionId);
       if (!current) return;
       const currentProjection = createContextProjection(
-        current.messages,
+        getSessionMessagesToCursor(current),
         current.contextBoundaryAfterMessageId,
       );
       const currentMessagesById = new Map(
@@ -875,12 +885,26 @@ export const useChatStore = createPersistStore(
             systemPrompts.at(0)?.content ?? "empty",
           );
         }
-        const fixedMessages = [...systemPrompts, ...contextPrompts];
+        const globalMemoryPrompts =
+          session.globalMemory.enabled && session.globalMemory.content.trim()
+            ? [
+                createMessage({
+                  role: "system",
+                  content: session.globalMemory.content,
+                  date: "",
+                }),
+              ]
+            : [];
+        const fixedMessages = [
+          ...systemPrompts,
+          ...globalMemoryPrompts,
+          ...contextPrompts,
+        ];
         const createPlan = () => {
           const current = get().sessions.find((item) => item.id === session.id);
           if (!current) throw new Error("Chat session no longer exists");
           const projection = createContextProjection(
-            current.messages,
+            getSessionMessagesToCursor(current),
             current.contextBoundaryAfterMessageId,
           );
           return {
@@ -948,10 +972,12 @@ export const useChatStore = createPersistStore(
           );
         const selectedMessages = planned.plan.selectedMessageIds
           .map((id) => planned.current.messages.find((item) => item.id === id))
-          .filter((item): item is ConversationNode => Boolean(item));
+          .filter((item): item is ConversationNode => Boolean(item))
+          .map((item) => (item.hidden ? { ...item, content: "" } : item));
 
         return [
           ...systemPrompts,
+          ...globalMemoryPrompts,
           ...selectedSummaries,
           ...contextPrompts,
           ...selectedMessages,
@@ -1004,7 +1030,7 @@ export const useChatStore = createPersistStore(
         );
 
         // remove error messages if any
-        const messages = session.messages;
+        const messages = getSessionMessagesToCursor(session);
 
         // should summarize topic after chating more than 50 words
         const SUMMARIZE_MIN_LEN = 50;
@@ -1064,7 +1090,7 @@ export const useChatStore = createPersistStore(
           if (!session || !session.mask.modelConfig.sendMemory) return;
           const modelConfig = session.mask.modelConfig;
           const projection = createContextProjection(
-            session.messages,
+            getSessionMessagesToCursor(session),
             session.contextBoundaryAfterMessageId,
           );
           const plan = planSummaryMaintenance({

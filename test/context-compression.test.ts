@@ -81,8 +81,8 @@ describe("context compression planner", () => {
 
   test("selects an old summary and recent complete turns without duplication", () => {
     const messages = [
-      message("m1", "user"),
-      message("m2", "assistant"),
+      message("m1", "user", "a".repeat(4_000)),
+      message("m2", "assistant", "b".repeat(4_000)),
       message("m3", "user"),
       message("m4", "assistant"),
     ];
@@ -102,10 +102,10 @@ describe("context compression planner", () => {
 
   test("uses a checkpoint without deleting its source segments", () => {
     const messages = [
-      message("m1", "user"),
-      message("m2", "assistant"),
-      message("m3", "user"),
-      message("m4", "assistant"),
+      message("m1", "user", "a".repeat(4_000)),
+      message("m2", "assistant", "b".repeat(4_000)),
+      message("m3", "user", "c".repeat(4_000)),
+      message("m4", "assistant", "d".repeat(4_000)),
       message("m5", "user"),
       message("m6", "assistant"),
     ];
@@ -132,7 +132,11 @@ describe("context compression planner", () => {
 
   test("combines a checkpoint, following segment, and recent raw turn", () => {
     const messages = Array.from({ length: 10 }, (_, index) =>
-      message(`m${index + 1}`, index % 2 === 0 ? "user" : "assistant"),
+      message(
+        `m${index + 1}`,
+        index % 2 === 0 ? "user" : "assistant",
+        index < 8 ? "x".repeat(4_000) : "abcd",
+      ),
     );
     const checkpoint = summary(
       "checkpoint",
@@ -155,7 +159,7 @@ describe("context compression planner", () => {
     expect(plan.selectedMessageIds).toEqual(["m9", "m10"]);
   });
 
-  test("honors tombstones and boundaries without sending an orphan assistant", () => {
+  test("honors tombstones and boundaries while preserving an orphan assistant", () => {
     const messages = [
       message("m1", "user"),
       message("m2", "assistant"),
@@ -172,14 +176,14 @@ describe("context compression planner", () => {
       currentInputTokenCount: 1,
     });
 
-    expect(plan.selectedMessageIds).toEqual([]);
+    expect(plan.selectedMessageIds).toEqual(["m4"]);
     expect(plan.requiresCompaction).toBe(false);
   });
 
   test("does not select summaries entirely before the context boundary", () => {
     const messages = [
-      message("m1", "user"),
-      message("m2", "assistant"),
+      message("m1", "user", "x".repeat(4_000)),
+      message("m2", "assistant", "y".repeat(4_000)),
       message("m3", "user"),
       message("m4", "assistant"),
     ];
@@ -199,8 +203,8 @@ describe("context compression planner", () => {
 
   test("reserves budget for the latest complete turn before old summaries", () => {
     const messages = [
-      message("m1", "user"),
-      message("m2", "assistant"),
+      message("m1", "user", "x".repeat(4_000)),
+      message("m2", "assistant", "y".repeat(4_000)),
       message("m3", "user", "a".repeat(800)),
       message("m4", "assistant", "a".repeat(200)),
     ];
@@ -253,7 +257,7 @@ describe("context compression planner", () => {
     expect(isSummaryCurrent(stored, { entries: reordered })).toBe(false);
   });
 
-  test("keeps a recent window on complete turns during background maintenance", () => {
+  test("summarizes the uncovered node outside the recent window", () => {
     const messages = [message("m1", "user"), message("m2", "assistant")];
 
     expect(
@@ -265,7 +269,9 @@ describe("context compression planner", () => {
         compressionThreshold: 0,
         force: false,
       }),
-    ).toBeUndefined();
+    ).toEqual(
+      expect.objectContaining({ kind: "segment", sourceEntryIds: ["m1"] }),
+    );
   });
 
   test("can compact one oversized recent turn when emergency planning must progress", () => {
@@ -286,7 +292,7 @@ describe("context compression planner", () => {
     ).toEqual(
       expect.objectContaining({
         kind: "segment",
-        sourceEntryIds: ["m1", "m2"],
+        sourceEntryIds: ["m1"],
       }),
     );
   });

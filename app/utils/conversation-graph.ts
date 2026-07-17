@@ -121,7 +121,7 @@ export function validateConversationGraph(
   if (roots.length !== 1 || roots[0].id !== graph.rootNodeId) {
     throw new Error("Conversation graph must have exactly one declared root");
   }
-  if (!graph.activeCursorId || !index.nodesById.has(graph.activeCursorId)) {
+  if (graph.activeCursorId && !index.nodesById.has(graph.activeCursorId)) {
     throw new Error("Conversation graph cursor must reference a node");
   }
 
@@ -155,6 +155,43 @@ export function validateConversationGraph(
   }
 
   return index;
+}
+
+export function projectActiveConversation(
+  graph: ConversationGraphState,
+): ConversationNode[] {
+  if (!graph.rootNodeId) return [];
+  const index = validateConversationGraph(graph);
+  const result: ConversationNode[] = [];
+  const visited = new Set<string>();
+
+  const visit = (nodeId: string) => {
+    if (visited.has(nodeId)) {
+      throw new Error(`Active projection contains a cycle at ${nodeId}`);
+    }
+    const node = index.nodesById.get(nodeId);
+    if (!node) throw new Error(`Missing projected node ${nodeId}`);
+    visited.add(nodeId);
+    result.push(node);
+
+    if (node.activeBranchRootId) visit(node.activeBranchRootId);
+    const sameLevelChild = index.sameLevelChildByParentId.get(node.id);
+    if (sameLevelChild) visit(sameLevelChild.id);
+  };
+
+  visit(graph.rootNodeId);
+  return result;
+}
+
+export function projectConversationToCursor(
+  graph: ConversationGraphState,
+): ConversationNode[] {
+  if (!graph.activeCursorId) return [];
+  const projection = projectActiveConversation(graph);
+  const cursorIndex = projection.findIndex(
+    (node) => node.id === graph.activeCursorId,
+  );
+  return cursorIndex < 0 ? [] : projection.slice(0, cursorIndex + 1);
 }
 
 export function remapConversationNodes(

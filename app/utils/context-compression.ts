@@ -18,6 +18,7 @@ export interface ContextProjectionEntry extends RequestMessage {
   isError?: boolean;
   streaming?: boolean;
   deletedAt?: number;
+  hidden?: boolean;
 }
 
 export interface ContextProjection<
@@ -97,9 +98,7 @@ function findBoundaryStart(
 }
 
 function moveToTurnStart(messages: ContextProjectionEntry[], index: number) {
-  let start = Math.max(0, index);
-  while (start > 0 && messages[start]?.role !== "user") start -= 1;
-  return start;
+  return Math.max(0, index);
 }
 
 function isAvailableMessage(message: ContextProjectionEntry) {
@@ -121,7 +120,7 @@ export function createContextProjection<T extends ContextProjectionEntry>(
   boundaryAfterMessageId?: string,
 ): ContextProjection<T> {
   const boundaryStart = findBoundaryStart(messages, boundaryAfterMessageId);
-  const entries = getCompleteTurns(messages.slice(boundaryStart), true).flat();
+  const entries = messages.slice(boundaryStart).filter(isAvailableMessage);
   return { entries };
 }
 
@@ -160,35 +159,9 @@ export function isSummaryCurrent(
 
 function getCompleteTurns<T extends ContextProjectionEntry>(
   messages: T[],
-  includeLeadingAssistant = false,
+  _includeLeadingAssistant = false,
 ) {
-  const turns: T[][] = [];
-  let currentTurn: T[] = [];
-  let sawUserOrInvalidMessage = false;
-  for (const message of messages) {
-    if (!isAvailableMessage(message)) {
-      currentTurn = [];
-      sawUserOrInvalidMessage = true;
-      continue;
-    }
-    if (message.role === "user") {
-      currentTurn = [message];
-      sawUserOrInvalidMessage = true;
-      continue;
-    }
-    if (message.role === "assistant" && currentTurn.length > 0) {
-      currentTurn.push(message);
-      turns.push(currentTurn);
-      currentTurn = [];
-    } else if (
-      includeLeadingAssistant &&
-      message.role === "assistant" &&
-      !sawUserOrInvalidMessage
-    ) {
-      turns.push([message]);
-    }
-  }
-  return turns;
+  return messages.filter(isAvailableMessage).map((message) => [message]);
 }
 
 export function planConversationContext(args: {
@@ -218,12 +191,7 @@ export function planConversationContext(args: {
   const projectionOrder = new Map(
     projection.entries.map((message, index) => [message.id, index]),
   );
-  const preferredRecentStart = moveToTurnStart(
-    eligibleMessages,
-    eligibleMessages.length - Math.max(0, args.historyMessageCount),
-  );
-  const recentMessages = eligibleMessages.slice(preferredRecentStart);
-  const recentTurns = getCompleteTurns(recentMessages, true);
+  const recentTurns = getCompleteTurns(eligibleMessages, true);
   const activeSummaries = args.summaries.filter((summary) =>
     isSummaryCurrent(summary, projection),
   );
@@ -370,8 +338,9 @@ export function planConversationContext(args: {
 }
 
 export function estimateRequestMessageTokens(
-  message: Pick<RequestMessage, "content">,
+  message: Pick<RequestMessage, "content"> & { hidden?: boolean },
 ) {
+  if (message.hidden) return 0;
   if (!Array.isArray(message.content)) {
     return estimateTokenLength(message.content);
   }
@@ -468,7 +437,7 @@ export function planSummaryMaintenance(args: {
     0,
   );
   const shouldCreateSegment =
-    sourceMessages.length >= 2 &&
+    sourceMessages.length >= 1 &&
     (args.force || sourceTokens > args.compressionThreshold);
 
   const checkpoints = active
