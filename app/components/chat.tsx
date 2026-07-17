@@ -1,7 +1,6 @@
 import { useDebouncedCallback } from "use-debounce";
 import React, {
   Fragment,
-  RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -26,7 +25,6 @@ import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import ReloadIcon from "../icons/reload.svg";
-import BreakIcon from "../icons/break.svg";
 import SettingsIcon from "../icons/chat-settings.svg";
 import DeleteIcon from "../icons/clear.svg";
 import PinIcon from "../icons/pin.svg";
@@ -73,7 +71,6 @@ import {
   getModelSizes,
   supportsCustomSize,
   useMobileScreen,
-  selectOrCopy,
   showPlugins,
 } from "../utils";
 
@@ -125,6 +122,14 @@ import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
+import type { ConversationSummary } from "../utils/context-compression";
+import {
+  getVisibleMessages,
+  mergeEditedMessagesWithTombstones,
+  runResendTransaction,
+} from "../utils/chat-session";
+import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
+import { SessionSummaryList } from "./session-summary-list";
 
 const localStorage = safeLocalStorage();
 
@@ -167,7 +172,10 @@ const MCPAction = () => {
   );
 };
 
-export function SessionConfigModel(props: { onClose: () => void }) {
+export function SessionConfigModel(props: {
+  onClose: () => void;
+  onLocateSummary: (summary: ConversationSummary) => void;
+}) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const maskStore = useMaskStore();
@@ -186,10 +194,9 @@ export function SessionConfigModel(props: { onClose: () => void }) {
             text={Locale.Chat.Config.Reset}
             onClick={async () => {
               if (await showConfirm(Locale.Memory.ResetConfirm)) {
-                chatStore.updateTargetSession(
-                  session,
-                  (session) => (session.memoryPrompt = ""),
-                );
+                chatStore.updateTargetSession(session, (session) => {
+                  session.summaries = [];
+                });
               }
             }}
           />,
@@ -218,18 +225,11 @@ export function SessionConfigModel(props: { onClose: () => void }) {
             );
           }}
           shouldSyncFromGlobal
-          extraListItems={
-            session.mask.modelConfig.sendMemory ? (
-              <ListItem
-                className="copyable"
-                title={`${Locale.Memory.Title} (${session.lastSummarizeIndex} of ${session.messages.length})`}
-                subTitle={session.memoryPrompt || Locale.Memory.EmptyContent}
-              ></ListItem>
-            ) : (
-              <></>
-            )
-          }
-        ></MaskConfig>
+        />
+        <SessionSummaryList
+          session={session}
+          onLocate={props.onLocateSummary}
+        />
       </Modal>
     </div>
   );
@@ -239,6 +239,7 @@ function PromptToast(props: {
   showToast?: boolean;
   showModal?: boolean;
   setShowModal: (_: boolean) => void;
+  onLocateSummary: (summary: ConversationSummary) => void;
 }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
@@ -259,7 +260,10 @@ function PromptToast(props: {
         </div>
       )}
       {props.showModal && (
-        <SessionConfigModel onClose={() => props.setShowModal(false)} />
+        <SessionConfigModel
+          onClose={() => props.setShowModal(false)}
+          onLocateSummary={props.onLocateSummary}
+        />
       )}
     </div>
   );
@@ -389,28 +393,6 @@ export function PromptHints(props: {
   );
 }
 
-function ClearContextDivider() {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-
-  return (
-    <div
-      className={styles["clear-context"]}
-      onClick={() =>
-        chatStore.updateTargetSession(
-          session,
-          (session) => (session.clearContextIndex = undefined),
-        )
-      }
-    >
-      <div className={styles["clear-context-tips"]}>{Locale.Context.Clear}</div>
-      <div className={styles["clear-context-revert-btn"]}>
-        {Locale.Context.Revert}
-      </div>
-    </div>
-  );
-}
-
 export function ChatAction(props: {
   text: string;
   icon: React.ReactElement;
@@ -460,57 +442,22 @@ export function ChatAction(props: {
   );
 }
 
-export function useScrollToBottom(
-  scrollRef: RefObject<HTMLDivElement | null>,
-  detach: boolean = false,
+export function isMessageInStreamingTurn(
   messages: ChatMessage[],
+  messageIndex: number,
 ) {
-  // for auto-scroll
-  const [autoScroll, setAutoScroll] = useState(true);
-  const scrollDomToBottom = useCallback(() => {
-    const dom = scrollRef.current;
-    if (dom) {
-      requestAnimationFrame(() => {
-        setAutoScroll(true);
-        dom.scrollTo(0, dom.scrollHeight);
-      });
-    }
-  }, [scrollRef]);
+  const message = messages[messageIndex];
+  if (!message || message.deletedAt) return false;
+  if (message.streaming) return true;
+  if (message.role !== "user") return false;
 
-  // auto scroll
-  useEffect(() => {
-    if (autoScroll && !detach) {
-      scrollDomToBottom();
-    }
-  });
-
-  // auto scroll when messages length changes
-  const lastMessagesLength = useRef(messages.length);
-  useEffect(() => {
-    if (messages.length > lastMessagesLength.current && !detach) {
-      scrollDomToBottom();
-    }
-    lastMessagesLength.current = messages.length;
-  }, [messages.length, detach, scrollDomToBottom]);
-
-  return {
-    scrollRef,
-    autoScroll,
-    setAutoScroll,
-    scrollDomToBottom,
-  };
-}
-
-export function useInitialChatScrollState() {
-  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
-  const [isAttachWithTop, setIsAttachWithTop] = useState(false);
-
-  return {
-    isScrolledToBottom,
-    setIsScrolledToBottom,
-    isAttachWithTop,
-    setIsAttachWithTop,
-  };
+  const response = messages[messageIndex + 1];
+  return Boolean(
+    response &&
+    !response.deletedAt &&
+    response.role === "assistant" &&
+    response.streaming,
+  );
 }
 
 export function shouldShowMessageActions(
@@ -695,21 +642,6 @@ export function ChatActions(props: {
         />
 
         <ChatAction
-          text={Locale.Chat.InputActions.Clear}
-          icon={<BreakIcon />}
-          onClick={() => {
-            chatStore.updateTargetSession(session, (session) => {
-              if (session.clearContextIndex === session.messages.length) {
-                session.clearContextIndex = undefined;
-              } else {
-                session.clearContextIndex = session.messages.length;
-                session.memoryPrompt = ""; // will clear memory
-              }
-            });
-          }}
-        />
-
-        <ChatAction
           onClick={() => setShowModelSelector(true)}
           text={currentModelName}
           icon={<RobotIcon />}
@@ -886,7 +818,9 @@ export function ChatActions(props: {
 export function EditMessageModal(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const [messages, setMessages] = useState(session.messages.slice());
+  const [messages, setMessages] = useState(() =>
+    getVisibleMessages(session.messages),
+  );
 
   return (
     <div className="modal-mask">
@@ -910,7 +844,11 @@ export function EditMessageModal(props: { onClose: () => void }) {
             onClick={() => {
               chatStore.updateTargetSession(
                 session,
-                (session) => (session.messages = messages),
+                (session) =>
+                  (session.messages = mergeEditedMessagesWithTombstones(
+                    session.messages,
+                    messages,
+                  )),
               );
               props.onClose();
             }}
@@ -975,12 +913,6 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
       title: Locale.Chat.ShortcutKey.showShortcutKey,
       keys: isMac ? ["⌘", "/"] : ["Ctrl", "/"],
     },
-    {
-      title: Locale.Chat.ShortcutKey.clearContext,
-      keys: isMac
-        ? ["⌘", "Shift", "backspace"]
-        : ["Ctrl", "Shift", "backspace"],
-    },
   ];
   return (
     <div className="modal-mask">
@@ -1043,25 +975,16 @@ function ChatView() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const {
-    isScrolledToBottom,
-    setIsScrolledToBottom,
-    isAttachWithTop,
-    setIsAttachWithTop,
-  } = useInitialChatScrollState();
-
-  const isTyping = userInput !== "";
-
-  // if user is typing, should auto scroll to bottom
-  // if user is not typing, should auto scroll to bottom only if already at bottom
-  const { setAutoScroll, scrollDomToBottom } = useScrollToBottom(
-    scrollRef,
-    (isScrolledToBottom || isAttachWithTop) && !isTyping,
-    session.messages,
-  );
-  const [hitBottom, setHitBottom] = useState(true);
   const isMobileScreen = useMobileScreen();
+  const {
+    scrollRef,
+    contentRef,
+    isAtBottom,
+    requestBottom,
+    detach,
+    handleScroll,
+    userScrollHandlers,
+  } = useScrollToBottom(isMobileScreen ? 4 : 10);
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1105,11 +1028,6 @@ function ChatView() {
     newm: () => navigate(Path.NewChat),
     prev: () => chatStore.nextSession(-1),
     next: () => chatStore.nextSession(1),
-    clear: () =>
-      chatStore.updateTargetSession(
-        session,
-        (session) => (session.clearContextIndex = session.messages.length),
-      ),
     fork: () => chatStore.forkSession(),
     del: () => chatStore.deleteSession(chatStore.currentSessionIndex),
   });
@@ -1146,13 +1064,20 @@ function ChatView() {
     setIsLoading(true);
     chatStore
       .onUserInput(userInput, attachImages)
-      .then(() => setIsLoading(false));
+      .then(() => setIsLoading(false))
+      .catch((error) => {
+        setIsLoading(false);
+        setUserInput(userInput);
+        showToast(
+          error instanceof Error ? error.message : Locale.Memory.CompactFailed,
+        );
+      });
     setAttachImages([]);
     chatStore.setLastInput(userInput);
     setUserInput("");
     setPromptHints([]);
     if (!isMobileScreen) inputRef.current?.focus();
-    setAutoScroll(true);
+    requestBottom("send");
   };
 
   const onPromptSelect = (prompt: RenderPrompt) => {
@@ -1223,27 +1148,8 @@ function ChatView() {
       e.preventDefault();
     }
   };
-  const onRightClick = (e: any, message: ChatMessage) => {
-    // copy to clipboard
-    if (selectOrCopy(e.currentTarget, getMessageTextContent(message))) {
-      if (userInput.length === 0) {
-        setUserInput(getMessageTextContent(message));
-      }
-
-      e.preventDefault();
-    }
-  };
-
-  const deleteMessage = (msgId?: string) => {
-    chatStore.updateTargetSession(
-      session,
-      (session) =>
-        (session.messages = session.messages.filter((m) => m.id !== msgId)),
-    );
-  };
-
   const onDelete = (msgId: string) => {
-    deleteMessage(msgId);
+    chatStore.deleteMessage(session.id, msgId);
   };
 
   const onResend = (message: ChatMessage) => {
@@ -1253,52 +1159,30 @@ function ChatView() {
     // 3. delete original user input and bot's message
     // 4. resend the user's input
 
-    const resendingIndex = session.messages.findIndex(
-      (m) => m.id === message.id,
-    );
-
-    if (resendingIndex < 0 || resendingIndex >= session.messages.length) {
-      console.error("[Chat] failed to find resending message", message);
-      return;
-    }
-
-    let userMessage: ChatMessage | undefined;
-    let botMessage: ChatMessage | undefined;
-
-    if (message.role === "assistant") {
-      // if it is resending a bot's message, find the user input for it
-      botMessage = message;
-      for (let i = resendingIndex; i >= 0; i -= 1) {
-        if (session.messages[i].role === "user") {
-          userMessage = session.messages[i];
-          break;
-        }
-      }
-    } else if (message.role === "user") {
-      // if it is resending a user's input, find the bot's response
-      userMessage = message;
-      for (let i = resendingIndex; i < session.messages.length; i += 1) {
-        if (session.messages[i].role === "assistant") {
-          botMessage = session.messages[i];
-          break;
-        }
-      }
-    }
-
-    if (userMessage === undefined) {
-      console.error("[Chat] failed to resend", message);
-      return;
-    }
-
-    // delete the original messages
-    deleteMessage(userMessage.id);
-    deleteMessage(botMessage?.id);
-
-    // resend the message
     setIsLoading(true);
-    const textContent = getMessageTextContent(userMessage);
-    const images = getMessageImages(userMessage);
-    chatStore.onUserInput(textContent, images).then(() => setIsLoading(false));
+    runResendTransaction({
+      messages: session.messages,
+      targetMessageId: message.id,
+      contextBoundaryAfterMessageId: session.contextBoundaryAfterMessageId,
+      update(messages, contextBoundaryAfterMessageId) {
+        chatStore.updateTargetSession(session, (draft) => {
+          draft.messages = messages;
+          draft.contextBoundaryAfterMessageId = contextBoundaryAfterMessageId;
+        });
+      },
+      resend: (textContent, images) =>
+        chatStore.onUserInput(textContent, images),
+    })
+      .then((prepared) => {
+        setIsLoading(false);
+        if (!prepared) console.error("[Chat] failed to resend", message);
+      })
+      .catch((error) => {
+        setIsLoading(false);
+        showToast(
+          error instanceof Error ? error.message : Locale.Memory.CompactFailed,
+        );
+      });
     inputRef.current?.focus();
   };
 
@@ -1378,8 +1262,9 @@ function ChatView() {
   }
 
   // preview messages
+  const visibleSessionMessages = getVisibleMessages(session.messages);
   const renderMessages = context
-    .concat(session.messages as RenderMessage[])
+    .concat(visibleSessionMessages as RenderMessage[])
     .concat(
       isLoading
         ? [
@@ -1404,6 +1289,15 @@ function ChatView() {
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
     Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
   );
+  const lastScrollTop = useRef(0);
+  // Native scroll anchoring trial: manual page-anchor tracking is disabled.
+  // const pendingPageAnchor = useRef<
+  //   | {
+  //       scrollHeight: number;
+  //       scrollTop: number;
+  //     }
+  //   | undefined
+  // >(undefined);
 
   function setMsgRenderIndex(newIndex: number) {
     newIndex = Math.min(renderMessages.length - CHAT_PAGE_SIZE, newIndex);
@@ -1417,47 +1311,98 @@ function ChatView() {
   );
   const messages = renderMessages.slice(msgRenderIndex, endRenderIndex);
 
+  // Native scroll anchoring should preserve the visible message when the
+  // rendered page window changes. Keep manual compensation disabled while
+  // verifying that behavior in supported browsers.
+  // useLayoutEffect(() => {
+  //   const anchor = pendingPageAnchor.current;
+  //   const element = scrollRef.current;
+  //   if (!anchor || !element) return;
+  //
+  //   const nextScrollTop = Math.max(
+  //     0,
+  //     anchor.scrollTop + element.scrollHeight - anchor.scrollHeight,
+  //   );
+  //   pendingPageAnchor.current = undefined;
+  //   lastScrollTop.current = nextScrollTop;
+  //   element.scrollTop = nextScrollTop;
+  // }, [msgRenderIndex, scrollRef]);
+
   const onChatBodyScroll = (e: HTMLElement) => {
-    const bottomHeight = e.scrollTop + e.clientHeight;
-    const edgeThreshold = e.clientHeight;
+    const previousScrollTop = lastScrollTop.current;
+    const { pageDirection } = getChatScrollUpdate({
+      scrollTop: e.scrollTop,
+      clientHeight: e.clientHeight,
+      scrollHeight: e.scrollHeight,
+      isMobileScreen,
+      previousScrollTop,
+    });
+    lastScrollTop.current = e.scrollTop;
+    handleScroll();
 
-    const isTouchTopEdge = e.scrollTop <= edgeThreshold;
-    const isTouchBottomEdge = bottomHeight >= e.scrollHeight - edgeThreshold;
-    const isHitBottom =
-      bottomHeight >= e.scrollHeight - (isMobileScreen ? 4 : 10);
-
-    const prevPageMsgIndex = msgRenderIndex - CHAT_PAGE_SIZE;
-    const nextPageMsgIndex = msgRenderIndex + CHAT_PAGE_SIZE;
-
-    if (isTouchTopEdge && !isTouchBottomEdge) {
-      setMsgRenderIndex(prevPageMsgIndex);
-    } else if (isTouchBottomEdge) {
-      setMsgRenderIndex(nextPageMsgIndex);
+    if (pageDirection !== 0) {
+      const requestedIndex = msgRenderIndex + pageDirection * CHAT_PAGE_SIZE;
+      const nextIndex = Math.max(
+        0,
+        Math.min(renderMessages.length - CHAT_PAGE_SIZE, requestedIndex),
+      );
+      if (nextIndex !== msgRenderIndex) {
+        // Native scroll anchoring trial: do not capture a manual page anchor.
+        // pendingPageAnchor.current = {
+        //   scrollHeight: e.scrollHeight,
+        //   scrollTop: e.scrollTop,
+        // };
+        _setMsgRenderIndex(nextIndex);
+      }
     }
-
-    setHitBottom(isHitBottom);
-    setAutoScroll(isHitBottom);
-    setIsScrolledToBottom(Math.abs(e.scrollHeight - bottomHeight) <= 1);
-
-    const lastMessage = e.lastElementChild as HTMLElement | null;
-    setIsAttachWithTop(
-      lastMessage !== null &&
-        lastMessage.getBoundingClientRect().top -
-          e.getBoundingClientRect().top <
-          100,
-    );
   };
 
   function scrollToBottom() {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
-    scrollDomToBottom();
+    requestBottom("button");
   }
 
-  // clear context index = context length + index in messages
-  const clearContextIndex =
-    (session.clearContextIndex ?? -1) >= 0
-      ? session.clearContextIndex! + context.length - msgRenderIndex
-      : -1;
+  function locateSummary(summary: ConversationSummary) {
+    const visibleSourceIds = new Set(
+      session.messages
+        .filter((message) => !message.deletedAt)
+        .map((message) => message.id),
+    );
+    let anchorId = summary.sourceEntryIds
+      .slice()
+      .reverse()
+      .find((id) => visibleSourceIds.has(id));
+    const sourceEndIndex = session.messages.findIndex(
+      (message) => message.id === summary.sourceEntryIds.at(-1),
+    );
+    for (
+      let distance = 1;
+      !anchorId && sourceEndIndex >= 0 && distance < session.messages.length;
+      distance += 1
+    ) {
+      const after = session.messages[sourceEndIndex + distance];
+      const before = session.messages[sourceEndIndex - distance];
+      anchorId = [after, before].find(
+        (message) => message && !message.deletedAt,
+      )?.id;
+    }
+    if (!anchorId) return;
+    const anchorIndex = renderMessages.findIndex(
+      (message) => message.id === anchorId,
+    );
+    if (anchorIndex < 0) return;
+
+    setShowPromptModal(false);
+    detach();
+    setMsgRenderIndex(anchorIndex - CHAT_PAGE_SIZE);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`chat-message-${anchorId}`)
+          ?.scrollIntoView({ block: "center" });
+      });
+    });
+  }
 
   const [showPromptModal, setShowPromptModal] = useState(false);
 
@@ -1669,22 +1614,6 @@ function ChatView() {
         event.preventDefault();
         setShowShortcutKeyModal(true);
       }
-      // 清除上下文 command + shift + backspace
-      else if (
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "backspace"
-      ) {
-        event.preventDefault();
-        chatStore.updateTargetSession(session, (session) => {
-          if (session.clearContextIndex === session.messages.length) {
-            session.clearContextIndex = undefined;
-          } else {
-            session.clearContextIndex = session.messages.length;
-            session.memoryPrompt = ""; // will clear memory
-          }
-        });
-      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -1737,7 +1666,7 @@ function ChatView() {
                 title={Locale.Chat.Actions.RefreshTitle}
                 onClick={() => {
                   showToast(Locale.Chat.Actions.RefreshToast);
-                  chatStore.summarizeSession(true, session);
+                  chatStore.generateSessionTitle(session, true);
                 }}
               />
             </div>
@@ -1780,9 +1709,10 @@ function ChatView() {
           </div>
 
           <PromptToast
-            showToast={!hitBottom}
+            showToast={!isAtBottom}
             showModal={showPromptModal}
             setShowModal={setShowPromptModal}
+            onLocateSummary={locateSummary}
           />
         </div>
         <div className={styles["chat-main"]}>
@@ -1791,289 +1721,317 @@ function ChatView() {
               className={styles["chat-body"]}
               ref={scrollRef}
               onScroll={(e) => onChatBodyScroll(e.currentTarget)}
+              onWheel={userScrollHandlers.onWheel}
+              onTouchMove={userScrollHandlers.onTouchMove}
+              onTouchEnd={userScrollHandlers.onTouchEnd}
+              onPointerDown={userScrollHandlers.onPointerDown}
+              onKeyDown={userScrollHandlers.onKeyDown}
+              onKeyUp={userScrollHandlers.onKeyUp}
               onMouseDown={() => inputRef.current?.blur()}
-              onTouchStart={() => {
-                inputRef.current?.blur();
-                setAutoScroll(false);
-              }}
+              onTouchStart={() => inputRef.current?.blur()}
             >
-              {messages
-                // TODO
-                // .filter((m) => !m.isMcpResponse)
-                .map((message, i) => {
-                  const isUser = message.role === "user";
-                  const isContext = i < context.length;
-                  const showActions = shouldShowMessageActions(
-                    message,
-                    i,
-                    isContext,
-                  );
-                  const showTyping = message.preview || message.streaming;
+              <div ref={contentRef}>
+                {messages
+                  // TODO
+                  // .filter((m) => !m.isMcpResponse)
+                  .map((message, i) => {
+                    const absoluteIndex = msgRenderIndex + i;
+                    const isUser = message.role === "user";
+                    const isContext = absoluteIndex < context.length;
+                    const isActiveTurn = isMessageInStreamingTurn(
+                      renderMessages,
+                      absoluteIndex,
+                    );
+                    const showActions =
+                      shouldShowMessageActions(
+                        message,
+                        absoluteIndex,
+                        isContext,
+                      ) &&
+                      (!isActiveTurn || Boolean(message.streaming));
+                    const showTyping = message.preview || message.streaming;
 
-                  const shouldShowClearContextDivider =
-                    i === clearContextIndex - 1;
-
-                  return (
-                    <Fragment key={message.id}>
-                      <div
-                        className={
-                          isUser
-                            ? styles["chat-message-user"]
-                            : styles["chat-message"]
-                        }
-                      >
-                        <div className={styles["chat-message-container"]}>
-                          <div className={styles["chat-message-header"]}>
-                            <div className={styles["chat-message-avatar"]}>
-                              <div className={styles["chat-message-edit"]}>
-                                <IconButton
-                                  icon={<EditIcon />}
-                                  aria={Locale.Chat.Actions.Edit}
-                                  onClick={async () => {
-                                    const newMessage = await showPrompt(
-                                      Locale.Chat.Actions.Edit,
-                                      getMessageTextContent(message),
-                                      10,
-                                    );
-                                    let newContent:
-                                      string | MultimodalContent[] = newMessage;
-                                    const images = getMessageImages(message);
-                                    if (images.length > 0) {
-                                      newContent = [
-                                        { type: "text", text: newMessage },
-                                      ];
-                                      for (let i = 0; i < images.length; i++) {
-                                        newContent.push({
-                                          type: "image_url",
-                                          image_url: {
-                                            url: images[i],
-                                          },
-                                        });
-                                      }
-                                    }
-                                    chatStore.updateTargetSession(
-                                      session,
-                                      (session) => {
-                                        const m = session.mask.context
-                                          .concat(session.messages)
-                                          .find((m) => m.id === message.id);
-                                        if (m) {
-                                          m.content = newContent;
-                                          if (m.role === "assistant") {
-                                            m.reasoning = undefined;
+                    return (
+                      <Fragment key={message.id}>
+                        <div
+                          id={`chat-message-${message.id}`}
+                          className={
+                            isUser
+                              ? styles["chat-message-user"]
+                              : styles["chat-message"]
+                          }
+                        >
+                          <div className={styles["chat-message-container"]}>
+                            <div className={styles["chat-message-header"]}>
+                              <div className={styles["chat-message-avatar"]}>
+                                {!isActiveTurn && (
+                                  <div className={styles["chat-message-edit"]}>
+                                    <IconButton
+                                      icon={<EditIcon />}
+                                      aria={Locale.Chat.Actions.Edit}
+                                      onClick={async () => {
+                                        const newMessage = await showPrompt(
+                                          Locale.Chat.Actions.Edit,
+                                          getMessageTextContent(message),
+                                          10,
+                                        );
+                                        let newContent:
+                                          string | MultimodalContent[] =
+                                          newMessage;
+                                        const images =
+                                          getMessageImages(message);
+                                        if (images.length > 0) {
+                                          newContent = [
+                                            { type: "text", text: newMessage },
+                                          ];
+                                          for (
+                                            let i = 0;
+                                            i < images.length;
+                                            i++
+                                          ) {
+                                            newContent.push({
+                                              type: "image_url",
+                                              image_url: {
+                                                url: images[i],
+                                              },
+                                            });
                                           }
                                         }
-                                      },
-                                    );
-                                  }}
-                                ></IconButton>
-                              </div>
-                              {isUser ? (
-                                <Avatar avatar={config.avatar} />
-                              ) : (
-                                <>
-                                  {["system"].includes(message.role) ? (
-                                    <Avatar avatar="2699-fe0f" />
-                                  ) : (
-                                    <MaskAvatar
-                                      avatar={session.mask.avatar}
-                                      model={
-                                        message.model ||
-                                        session.mask.modelConfig.model
-                                      }
-                                    />
-                                  )}
-                                </>
-                              )}
-                            </div>
-                            {!isUser && (
-                              <div className={styles["chat-model-name"]}>
-                                {message.model}
-                              </div>
-                            )}
-
-                            {showActions && (
-                              <div className={styles["chat-message-actions"]}>
-                                <div className={styles["chat-input-actions"]}>
-                                  {message.streaming ? (
-                                    <ChatAction
-                                      text={Locale.Chat.Actions.Stop}
-                                      icon={<StopIcon />}
-                                      onClick={() =>
-                                        onUserStop(message.id ?? i)
-                                      }
-                                    />
-                                  ) : (
-                                    <>
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Retry}
-                                        icon={<ResetIcon />}
-                                        onClick={() => onResend(message)}
-                                      />
-
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Delete}
-                                        icon={<DeleteIcon />}
-                                        onClick={() =>
-                                          onDelete(message.id ?? i)
-                                        }
-                                      />
-
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Pin}
-                                        icon={<PinIcon />}
-                                        onClick={() => onPinMessage(message)}
-                                      />
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Copy}
-                                        icon={<CopyIcon />}
-                                        onClick={() =>
-                                          copyToClipboard(
-                                            getMessageTextContent(message),
+                                        if (
+                                          session.messages.some(
+                                            (item) => item.id === message.id,
                                           )
+                                        ) {
+                                          chatStore.updateMessageContent(
+                                            session.id,
+                                            message.id,
+                                            newContent,
+                                          );
+                                        } else {
+                                          chatStore.updateTargetSession(
+                                            session,
+                                            (draft) => {
+                                              const item =
+                                                draft.mask.context.find(
+                                                  (item) =>
+                                                    item.id === message.id,
+                                                );
+                                              if (item)
+                                                item.content = newContent;
+                                            },
+                                          );
+                                        }
+                                      }}
+                                    ></IconButton>
+                                  </div>
+                                )}
+                                {isUser ? (
+                                  <Avatar avatar={config.avatar} />
+                                ) : (
+                                  <>
+                                    {["system"].includes(message.role) ? (
+                                      <Avatar avatar="2699-fe0f" />
+                                    ) : (
+                                      <MaskAvatar
+                                        avatar={session.mask.avatar}
+                                        model={
+                                          message.model ||
+                                          session.mask.modelConfig.model
                                         }
                                       />
-                                      {config.ttsConfig.enable && (
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                              {!isUser && (
+                                <div className={styles["chat-model-name"]}>
+                                  {message.model}
+                                </div>
+                              )}
+
+                              {showActions && (
+                                <div className={styles["chat-message-actions"]}>
+                                  <div className={styles["chat-input-actions"]}>
+                                    {message.streaming ? (
+                                      <ChatAction
+                                        text={Locale.Chat.Actions.Stop}
+                                        icon={<StopIcon />}
+                                        onClick={() =>
+                                          onUserStop(message.id ?? i)
+                                        }
+                                      />
+                                    ) : (
+                                      <>
                                         <ChatAction
-                                          text={
-                                            speechStatus
-                                              ? Locale.Chat.Actions.StopSpeech
-                                              : Locale.Chat.Actions.Speech
-                                          }
-                                          icon={
-                                            speechStatus ? (
-                                              <SpeakStopIcon />
-                                            ) : (
-                                              <SpeakIcon />
-                                            )
-                                          }
+                                          text={Locale.Chat.Actions.Retry}
+                                          icon={<ResetIcon />}
+                                          onClick={() => onResend(message)}
+                                        />
+
+                                        <ChatAction
+                                          text={Locale.Chat.Actions.Delete}
+                                          icon={<DeleteIcon />}
                                           onClick={() =>
-                                            openaiSpeech(
+                                            onDelete(message.id ?? i)
+                                          }
+                                        />
+
+                                        <ChatAction
+                                          text={Locale.Chat.Actions.Pin}
+                                          icon={<PinIcon />}
+                                          onClick={() => onPinMessage(message)}
+                                        />
+                                        <ChatAction
+                                          text={Locale.Chat.Actions.Copy}
+                                          icon={<CopyIcon />}
+                                          onClick={() =>
+                                            copyToClipboard(
                                               getMessageTextContent(message),
                                             )
                                           }
                                         />
-                                      )}
-                                    </>
-                                  )}
+                                        {config.ttsConfig.enable && (
+                                          <ChatAction
+                                            text={
+                                              speechStatus
+                                                ? Locale.Chat.Actions.StopSpeech
+                                                : Locale.Chat.Actions.Speech
+                                            }
+                                            icon={
+                                              speechStatus ? (
+                                                <SpeakStopIcon />
+                                              ) : (
+                                                <SpeakIcon />
+                                              )
+                                            }
+                                            onClick={() =>
+                                              openaiSpeech(
+                                                getMessageTextContent(message),
+                                              )
+                                            }
+                                          />
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
+                              )}
+                            </div>
+                            {message?.tools?.length == 0 && showTyping && (
+                              <div className={styles["chat-message-status"]}>
+                                {Locale.Chat.Typing}
                               </div>
                             )}
-                          </div>
-                          {message?.tools?.length == 0 && showTyping && (
-                            <div className={styles["chat-message-status"]}>
-                              {Locale.Chat.Typing}
-                            </div>
-                          )}
-                          {/*@ts-ignore*/}
-                          {message?.tools?.length > 0 && (
-                            <div className={styles["chat-message-tools"]}>
-                              {message?.tools?.map((tool) => (
-                                <div
-                                  key={tool.id}
-                                  title={tool?.errorMsg}
-                                  className={styles["chat-message-tool"]}
-                                >
-                                  {tool.isError === false ? (
-                                    <ConfirmIcon />
-                                  ) : tool.isError === true ? (
-                                    <CloseIcon />
-                                  ) : (
-                                    <LoadingButtonIcon />
-                                  )}
-                                  <span>{tool?.function?.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className={styles["chat-message-item"]}>
-                            {!isUser && (
-                              <ReasoningDisclosure
-                                reasoning={message.reasoning}
-                                content={getMessageTextContent(message)}
-                                streaming={message.streaming}
-                                reasoningDurationMs={
-                                  message.reasoningDurationMs
-                                }
-                              />
+                            {/*@ts-ignore*/}
+                            {message?.tools?.length > 0 && (
+                              <div className={styles["chat-message-tools"]}>
+                                {message?.tools?.map((tool) => (
+                                  <div
+                                    key={tool.id}
+                                    title={tool?.errorMsg}
+                                    className={styles["chat-message-tool"]}
+                                  >
+                                    {tool.isError === false ? (
+                                      <ConfirmIcon />
+                                    ) : tool.isError === true ? (
+                                      <CloseIcon />
+                                    ) : (
+                                      <LoadingButtonIcon />
+                                    )}
+                                    <span>{tool?.function?.name}</span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
-                            <Markdown
-                              key={message.streaming ? "loading" : "done"}
-                              content={getMessageTextContent(message)}
-                              loading={
-                                (message.preview || message.streaming) &&
-                                message.content.length === 0 &&
-                                !isUser
-                              }
-                              //   onContextMenu={(e) => onRightClick(e, message)} // hard to use
-                              onDoubleClickCapture={() => {
-                                if (!isMobileScreen) return;
-                                setUserInput(getMessageTextContent(message));
-                              }}
-                              fontSize={fontSize}
-                              fontFamily={fontFamily}
-                              parentRef={scrollRef}
-                              defaultShow={i >= messages.length - 6}
-                            />
-                            {getMessageImages(message).length == 1 && (
-                              <>
-                                {/* External and data URLs cannot use Next image optimization. */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  className={styles["chat-message-item-image"]}
-                                  src={getMessageImages(message)[0]}
-                                  alt=""
+                            <div className={styles["chat-message-item"]}>
+                              {!isUser && (
+                                <ReasoningDisclosure
+                                  reasoning={message.reasoning}
+                                  streaming={message.streaming}
+                                  reasoningDurationMs={
+                                    message.reasoningDurationMs
+                                  }
+                                  content={getMessageTextContent(message)}
                                 />
-                              </>
-                            )}
-                            {getMessageImages(message).length > 1 && (
-                              <div
-                                className={styles["chat-message-item-images"]}
-                                style={
-                                  {
-                                    "--image-count":
-                                      getMessageImages(message).length,
-                                  } as React.CSSProperties
+                              )}
+                              <Markdown
+                                key={message.streaming ? "loading" : "done"}
+                                content={getMessageTextContent(message)}
+                                loading={
+                                  (message.preview || message.streaming) &&
+                                  message.content.length === 0 &&
+                                  !isUser
                                 }
-                              >
-                                {getMessageImages(message).map(
-                                  (image, index) => {
-                                    return (
-                                      <React.Fragment key={index}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          className={
-                                            styles[
-                                              "chat-message-item-image-multi"
-                                            ]
-                                          }
-                                          src={image}
-                                          alt=""
-                                        />
-                                      </React.Fragment>
-                                    );
-                                  },
-                                )}
+                                onDoubleClickCapture={() => {
+                                  if (!isMobileScreen) return;
+                                  setUserInput(getMessageTextContent(message));
+                                }}
+                                fontSize={fontSize}
+                                fontFamily={fontFamily}
+                                parentRef={scrollRef}
+                                defaultShow={i >= messages.length - 6}
+                              />
+                              {getMessageImages(message).length == 1 && (
+                                <>
+                                  {/* External and data URLs cannot use Next image optimization. */}
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    className={
+                                      styles["chat-message-item-image"]
+                                    }
+                                    src={getMessageImages(message)[0]}
+                                    alt=""
+                                  />
+                                </>
+                              )}
+                              {getMessageImages(message).length > 1 && (
+                                <div
+                                  className={styles["chat-message-item-images"]}
+                                  style={
+                                    {
+                                      "--image-count":
+                                        getMessageImages(message).length,
+                                    } as React.CSSProperties
+                                  }
+                                >
+                                  {getMessageImages(message).map(
+                                    (image, index) => {
+                                      return (
+                                        <React.Fragment key={index}>
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            className={
+                                              styles[
+                                                "chat-message-item-image-multi"
+                                              ]
+                                            }
+                                            src={image}
+                                            alt=""
+                                          />
+                                        </React.Fragment>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {message?.audio_url && (
+                              <div className={styles["chat-message-audio"]}>
+                                <audio src={message.audio_url} controls />
                               </div>
                             )}
-                          </div>
-                          {message?.audio_url && (
-                            <div className={styles["chat-message-audio"]}>
-                              <audio src={message.audio_url} controls />
-                            </div>
-                          )}
 
-                          <div className={styles["chat-message-action-date"]}>
-                            {isContext
-                              ? Locale.Chat.IsContext
-                              : message.date.toLocaleString()}
+                            <div className={styles["chat-message-action-date"]}>
+                              {isContext
+                                ? Locale.Chat.IsContext
+                                : message.date.toLocaleString()}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      {shouldShowClearContextDivider && <ClearContextDivider />}
-                    </Fragment>
-                  );
-                })}
+                      </Fragment>
+                    );
+                  })}
+              </div>
             </div>
             <div className={styles["chat-input-panel"]}>
               <PromptHints
@@ -2087,7 +2045,7 @@ function ChatView() {
                 setUploading={setUploading}
                 showPromptModal={() => setShowPromptModal(true)}
                 scrollToBottom={scrollToBottom}
-                hitBottom={hitBottom}
+                hitBottom={isAtBottom}
                 uploading={uploading}
                 showPromptHints={() => {
                   // Click again to close
@@ -2119,8 +2077,6 @@ function ChatView() {
                   onInput={(e) => onInput(e.currentTarget.value)}
                   value={userInput}
                   onKeyDown={onInputKeyDown}
-                  onFocus={scrollToBottom}
-                  onClick={scrollToBottom}
                   onPaste={handlePaste}
                   rows={inputRows}
                   autoFocus={autoFocus}

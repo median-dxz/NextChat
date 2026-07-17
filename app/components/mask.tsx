@@ -76,7 +76,6 @@ export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
-  extraListItems?: React.ReactElement;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {
@@ -103,14 +102,19 @@ export function MaskConfig(props: {
 
   return (
     <>
-      <ContextPrompts
-        context={props.mask.context}
-        updateContext={(updater) => {
-          const context = props.mask.context.slice();
-          updater(context);
-          props.updateMask((mask) => (mask.context = context));
-        }}
-      />
+      <section aria-labelledby="preset-context-title">
+        <h3 id="preset-context-title" className={chatStyle["section-title"]}>
+          {Locale.Context.PresetTitle}
+        </h3>
+        <ContextPrompts
+          context={props.mask.context}
+          updateContext={(updater) => {
+            const context = props.mask.context.slice();
+            updater(context);
+            props.updateMask((mask) => (mask.context = context));
+          }}
+        />
+      </section>
 
       <List>
         <ListItem title={Locale.Mask.Config.Avatar}>
@@ -251,7 +255,6 @@ export function MaskConfig(props: {
           modelConfig={{ ...props.mask.modelConfig }}
           updateConfig={updateConfig}
         />
-        {props.extraListItems}
       </List>
     </>
   );

@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import {
   act,
   cleanup,
@@ -18,11 +17,14 @@ vi.mock("../app/components/markdown", () => ({
 }));
 
 import {
+  isMessageInStreamingTurn,
   PromptHints,
   shouldShowMessageActions,
-  useInitialChatScrollState,
-  useScrollToBottom,
 } from "../app/components/chat";
+import {
+  getChatScrollUpdate,
+  useScrollToBottom,
+} from "../app/components/chat-scroll";
 import { ReasoningDisclosure } from "../app/components/reasoning";
 
 const originalScrollTo = HTMLElement.prototype.scrollTo;
@@ -30,11 +32,54 @@ const originalScrollTo = HTMLElement.prototype.scrollTo;
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   HTMLElement.prototype.scrollTo = originalScrollTo;
   vi.restoreAllMocks();
 });
 
 describe("chat interaction regressions", () => {
+  test("locks both messages in a turn while the assistant is streaming", () => {
+    const messages = [
+      { id: "u1", date: "", role: "user" as const, content: "question" },
+      {
+        id: "a1",
+        date: "",
+        role: "assistant" as const,
+        content: "partial",
+        streaming: true,
+      },
+    ];
+
+    expect(isMessageInStreamingTurn(messages, 0)).toBe(true);
+    expect(isMessageInStreamingTurn(messages, 1)).toBe(true);
+  });
+
+  test("derives pagination and bottom state from one scroll snapshot", () => {
+    const update = getChatScrollUpdate({
+      scrollTop: 20,
+      previousScrollTop: 40,
+      clientHeight: 1_000,
+      scrollHeight: 2_000,
+      isMobileScreen: false,
+    });
+
+    expect(update.pageDirection).toBe(-1);
+    expect(update.isHitBottom).toBe(false);
+    expect(update.isScrolledToBottom).toBe(false);
+
+    expect(
+      getChatScrollUpdate({
+        scrollTop: 995,
+        previousScrollTop: 990,
+        clientHeight: 1_000,
+        scrollHeight: 2_000,
+        isMobileScreen: false,
+      }),
+    ).toEqual(
+      expect.objectContaining({ isHitBottom: true, isScrolledToBottom: false }),
+    );
+  });
+
   test("shows actions for a stopped reasoning-only assistant message", () => {
     expect(
       shouldShowMessageActions(
@@ -70,9 +115,6 @@ describe("chat interaction regressions", () => {
     );
 
     await waitFor(() => expect(details?.open).toBe(false));
-    expect(container.querySelector("summary")?.textContent).toBe(
-      "Thought for 1 min 05 sec",
-    );
   });
 
   test("shows live reasoning time while the model is thinking", () => {
@@ -94,11 +136,11 @@ describe("chat interaction regressions", () => {
         reasoning="step one"
         content="answer"
         streaming
-        reasoningDurationMs={12_000}
+        reasoningDurationMs={65_000}
       />,
     );
     expect(container.querySelector("summary")?.textContent).toBe(
-      "Thought for 12 sec",
+      "Thought for 1 min 05 sec",
     );
 
     rerender(
@@ -106,11 +148,11 @@ describe("chat interaction regressions", () => {
         reasoning="step one"
         content=""
         streaming={false}
-        reasoningDurationMs={12_000}
+        reasoningDurationMs={65_000}
       />,
     );
     expect(container.querySelector("summary")?.textContent).toBe(
-      "Thought for 12 sec",
+      "Thought for 1 min 05 sec",
     );
   });
 
@@ -131,27 +173,12 @@ describe("chat interaction regressions", () => {
     await waitFor(() => expect(details.open).toBe(false));
   });
 
-  test("keeps a reasoning-only response visible after a fresh mount", () => {
-    const firstRender = render(
+  test("renders a reasoning-only response expanded on mount", () => {
+    const view = render(
       <ReasoningDisclosure reasoning="reasoning only" content="" />,
     );
-    expect(firstRender.container.querySelector("details")?.open).toBe(true);
-    expect(firstRender.getByText("reasoning only")).toBeTruthy();
-
-    firstRender.unmount();
-    const refreshedRender = render(
-      <ReasoningDisclosure reasoning="reasoning only" content="" />,
-    );
-
-    expect(refreshedRender.container.querySelector("details")?.open).toBe(true);
-    expect(refreshedRender.getByText("reasoning only")).toBeTruthy();
-  });
-
-  test("starts detached from the unmeasured bottom state so mount can scroll", () => {
-    const { result } = renderHook(() => useInitialChatScrollState());
-
-    expect(result.current.isScrolledToBottom).toBe(false);
-    expect(result.current.isAttachWithTop).toBe(false);
+    expect(view.container.querySelector("details")?.open).toBe(true);
+    expect(view.getByText("reasoning only")).toBeTruthy();
   });
 
   test("scrolls the chat container to its measured bottom on mount", async () => {
@@ -165,12 +192,13 @@ describe("chat interaction regressions", () => {
     });
 
     function Harness() {
-      const scrollRef = useRef<HTMLDivElement>(null);
-      const { isScrolledToBottom, isAttachWithTop } =
-        useInitialChatScrollState();
-      useScrollToBottom(scrollRef, isScrolledToBottom || isAttachWithTop, []);
+      const { scrollRef, contentRef } = useScrollToBottom();
 
-      return <div ref={scrollRef} />;
+      return (
+        <div ref={scrollRef}>
+          <div ref={contentRef} />
+        </div>
+      );
     }
 
     HTMLElement.prototype.scrollTo = scrollTo;
@@ -179,6 +207,164 @@ describe("chat interaction regressions", () => {
     await waitFor(() => {
       expect(scrollTo).toHaveBeenCalledWith(0, 1200);
     });
+  });
+
+  test("cancels a pending bottom scroll when user scrolling starts", () => {
+    const scrollTo = vi.fn();
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      nextFrame += 1;
+      frames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frame) => {
+      frames.delete(frame);
+    });
+
+    const element = document.createElement("div");
+    element.scrollTo = scrollTo;
+    Object.defineProperty(element, "scrollHeight", { value: 1_200 });
+    const { result } = renderHook(() => useScrollToBottom());
+    result.current.scrollRef.current = element;
+
+    act(() => result.current.requestBottom("send"));
+    act(() => result.current.userScrollHandlers.onWheel());
+    act(() => {
+      for (const callback of frames.values()) callback(0);
+    });
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  test("coalesces bottom requests and reads the latest scroll height", () => {
+    const scrollTo = vi.fn();
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      nextFrame += 1;
+      frames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frame) => {
+      frames.delete(frame);
+    });
+
+    const runFrames = () => {
+      const callbacks = Array.from(frames.values());
+      frames.clear();
+      callbacks.forEach((callback) => callback(0));
+    };
+    const element = document.createElement("div");
+    element.scrollTo = scrollTo;
+    let scrollHeight = 1_200;
+    Object.defineProperty(element, "scrollHeight", {
+      get: () => scrollHeight,
+    });
+    const { result } = renderHook(() => useScrollToBottom());
+    result.current.scrollRef.current = element;
+
+    act(runFrames);
+    scrollTo.mockClear();
+    act(() => result.current.requestBottom("send"));
+    act(() => result.current.requestBottom("button"));
+    scrollHeight = 1_450;
+    act(runFrames);
+
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_450);
+  });
+
+  test("follows content resize until a user scroll detaches", () => {
+    let notifyResize = () => {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = () => callback([], this as unknown as ResizeObserver);
+        }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      },
+    );
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const scrollTo = vi.fn();
+    HTMLElement.prototype.scrollTo = scrollTo;
+
+    function Harness() {
+      const { scrollRef, contentRef, userScrollHandlers } = useScrollToBottom();
+      return (
+        <div ref={scrollRef} onWheel={userScrollHandlers.onWheel}>
+          <div ref={contentRef} />
+        </div>
+      );
+    }
+
+    const view = render(<Harness />);
+    scrollTo.mockClear();
+    act(notifyResize);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+
+    fireEvent.wheel(view.container.firstElementChild!);
+    scrollTo.mockClear();
+    act(notifyResize);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  test("resumes following after user scrolling settles at the bottom", () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const element = document.createElement("div");
+    const scrollTo = vi.fn();
+    let scrollTop = 900;
+    let scrollHeight = 1_200;
+    Object.defineProperties(element, {
+      scrollTop: { get: () => scrollTop, set: (value) => (scrollTop = value) },
+      scrollHeight: { get: () => scrollHeight },
+      clientHeight: { get: () => 300 },
+    });
+    element.scrollTo = scrollTo;
+    const { result } = renderHook(() => useScrollToBottom());
+    result.current.scrollRef.current = element;
+
+    act(() => result.current.userScrollHandlers.onWheel());
+    act(() => result.current.handleScroll());
+    act(() => vi.advanceTimersByTime(120));
+
+    scrollHeight = 1_300;
+    act(() => result.current.requestBottom("content-resize"));
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_300);
+  });
+
+  test("does not treat a synthetic scroll event as user detachment", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const element = document.createElement("div");
+    const scrollTo = vi.fn();
+    Object.defineProperties(element, {
+      scrollTop: { value: 600, writable: true },
+      scrollHeight: { value: 1_300, writable: true },
+      clientHeight: { value: 300 },
+    });
+    element.scrollTo = scrollTo;
+    const { result } = renderHook(() => useScrollToBottom());
+    result.current.scrollRef.current = element;
+
+    act(() => result.current.requestBottom("send"));
+    scrollTo.mockClear();
+    act(() => result.current.handleScroll());
+    act(() => result.current.requestBottom("content-resize"));
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_300);
   });
 
   test("resets prompt selection when the result set changes", () => {
