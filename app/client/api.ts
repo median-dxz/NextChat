@@ -220,7 +220,7 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     const isGoogle = modelConfig.providerName === ServiceProvider.Google;
     const isAzure = modelConfig.providerName === ServiceProvider.Azure;
     const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
-    const isBaidu = modelConfig.providerName == ServiceProvider.Baidu;
+    const isBaidu = modelConfig.providerName === ServiceProvider.Baidu;
     const isByteDance = modelConfig.providerName === ServiceProvider.ByteDance;
     const isAlibaba = modelConfig.providerName === ServiceProvider.Alibaba;
     const isMoonshot = modelConfig.providerName === ServiceProvider.Moonshot;
@@ -232,36 +232,52 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       modelConfig.providerName === ServiceProvider.SiliconFlow;
     const isAI302 = modelConfig.providerName === ServiceProvider["302.AI"];
     const isEnabledAccessControl = accessStore.enabledAccessControl();
-    const apiKey = isGoogle
-      ? accessStore.googleApiKey
-      : isAzure
-        ? accessStore.azureApiKey
-        : isAnthropic
-          ? accessStore.anthropicApiKey
-          : isByteDance
-            ? accessStore.bytedanceApiKey
-            : isAlibaba
-              ? accessStore.alibabaApiKey
-              : isMoonshot
-                ? accessStore.moonshotApiKey
-                : isXAI
-                  ? accessStore.xaiApiKey
-                  : isDeepSeek
-                    ? accessStore.deepseekApiKey
-                    : isChatGLM
-                      ? accessStore.chatglmApiKey
-                      : isSiliconFlow
-                        ? accessStore.siliconflowApiKey
-                        : isIflytek
-                          ? accessStore.iflytekApiKey &&
-                            accessStore.iflytekApiSecret
-                            ? accessStore.iflytekApiKey +
-                              ":" +
-                              accessStore.iflytekApiSecret
-                            : ""
-                          : isAI302
-                            ? accessStore.ai302ApiKey
-                            : accessStore.openaiApiKey;
+
+    let apiKey: string;
+    switch (modelConfig.providerName) {
+      case ServiceProvider.Google:
+        apiKey = accessStore.googleApiKey;
+        break;
+      case ServiceProvider.Azure:
+        apiKey = accessStore.azureApiKey;
+        break;
+      case ServiceProvider.Anthropic:
+        apiKey = accessStore.anthropicApiKey;
+        break;
+      case ServiceProvider.ByteDance:
+        apiKey = accessStore.bytedanceApiKey;
+        break;
+      case ServiceProvider.Alibaba:
+        apiKey = accessStore.alibabaApiKey;
+        break;
+      case ServiceProvider.Moonshot:
+        apiKey = accessStore.moonshotApiKey;
+        break;
+      case ServiceProvider.XAI:
+        apiKey = accessStore.xaiApiKey;
+        break;
+      case ServiceProvider.DeepSeek:
+        apiKey = accessStore.deepseekApiKey;
+        break;
+      case ServiceProvider.ChatGLM:
+        apiKey = accessStore.chatglmApiKey;
+        break;
+      case ServiceProvider.SiliconFlow:
+        apiKey = accessStore.siliconflowApiKey;
+        break;
+      case ServiceProvider.Iflytek:
+        apiKey =
+          accessStore.iflytekApiKey && accessStore.iflytekApiSecret
+            ? `${accessStore.iflytekApiKey}:${accessStore.iflytekApiSecret}`
+            : "";
+        break;
+      case ServiceProvider["302.AI"]:
+        apiKey = accessStore.ai302ApiKey;
+        break;
+      default:
+        apiKey = accessStore.openaiApiKey;
+    }
+
     return {
       isGoogle,
       isAzure,
@@ -296,15 +312,15 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     isAzure,
     isAnthropic,
     isBaidu,
-    isByteDance,
-    isAlibaba,
-    isMoonshot,
-    isIflytek,
-    isDeepSeek,
-    isXAI,
-    isChatGLM,
-    isSiliconFlow,
-    isAI302,
+    // isByteDance,
+    // isAlibaba,
+    // isMoonshot,
+    // isIflytek,
+    // isDeepSeek,
+    // isXAI,
+    // isChatGLM,
+    // isSiliconFlow,
+    // isAI302,
     apiKey,
     isEnabledAccessControl,
   } = getConfig();
