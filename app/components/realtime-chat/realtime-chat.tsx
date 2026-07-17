@@ -7,7 +7,11 @@ import clsx from "clsx";
 
 import { useState, useRef, useEffect } from "react";
 
-import { useChatStore, createMessage, useAppConfig } from "@/app/store";
+import {
+  useChatStore,
+  createConversationNode,
+  useAppConfig,
+} from "@/app/store";
 
 import { IconButton } from "@/app/components/button";
 
@@ -151,13 +155,22 @@ export function RealtimeChat({
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
       if (item.type === "message" && item.role === "assistant") {
-        const botMessage = createMessage({
+        const parent = session.activeCursorId
+          ? session.messages.find(
+              (message) => message.id === session.activeCursorId,
+            )
+          : undefined;
+        const botMessage = createConversationNode({
           role: item.role,
           content: "",
+          parentId: parent?.id,
+          outlineLevel: parent?.outlineLevel ?? 1,
         });
         // add bot message first
         chatStore.updateTargetSession(session, (session) => {
           session.messages = session.messages.concat([botMessage]);
+          session.rootNodeId ??= botMessage.id;
+          session.activeCursorId = botMessage.id;
         });
         let hasAudio = false;
         for await (const content of item) {
@@ -203,12 +216,21 @@ export function RealtimeChat({
   const handleInputAudio = async (item: RTInputAudioItem) => {
     await item.waitForCompletion();
     if (item.transcription) {
-      const userMessage = createMessage({
+      const parent = session.activeCursorId
+        ? session.messages.find(
+            (message) => message.id === session.activeCursorId,
+          )
+        : undefined;
+      const userMessage = createConversationNode({
         role: "user",
         content: item.transcription,
+        parentId: parent?.id,
+        outlineLevel: parent?.outlineLevel ?? 1,
       });
       chatStore.updateTargetSession(session, (session) => {
         session.messages = session.messages.concat([userMessage]);
+        session.rootNodeId ??= userMessage.id;
+        session.activeCursorId = userMessage.id;
       });
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;

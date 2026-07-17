@@ -1,16 +1,16 @@
 import type { ChatMessage } from "../store/chat";
 import { getMessageImages, getMessageTextContent } from "../utils";
 
-export function getVisibleMessages(messages: ChatMessage[]) {
+export function getVisibleMessages<T extends ChatMessage>(messages: T[]): T[] {
   return messages.filter((message) => !message.deletedAt);
 }
 
-export function mergeEditedMessagesWithTombstones(
-  originalMessages: ChatMessage[],
-  editedMessages: ChatMessage[],
-) {
+export function mergeEditedMessagesWithTombstones<T extends ChatMessage>(
+  originalMessages: T[],
+  editedMessages: T[],
+): T[] {
   let editedIndex = 0;
-  const mergedMessages: ChatMessage[] = [];
+  const mergedMessages: T[] = [];
 
   for (const message of originalMessages) {
     if (message.deletedAt) {
@@ -26,8 +26,8 @@ export function mergeEditedMessagesWithTombstones(
   return mergedMessages;
 }
 
-function prepareMessagesForResend(
-  messages: ChatMessage[],
+function prepareMessagesForResend<T extends ChatMessage>(
+  messages: T[],
   targetMessageId: string,
   contextBoundaryAfterMessageId?: string,
 ) {
@@ -72,20 +72,17 @@ function prepareMessagesForResend(
   };
 }
 
-export async function runResendTransaction({
+export async function runResendTransaction<T extends ChatMessage>({
   messages,
   targetMessageId,
   contextBoundaryAfterMessageId,
   update,
   resend,
 }: {
-  messages: ChatMessage[];
+  messages: T[];
   targetMessageId: string;
   contextBoundaryAfterMessageId?: string;
-  update: (
-    messages: ChatMessage[],
-    contextBoundaryAfterMessageId?: string,
-  ) => void;
+  update: (messages: T[], contextBoundaryAfterMessageId?: string) => void;
   resend: (textContent: string, images: string[]) => Promise<void>;
 }) {
   const prepared = prepareMessagesForResend(

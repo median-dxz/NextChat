@@ -28,6 +28,7 @@ import {
   ConversationSummary,
   createSummarySourceDigest,
 } from "../app/utils/context-compression";
+import { toLevelOneConversationNodes } from "../app/utils/conversation-graph";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -51,7 +52,9 @@ function setSession(
   modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {},
 ) {
   const session = structuredClone(initialSession);
-  session.messages = messages;
+  session.messages = toLevelOneConversationNodes(messages);
+  session.rootNodeId = session.messages[0]?.id;
+  session.activeCursorId = session.messages.at(-1)?.id;
   session.topic = DEFAULT_TOPIC;
   session.mask.modelConfig = {
     ...session.mask.modelConfig,
@@ -82,8 +85,36 @@ afterEach(() => {
 });
 
 describe("chat store derived state", () => {
-  test("migrates the original memory prompt directly into a checkpoint", async () => {
-    const persistedSession = structuredClone(initialSession) as ChatSession & {
+  test("forks graph nodes and remaps root, cursor, and parent references", () => {
+    const original = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    original.pinnedInputs = [message("system", "pinned")];
+    original.globalMemory = {
+      enabled: true,
+      prompt: "remember",
+      content: "memory",
+      revision: 2,
+    };
+
+    useChatStore.getState().forkSession();
+
+    const fork = useChatStore.getState().sessions[0];
+    expect(fork.id).not.toBe(original.id);
+    expect(fork.rootNodeId).toBe(fork.messages[0].id);
+    expect(fork.activeCursorId).toBe(fork.messages[1].id);
+    expect(fork.messages[1].parentId).toBe(fork.messages[0].id);
+    expect(fork.messages.map((item) => item.id)).not.toEqual(
+      original.messages.map((item) => item.id),
+    );
+    expect(fork.pinnedInputs[0].id).not.toBe(original.pinnedInputs[0].id);
+    expect(fork.globalMemory).toEqual(original.globalMemory);
+  });
+
+  test("migrates the original memory prompt into global memory and a level-one graph", async () => {
+    const persistedSession = structuredClone(initialSession) as any as {
+      messages: ChatMessage[];
       memoryPrompt: string;
       lastSummarizeIndex: number;
       clearContextIndex: number;
@@ -109,21 +140,62 @@ describe("chat store derived state", () => {
 
     await useChatStore.persist.rehydrate();
 
-    const migrated = useChatStore.getState().currentSession().summaries[0];
-    expect(migrated).toEqual(
-      expect.objectContaining({
-        kind: "checkpoint",
-        content: "legacy memory",
-        sourceEntryIds: persistedSession.messages.map((item) => item.id),
+    const migrated = useChatStore.getState().currentSession();
+    expect(migrated.globalMemory).toEqual(
+      expect.objectContaining({ enabled: true, content: "legacy memory" }),
+    );
+    expect(migrated.messages.map((item) => item.outlineLevel)).toEqual([1, 1]);
+    expect(migrated.messages[1].parentId).toBe(migrated.messages[0].id);
+    expect(migrated.rootNodeId).toBe(migrated.messages[0].id);
+    expect(migrated.activeCursorId).toBe(migrated.messages[1].id);
+  });
+
+  test("materializes legacy mask context and preserves its context boundary", async () => {
+    const persistedSession = structuredClone(initialSession) as any;
+    persistedSession.messages = [
+      message("user", "question"),
+      message("assistant", "answer"),
+    ];
+    persistedSession.mask.context = [
+      message("system", "pinned system"),
+      message("user", "preset user"),
+      message("assistant", "preset answer"),
+    ];
+    persistedSession.memoryPrompt = "";
+    persistedSession.lastSummarizeIndex = 0;
+    persistedSession.clearContextIndex = 1;
+    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
+      JSON.stringify({
+        state: {
+          sessions: [persistedSession],
+          currentSessionIndex: 0,
+          lastInput: "",
+          _hasHydrated: true,
+        },
+        version: 3.3,
       }),
     );
-    expect(migrated.sourceDigest).toBe(
-      createSummarySourceDigest(persistedSession.messages),
+
+    await useChatStore.persist.rehydrate();
+
+    const migrated = useChatStore.getState().currentSession();
+    expect(migrated.pinnedInputs.map((item) => item.content)).toEqual([
+      "pinned system",
+    ]);
+    expect(migrated.messages.map((item) => item.content)).toEqual([
+      "preset user",
+      "preset answer",
+      "question",
+      "answer",
+    ]);
+    expect(migrated.contextBoundaryAfterMessageId).toBe(
+      migrated.messages[2].id,
     );
+    expect(migrated.mask.context).toEqual([]);
   });
 
   test("persists reasoning and restores it during hydration", async () => {
-    const persistedSession = structuredClone(initialSession);
+    const persistedSession = structuredClone(initialSession) as any;
     persistedSession.messages = [
       {
         ...message("assistant", "final answer", "persisted reasoning"),
@@ -155,7 +227,7 @@ describe("chat store derived state", () => {
   });
 
   test("stops a persisted reasoning stream during hydration", async () => {
-    const persistedSession = structuredClone(initialSession);
+    const persistedSession = structuredClone(initialSession) as any;
     persistedSession.messages = [
       {
         ...message("assistant", "", "partial reasoning"),
@@ -304,7 +376,7 @@ describe("chat store derived state", () => {
     expect(session.summaries).toHaveLength(1);
   });
 
-  test("safely excludes an orphan assistant left by a deleted user", async () => {
+  test("preserves an assistant when its deleted predecessor is not migrated", async () => {
     setSession(
       [
         {
@@ -321,7 +393,9 @@ describe("chat store derived state", () => {
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([]);
+    ).resolves.toEqual([
+      expect.objectContaining({ role: "assistant", content: "orphan answer" }),
+    ]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 

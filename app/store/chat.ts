@@ -48,6 +48,14 @@ import { collectModelsWithDefaultModel } from "../utils/model";
 import { createEmptyMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "@/app/mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
+import {
+  ConversationNode,
+  GlobalMemory,
+  createEmptyGlobalMemory,
+  remapConversationNodes,
+  toLevelOneConversationNodes,
+  validateConversationGraph,
+} from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
 const summaryJobs = new Map<string, Promise<void>>();
@@ -124,6 +132,19 @@ export function createMessage(override: Partial<ChatMessage>): ChatMessage {
   };
 }
 
+export function createConversationNode(
+  override: Partial<ConversationNode>,
+): ConversationNode {
+  return {
+    ...createMessage(override),
+    outlineLevel: override.outlineLevel ?? 1,
+    parentId: override.parentId,
+    activeBranchRootId: override.activeBranchRootId,
+    hidden: override.hidden,
+    nodeSummaries: override.nodeSummaries,
+  };
+}
+
 export interface ChatStat {
   tokenCount: number;
   wordCount: number;
@@ -135,7 +156,11 @@ export interface ChatSession {
   topic: string;
 
   summaries: ConversationSummary[];
-  messages: ChatMessage[];
+  messages: ConversationNode[];
+  rootNodeId?: string;
+  activeCursorId?: string;
+  pinnedInputs: ChatMessage[];
+  globalMemory: GlobalMemory;
   stat: ChatStat;
   lastUpdate: number;
   contextBoundaryAfterMessageId?: string;
@@ -155,6 +180,8 @@ function createEmptySession(): ChatSession {
     topic: DEFAULT_TOPIC,
     summaries: [],
     messages: [],
+    pinnedInputs: [],
+    globalMemory: createEmptyGlobalMemory(),
     stat: {
       tokenCount: 0,
       wordCount: 0,
@@ -163,6 +190,62 @@ function createEmptySession(): ChatSession {
     lastUpdate: Date.now(),
     mask: createEmptyMask(),
   };
+}
+
+function materializeMaskContext(session: ChatSession) {
+  const context = session.mask.context.slice();
+  const pinnedInputs = context.filter((message) => message.role === "system");
+  const startingMessages = context.filter(
+    (message) => message.role === "user" || message.role === "assistant",
+  );
+  const nodes = toLevelOneConversationNodes(startingMessages);
+  session.pinnedInputs = pinnedInputs.map((message) => ({ ...message }));
+  session.messages = nodes;
+  session.rootNodeId = nodes[0]?.id;
+  session.activeCursorId = nodes.at(-1)?.id;
+  session.mask = { ...session.mask, context: [] };
+}
+
+function migrateSessionToConversationGraph(session: any) {
+  const oldMessages = Array.isArray(session.messages) ? session.messages : [];
+  const maskContext = Array.isArray(session.mask?.context)
+    ? session.mask.context
+    : [];
+  const presetNodes = maskContext.filter(
+    (message: ChatMessage) =>
+      message.role === "user" || message.role === "assistant",
+  );
+  const nodes = toLevelOneConversationNodes([...presetNodes, ...oldMessages]);
+  const oldBoundary = Math.max(0, session.clearContextIndex ?? 0);
+  const presetOffset = presetNodes.length;
+
+  session.messages = nodes;
+  session.rootNodeId = nodes[0]?.id;
+  session.activeCursorId = nodes.at(-1)?.id;
+  session.pinnedInputs = [
+    ...(Array.isArray(session.pinnedInputs) ? session.pinnedInputs : []),
+    ...maskContext.filter((message: ChatMessage) => message.role === "system"),
+  ];
+  const oldMemory = String(session.memoryPrompt ?? "");
+  session.globalMemory = oldMemory.trim()
+    ? {
+        ...createEmptyGlobalMemory(),
+        enabled: true,
+        content: oldMemory,
+      }
+    : (session.globalMemory ?? createEmptyGlobalMemory());
+  session.contextBoundaryAfterMessageId ??=
+    oldBoundary > 0 ? nodes[presetOffset + oldBoundary - 1]?.id : undefined;
+  session.summaries ??= [];
+  session.mask.context = [];
+  session.mask.modelConfig.contextWindowTokens ??= 32_000;
+  session.mask.modelConfig.titleModel ??= "";
+  session.mask.modelConfig.titleProviderName ??= "";
+  delete session.memoryPrompt;
+  delete session.lastSummarizeIndex;
+  delete session.clearContextIndex;
+
+  validateConversationGraph(session);
 }
 
 function getSummarizeModel(
@@ -309,7 +392,7 @@ export const useChatStore = createPersistStore(
       );
       const sourceMessages = sourceEntryIds
         .map((id) => messagesById.get(id))
-        .filter((message): message is ChatMessage => Boolean(message));
+        .filter((message): message is ConversationNode => Boolean(message));
       if (
         sourceMessages.length !== sourceEntryIds.length ||
         createSummarySourceDigest(sourceMessages) !== sourceDigest
@@ -330,7 +413,7 @@ export const useChatStore = createPersistStore(
       ) {
         return;
       }
-      const inputMessages = useSummaryInputs
+      const inputMessages: ChatMessage[] = useSummaryInputs
         ? inputSummaries.map((summary) =>
             createMessage({
               role: "system",
@@ -368,7 +451,7 @@ export const useChatStore = createPersistStore(
       );
       const currentSourceMessages = sourceEntryIds
         .map((id) => currentMessagesById.get(id))
-        .filter((message): message is ChatMessage => Boolean(message));
+        .filter((message): message is ConversationNode => Boolean(message));
       if (
         currentSourceMessages.length !== sourceEntryIds.length ||
         createSummarySourceDigest(currentSourceMessages) !== sourceDigest
@@ -402,12 +485,24 @@ export const useChatStore = createPersistStore(
 
         newSession.topic = currentSession.topic;
         // 深拷贝消息
-        const messageIds = new Map<string, string>();
-        newSession.messages = currentSession.messages.map((msg) => {
-          const id = nanoid();
-          messageIds.set(msg.id, id);
-          return { ...msg, id };
-        });
+        const { nodes, ids: messageIds } = remapConversationNodes(
+          currentSession.messages,
+          nanoid,
+        );
+        newSession.messages = nodes;
+        newSession.rootNodeId = currentSession.rootNodeId
+          ? messageIds.get(currentSession.rootNodeId)
+          : undefined;
+        newSession.activeCursorId = currentSession.activeCursorId
+          ? messageIds.get(currentSession.activeCursorId)
+          : undefined;
+        newSession.pinnedInputs = currentSession.pinnedInputs.map(
+          (message) => ({
+            ...message,
+            id: nanoid(),
+          }),
+        );
+        newSession.globalMemory = { ...currentSession.globalMemory };
         // Summaries are derived from message IDs, so the fork rebuilds them.
         newSession.summaries = [];
         newSession.contextBoundaryAfterMessageId =
@@ -480,6 +575,7 @@ export const useChatStore = createPersistStore(
             },
           };
           session.topic = mask.name;
+          materializeMaskContext(session);
         }
 
         set((state) => ({
@@ -591,16 +687,25 @@ export const useChatStore = createPersistStore(
           ];
         }
 
-        let userMessage: ChatMessage = createMessage({
+        const parent = session.activeCursorId
+          ? session.messages.find(
+              (message) => message.id === session.activeCursorId,
+            )
+          : undefined;
+        let userMessage: ConversationNode = createConversationNode({
           role: "user",
           content: mContent,
           isMcpResponse,
+          parentId: parent?.id,
+          outlineLevel: parent?.outlineLevel ?? 1,
         });
 
-        const botMessage: ChatMessage = createMessage({
+        const botMessage: ConversationNode = createConversationNode({
           role: "assistant",
           streaming: true,
           model: modelConfig.model,
+          parentId: userMessage.id,
+          outlineLevel: userMessage.outlineLevel,
         });
         let reasoningStartedAt: number | undefined;
         const finishReasoningTiming = () => {
@@ -638,6 +743,8 @@ export const useChatStore = createPersistStore(
             savedUserMessage,
             botMessage,
           ]);
+          session.rootNodeId ??= savedUserMessage.id;
+          session.activeCursorId = botMessage.id;
         });
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
@@ -729,7 +836,7 @@ export const useChatStore = createPersistStore(
       async getMessagesWithMemory(currentInput?: RequestMessage) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
-        const contextPrompts = session.mask.context.slice();
+        const contextPrompts = session.pinnedInputs.slice();
 
         // system prompts, to get close to OpenAI Web ChatGPT
         const shouldInjectSystemPrompts =
@@ -841,7 +948,7 @@ export const useChatStore = createPersistStore(
           );
         const selectedMessages = planned.plan.selectedMessageIds
           .map((id) => planned.current.messages.find((item) => item.id === id))
-          .filter((item): item is ChatMessage => Boolean(item));
+          .filter((item): item is ConversationNode => Boolean(item));
 
         return [
           ...systemPrompts,
@@ -867,6 +974,9 @@ export const useChatStore = createPersistStore(
         get().updateTargetSession(session, (session) => {
           session.messages = [];
           session.summaries = [];
+          session.rootNodeId = undefined;
+          session.activeCursorId = undefined;
+          session.globalMemory = createEmptyGlobalMemory();
           session.contextBoundaryAfterMessageId = undefined;
         });
       },
@@ -908,17 +1018,16 @@ export const useChatStore = createPersistStore(
             0,
             messages.length - modelConfig.historyMessageCount,
           );
-          const topicMessages = messages
-            .slice(
+          const topicMessages: ChatMessage[] = [
+            ...messages.slice(
               startIndex < messages.length ? startIndex : messages.length - 1,
               messages.length,
-            )
-            .concat(
-              createMessage({
-                role: "user",
-                content: Locale.Store.Prompt.Topic,
-              }),
-            );
+            ),
+            createMessage({
+              role: "user",
+              content: Locale.Store.Prompt.Topic,
+            }),
+          ];
           titleApi.llm.chat({
             messages: topicMessages,
             config: {
@@ -1124,13 +1233,19 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 4.2,
+    version: 4.3,
     merge(persistedState, currentState) {
       const restoredState = persistedState as
         Partial<typeof DEFAULT_CHAT_STATE> | undefined;
       const sessions = restoredState?.sessions ?? currentState.sessions;
 
       sessions.forEach((session) => {
+        session.pinnedInputs ??= [];
+        session.globalMemory ??= createEmptyGlobalMemory();
+        if (session.messages.length > 0) {
+          session.rootNodeId ??= session.messages[0]?.id;
+          session.activeCursorId ??= session.messages.at(-1)?.id;
+        }
         session.messages.forEach((message) => {
           if (message.streaming === true) {
             message.streaming = false;
@@ -1208,38 +1323,9 @@ export const useChatStore = createPersistStore(
         });
       }
 
-      if (version < 4.2) {
+      if (version < 4.3) {
         newState.sessions.forEach((session: any) => {
-          const oldMemory = String(session.memoryPrompt ?? "").trim();
-          const oldBoundary = Math.max(0, session.clearContextIndex ?? 0);
-          const oldEnd = Math.min(
-            session.messages.length,
-            Math.max(oldBoundary, session.lastSummarizeIndex ?? 0),
-          );
-          session.summaries = [];
-          if (oldMemory && oldEnd > oldBoundary) {
-            const sourceMessages = session.messages.slice(oldBoundary, oldEnd);
-            if (sourceMessages.length > 0) {
-              session.summaries.push({
-                id: nanoid(),
-                kind: "checkpoint",
-                content: oldMemory,
-                sourceEntryIds: sourceMessages.map(
-                  (message: any) => message.id,
-                ),
-                sourceDigest: createSummarySourceDigest(sourceMessages),
-                inputSummaryIds: [],
-              });
-            }
-          }
-          session.contextBoundaryAfterMessageId =
-            oldBoundary > 0 ? session.messages[oldBoundary - 1]?.id : undefined;
-          session.mask.modelConfig.contextWindowTokens ??= 32_000;
-          session.mask.modelConfig.titleModel ??= "";
-          session.mask.modelConfig.titleProviderName ??= "";
-          delete session.memoryPrompt;
-          delete session.lastSummarizeIndex;
-          delete session.clearContextIndex;
+          migrateSessionToConversationGraph(session);
         });
       }
 
