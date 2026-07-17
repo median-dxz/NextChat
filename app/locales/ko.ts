@@ -64,7 +64,6 @@ const ko: PartialLocaleType = {
       newm: "마스크에서 새 채팅",
       next: "다음 채팅",
       prev: "이전 채팅",
-      clear: "컨텍스트 지우기",
       fork: "채팅 복사",
       del: "채팅 삭제",
     },
@@ -106,7 +105,6 @@ const ko: PartialLocaleType = {
       copyLastMessage: "마지막 답변 복사",
       copyLastCode: "마지막 코드 블록 복사",
       showShortcutKey: "단축키 보기",
-      clearContext: "컨텍스트 지우기",
     },
   },
   Export: {
@@ -656,8 +654,6 @@ const ko: PartialLocaleType = {
     Toast: (x: any) => ` ${x} 개의 프리셋 프롬프트 포함됨`,
     Edit: "현재 대화 설정",
     Add: "대화 추가",
-    Clear: "컨텍스트가 지워졌습니다.",
-    Revert: "컨텍스트 복원",
   },
   Discovery: {
     Name: "디스커버리",

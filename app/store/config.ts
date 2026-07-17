@@ -70,6 +70,7 @@ export const DEFAULT_CONFIG = {
     temperature: 0.5,
     top_p: 1,
     max_tokens: 4000,
+    contextWindowTokens: 32000,
     presence_penalty: 0,
     frequency_penalty: 0,
     sendMemory: true,
@@ -77,6 +78,8 @@ export const DEFAULT_CONFIG = {
     compressMessageLengthThreshold: 1000,
     compressModel: "",
     compressProviderName: "",
+    titleModel: "",
+    titleProviderName: "",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,
@@ -148,6 +151,9 @@ export const ModalConfigValidator = {
   max_tokens(x: number) {
     return limitNumber(x, 0, 512000, 1024);
   },
+  contextWindowTokens(x: number) {
+    return limitNumber(x, 1024, 2_000_000, 32_000);
+  },
   presence_penalty(x: number) {
     return limitNumber(x, -2, 2, 0);
   },
@@ -196,7 +202,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.1,
+    version: 4.3,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -239,7 +245,7 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.template =
           state.modelConfig.template !== DEFAULT_INPUT_TEMPLATE
             ? state.modelConfig.template
-            : config?.template ?? DEFAULT_INPUT_TEMPLATE;
+            : (config?.template ?? DEFAULT_INPUT_TEMPLATE);
       }
 
       if (version < 4.1) {
@@ -247,6 +253,17 @@ export const useAppConfig = createPersistStore(
           DEFAULT_CONFIG.modelConfig.compressModel;
         state.modelConfig.compressProviderName =
           DEFAULT_CONFIG.modelConfig.compressProviderName;
+      }
+
+      if (version < 4.2) {
+        state.modelConfig.contextWindowTokens =
+          DEFAULT_CONFIG.modelConfig.contextWindowTokens;
+      }
+
+      if (version < 4.3) {
+        state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
+        state.modelConfig.titleProviderName =
+          DEFAULT_CONFIG.modelConfig.titleProviderName;
       }
 
       return state as any;

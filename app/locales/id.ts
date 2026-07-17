@@ -61,7 +61,6 @@ const id: PartialLocaleType = {
       newm: "Buat Obrolan Baru dari Masker",
       next: "Obrolan Berikutnya",
       prev: "Obrolan Sebelumnya",
-      clear: "Hapus Konteks",
       del: "Hapus Obrolan",
     },
     InputActions: {
@@ -495,8 +494,6 @@ const id: PartialLocaleType = {
     Toast: (x: any) => `Berisi ${x} prompt preset`,
     Edit: "Pengaturan Obrolan Saat Ini",
     Add: "Tambah Obrolan",
-    Clear: "Konteks telah dihapus",
-    Revert: "Kembalikan Konteks",
   },
   Plugin: {
     Name: "Plugin",

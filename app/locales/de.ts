@@ -62,7 +62,6 @@ const de: PartialLocaleType = {
       newm: "Neues Gespräch aus Maske erstellen",
       next: "Nächstes Gespräch",
       prev: "Vorheriges Gespräch",
-      clear: "Kontext löschen",
       del: "Gespräch löschen",
     },
     InputActions: {
@@ -436,7 +435,8 @@ const de: PartialLocaleType = {
       AI302: {
         ApiKey: {
           Title: "Schnittstellenschlüssel",
-          SubTitle: "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
+          SubTitle:
+            "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
           Placeholder: "302.AI API-Schlüssel",
         },
         Endpoint: {
@@ -508,8 +508,6 @@ const de: PartialLocaleType = {
     Toast: (x: any) => `Beinhaltet ${x} vordefinierte Eingabeaufforderungen`,
     Edit: "Aktuelle Gesprächseinstellungen",
     Add: "Neues Gespräch hinzufügen",
-    Clear: "Kontext gelöscht",
-    Revert: "Kontext wiederherstellen",
   },
   Plugin: {
     Name: "Plugins",

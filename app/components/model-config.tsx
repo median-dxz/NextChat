@@ -19,7 +19,12 @@ export function ModelConfigList(props: {
     "provider.providerName",
   );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
-  const compressModelValue = `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`;
+  const compressModelValue = props.modelConfig.compressModel
+    ? `${props.modelConfig.compressModel}@${props.modelConfig.compressProviderName}`
+    : "@";
+  const titleModelValue = props.modelConfig.titleModel
+    ? `${props.modelConfig.titleModel}@${props.modelConfig.titleProviderName}`
+    : "@";
 
   return (
     <>
@@ -105,6 +110,27 @@ export function ModelConfigList(props: {
                 (config.max_tokens = ModalConfigValidator.max_tokens(
                   e.currentTarget.valueAsNumber,
                 )),
+            )
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.ContextWindow.Title}
+        subTitle={Locale.Settings.ContextWindow.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.ContextWindow.Title}
+          type="number"
+          min={1024}
+          max={2000000}
+          value={props.modelConfig.contextWindowTokens}
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.contextWindowTokens =
+                  ModalConfigValidator.contextWindowTokens(
+                    e.currentTarget.valueAsNumber,
+                  )),
             )
           }
         ></input>
@@ -259,6 +285,35 @@ export function ModelConfigList(props: {
             });
           }}
         >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
+          {allModels
+            .filter((v) => v.available)
+            .map((v, i) => (
+              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
+                {v.displayName}({v.provider?.providerName})
+              </option>
+            ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.TitleModel.Title}
+        subTitle={Locale.Settings.TitleModel.SubTitle}
+      >
+        <Select
+          className={styles["select-compress-model"]}
+          aria-label={Locale.Settings.TitleModel.Title}
+          value={titleModelValue}
+          onChange={(e) => {
+            const [model, providerName] = getModelProvider(
+              e.currentTarget.value,
+            );
+            props.updateConfig((config) => {
+              config.titleModel = ModalConfigValidator.model(model);
+              config.titleProviderName = providerName as ServiceProvider;
+            });
+          }}
+        >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
           {allModels
             .filter((v) => v.available)
             .map((v, i) => (

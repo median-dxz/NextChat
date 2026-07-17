@@ -63,7 +63,6 @@ const no: PartialLocaleType = {
       newm: "Start samtale fra maske",
       next: "Neste samtale",
       prev: "Forrige samtale",
-      clear: "Rydd kontekst",
       del: "Slett samtale",
     },
     InputActions: {
@@ -500,8 +499,6 @@ const no: PartialLocaleType = {
     Toast: (x: any) => `Inneholder ${x} forhåndsinnstilte oppfordringer`,
     Edit: "Nåværende samtaleinnstillinger",
     Add: "Legg til en ny samtale",
-    Clear: "Konteksten er tømt",
-    Revert: "Gjenopprett konteksten",
   },
   Plugin: {
     Name: "Plugin",

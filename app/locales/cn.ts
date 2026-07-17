@@ -72,7 +72,6 @@ const cn = {
       newm: "从面具新建聊天",
       next: "下一个聊天",
       prev: "上一个聊天",
-      clear: "清除上下文",
       fork: "复制聊天",
       del: "删除聊天",
     },
@@ -114,7 +113,6 @@ const cn = {
       copyLastMessage: "复制最后一个回复",
       copyLastCode: "复制最后一个代码块",
       showShortcutKey: "显示快捷方式",
-      clearContext: "清除上下文",
     },
   },
   Export: {
@@ -161,6 +159,19 @@ const cn = {
     Copy: "复制摘要",
     Reset: "[unused]",
     ResetConfirm: "确认清空历史摘要？",
+    SummaryRange: (
+      kind: "segment" | "checkpoint",
+      start: number,
+      end: number,
+    ) =>
+      kind === "checkpoint"
+        ? `截至第 ${end} 条消息`
+        : `第 ${start}–${end} 条消息`,
+    Expired: "内容已变化，不会发送",
+    Locate: "定位",
+    Recompress: "重新生成",
+    DeleteSummary: "删除摘要",
+    CompactFailed: "无法将聊天历史整理到上下文窗口内",
   },
   Home: {
     NewChat: "新的聊天",
@@ -308,7 +319,7 @@ const cn = {
     },
     CompressThreshold: {
       Title: "历史消息长度压缩阈值",
-      SubTitle: "当未压缩的历史消息超过该值时，将进行压缩",
+      SubTitle: "当近期消息窗口之外的未压缩历史超过该值时进行压缩",
     },
 
     Usage: {
@@ -563,9 +574,14 @@ const cn = {
     },
 
     Model: "模型 (model)",
+    AutomaticModel: "自动选择",
     CompressModel: {
       Title: "对话摘要模型",
-      SubTitle: "用于压缩历史记录、生成对话标题的模型",
+      SubTitle: "用于压缩较早聊天历史的模型",
+    },
+    TitleModel: {
+      Title: "对话标题模型",
+      SubTitle: "用于生成当前对话标题的模型",
     },
     Temperature: {
       Title: "随机性 (temperature)",
@@ -578,6 +594,10 @@ const cn = {
     MaxTokens: {
       Title: "单次回复限制 (max_tokens)",
       SubTitle: "单次交互所用的最大 Token 数",
+    },
+    ContextWindow: {
+      Title: "上下文窗口",
+      SubTitle: "模型可接收的总 token 数，与单次回复上限分开计算",
     },
     PresencePenalty: {
       Title: "话题新鲜度 (presence_penalty)",
@@ -665,8 +685,7 @@ const cn = {
     Toast: (x: any) => `包含 ${x} 条预设提示词`,
     Edit: "当前对话设置",
     Add: "新增一条对话",
-    Clear: "上下文已清除",
-    Revert: "恢复上下文",
+    PresetTitle: "预设对话",
   },
   Discovery: {
     Name: "发现",

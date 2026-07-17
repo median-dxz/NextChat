@@ -61,7 +61,6 @@ const jp: PartialLocaleType = {
       newm: "マスクから新しいチャット",
       next: "次のチャット",
       prev: "前のチャット",
-      clear: "コンテキストをクリア",
       del: "チャットを削除",
     },
     InputActions: {
@@ -488,8 +487,6 @@ const jp: PartialLocaleType = {
     Toast: (x: any) => `${x} 件のプリセットプロンプトが含まれています`,
     Edit: "現在の対話設定",
     Add: "対話を追加",
-    Clear: "コンテキストがクリアされました",
-    Revert: "コンテキストを元に戻す",
   },
   Plugin: {
     Name: "プラグイン",

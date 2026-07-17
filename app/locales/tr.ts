@@ -61,7 +61,6 @@ const tr: PartialLocaleType = {
       newm: "Maske ile yeni sohbet oluştur",
       next: "Sonraki sohbet",
       prev: "Önceki sohbet",
-      clear: "Konteksti temizle",
       del: "Sohbeti sil",
     },
     InputActions: {
@@ -495,8 +494,6 @@ const tr: PartialLocaleType = {
     Toast: (x: any) => `${x} tane önceden tanımlı ipucu içeriyor`,
     Edit: "Mevcut sohbet ayarları",
     Add: "Yeni bir sohbet ekle",
-    Clear: "Bağlam temizlendi",
-    Revert: "Bağlamı geri getir",
   },
   Plugin: {
     Name: "Eklenti",

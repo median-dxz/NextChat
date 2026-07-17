@@ -77,12 +77,17 @@ export function MessageSelector(props: {
   const session = chatStore.currentSession();
   const isValid = (m: ChatMessage) => m.content && !m.isError && !m.streaming;
   const allMessages = useMemo(() => {
-    let startIndex = Math.max(0, session.clearContextIndex ?? 0);
+    let startIndex = session.contextBoundaryAfterMessageId
+      ? session.messages.findIndex(
+          (message) => message.id === session.contextBoundaryAfterMessageId,
+        ) + 1
+      : 0;
+    startIndex = Math.max(0, startIndex);
     if (startIndex === session.messages.length - 1) {
       startIndex = 0;
     }
     return session.messages.slice(startIndex);
-  }, [session.messages, session.clearContextIndex]);
+  }, [session.messages, session.contextBoundaryAfterMessageId]);
 
   const messages = useMemo(
     () =>

@@ -24,6 +24,10 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
+import {
+  ConversationSummary,
+  createSummarySourceDigest,
+} from "../app/utils/context-compression";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -77,7 +81,47 @@ afterEach(() => {
   useAppConfig.setState(initialConfig);
 });
 
-describe("structured reasoning in chat state", () => {
+describe("chat store derived state", () => {
+  test("migrates the original memory prompt directly into a checkpoint", async () => {
+    const persistedSession = structuredClone(initialSession) as ChatSession & {
+      memoryPrompt: string;
+      lastSummarizeIndex: number;
+      clearContextIndex: number;
+    };
+    persistedSession.messages = [
+      message("user", "old question"),
+      message("assistant", "old answer"),
+    ];
+    persistedSession.memoryPrompt = "legacy memory";
+    persistedSession.lastSummarizeIndex = 2;
+    persistedSession.clearContextIndex = 0;
+    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
+      JSON.stringify({
+        state: {
+          sessions: [persistedSession],
+          currentSessionIndex: 0,
+          lastInput: "",
+          _hasHydrated: true,
+        },
+        version: 3.3,
+      }),
+    );
+
+    await useChatStore.persist.rehydrate();
+
+    const migrated = useChatStore.getState().currentSession().summaries[0];
+    expect(migrated).toEqual(
+      expect.objectContaining({
+        kind: "checkpoint",
+        content: "legacy memory",
+        sourceEntryIds: persistedSession.messages.map((item) => item.id),
+      }),
+    );
+    expect(migrated.sourceDigest).toBe(
+      createSummarySourceDigest(persistedSession.messages),
+    );
+  });
+
   test("persists reasoning and restores it during hydration", async () => {
     const persistedSession = structuredClone(initialSession);
     persistedSession.messages = [
@@ -108,6 +152,39 @@ describe("structured reasoning in chat state", () => {
     expect(
       useChatStore.getState().currentSession().messages[0].reasoningDurationMs,
     ).toBe(65_000);
+  });
+
+  test("stops a persisted reasoning stream during hydration", async () => {
+    const persistedSession = structuredClone(initialSession);
+    persistedSession.messages = [
+      {
+        ...message("assistant", "", "partial reasoning"),
+        streaming: true,
+      },
+    ];
+    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
+      JSON.stringify({
+        state: {
+          sessions: [persistedSession],
+          currentSessionIndex: 0,
+          lastInput: "",
+          lastUpdateTime: 0,
+          _hasHydrated: true,
+        },
+        version: 4.2,
+      }),
+    );
+
+    setSession([]);
+    await useChatStore.persist.rehydrate();
+
+    expect(useChatStore.getState().currentSession().messages[0]).toEqual(
+      expect.objectContaining({
+        content: "",
+        reasoning: "partial reasoning",
+        streaming: false,
+      }),
+    );
   });
 
   test("records reasoning duration when a reasoning-only stream finishes", async () => {
@@ -176,7 +253,164 @@ describe("structured reasoning in chat state", () => {
     ).not.toContain("private reasoning");
   });
 
-  test("excludes reasoning from title and history compression requests", () => {
+  test("allows a short first message when reply limit equals context window", async () => {
+    setSession([], {
+      contextWindowTokens: 1_024,
+      max_tokens: 1_024,
+      enableInjectSystemPrompts: false,
+    });
+    let requestedMaxOutputTokens = 0;
+    apiMocks.chat.mockImplementation((options) => {
+      requestedMaxOutputTokens = options.config.max_tokens;
+    });
+
+    await useChatStore.getState().onUserInput("hello");
+
+    expect(requestedMaxOutputTokens).toBeGreaterThan(0);
+    expect(requestedMaxOutputTokens).toBeLessThan(1_024);
+  });
+
+  test("compacts all old turns when the recent history count is zero", async () => {
+    const session = setSession(
+      [
+        message("user", "old question 1"),
+        message("assistant", "old answer 1"),
+        message("user", "old question 2"),
+        message("assistant", "old answer 2"),
+      ],
+      {
+        sendMemory: true,
+        historyMessageCount: 0,
+        compressMessageLengthThreshold: 0,
+      },
+    );
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish(
+        "complete history summary",
+        new Response(null, { status: 200 }),
+      );
+    });
+
+    await expect(
+      useChatStore
+        .getState()
+        .getMessagesWithMemory(message("user", "current question")),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        role: "system",
+        content: expect.stringContaining("complete history summary"),
+      }),
+    ]);
+    expect(session.summaries).toHaveLength(1);
+  });
+
+  test("safely excludes an orphan assistant left by a deleted user", async () => {
+    setSession(
+      [
+        {
+          ...message("user", "deleted question"),
+          content: "",
+          deletedAt: 1,
+        },
+        message("assistant", "orphan answer"),
+      ],
+      { sendMemory: true, historyMessageCount: 0 },
+    );
+
+    await expect(
+      useChatStore
+        .getState()
+        .getMessagesWithMemory(message("user", "current question")),
+    ).resolves.toEqual([]);
+    expect(apiMocks.chat).not.toHaveBeenCalled();
+  });
+
+  test("emergency compaction progresses past one oversized old turn", async () => {
+    const session = setSession(
+      [
+        message("user", "a".repeat(4_000)),
+        message("assistant", "b".repeat(4_000)),
+        message("user", "recent question"),
+        message("assistant", "recent answer"),
+      ],
+      {
+        sendMemory: true,
+        historyMessageCount: 2,
+        contextWindowTokens: 1_024,
+        max_tokens: 128,
+      },
+    );
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish("old turn summary", new Response(null, { status: 200 }));
+    });
+
+    await expect(
+      useChatStore
+        .getState()
+        .getMessagesWithMemory(message("user", "current question")),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("old turn summary"),
+        }),
+      ]),
+    );
+    expect(session.summaries).toHaveLength(1);
+  });
+
+  test("propagates the summary model error during blocking compaction", async () => {
+    setSession(
+      [
+        message("user", "a".repeat(4_000)),
+        message("assistant", "b".repeat(4_000)),
+      ],
+      {
+        sendMemory: true,
+        historyMessageCount: 1,
+        contextWindowTokens: 1_024,
+        max_tokens: 128,
+      },
+    );
+    apiMocks.chat.mockImplementation((options) => {
+      options.onError(new Error("summary model unavailable"));
+    });
+
+    await expect(
+      useChatStore
+        .getState()
+        .getMessagesWithMemory(message("user", "current question")),
+    ).rejects.toThrow("summary model unavailable");
+  });
+
+  test("replans after an existing summary job without forcing an extra request", async () => {
+    const session = setSession(
+      [message("user", "question"), message("assistant", "answer")],
+      {
+        sendMemory: true,
+        historyMessageCount: 0,
+        compressMessageLengthThreshold: 0,
+      },
+    );
+    let finishSummary: (() => void) | undefined;
+    apiMocks.chat.mockImplementation((options) => {
+      finishSummary = () =>
+        options.onFinish("summary", new Response(null, { status: 200 }));
+    });
+
+    const background = useChatStore
+      .getState()
+      .maintainSummaries(session.id, false);
+    const waitingForce = useChatStore
+      .getState()
+      .maintainSummaries(session.id, true);
+    finishSummary?.();
+    await Promise.all([background, waitingForce]);
+
+    expect(apiMocks.chat).toHaveBeenCalledTimes(1);
+  });
+
+  test("excludes reasoning from title and history compression requests", async () => {
     const session = setSession(
       [
         message(
@@ -190,13 +424,16 @@ describe("structured reasoning in chat state", () => {
       {
         sendMemory: true,
         compressMessageLengthThreshold: 0,
-        historyMessageCount: 10,
+        historyMessageCount: 0,
         max_tokens: 4000,
       },
     );
     useAppConfig.setState({ enableAutoGenerateTitle: true });
 
-    useChatStore.getState().summarizeSession(false, session);
+    useChatStore.getState().generateSessionTitle(session);
+    const maintenance = useChatStore
+      .getState()
+      .maintainSummaries(session.id, false);
 
     expect(apiMocks.chat).toHaveBeenCalledTimes(2);
     for (const [options] of apiMocks.chat.mock.calls) {
@@ -204,21 +441,103 @@ describe("structured reasoning in chat state", () => {
         .map(getMessageTextContent)
         .join("\n");
       expect(requestText).not.toContain("private reasoning");
+      options.onFinish("generated result", new Response(null, { status: 200 }));
     }
+    await maintenance;
   });
 
-  test("does not let reasoning length affect the compression threshold", () => {
+  test("does not let reasoning length affect the compression threshold", async () => {
     const session = setSession(
-      [message("assistant", "short answer", "x".repeat(20_000))],
+      [
+        message("user", "short question"),
+        message("assistant", "short answer", "x".repeat(20_000)),
+      ],
       {
         sendMemory: true,
+        historyMessageCount: 0,
         compressMessageLengthThreshold: 100,
         max_tokens: 4000,
       },
     );
 
-    useChatStore.getState().summarizeSession(false, session);
+    await useChatStore.getState().maintainSummaries(session.id, false);
 
     expect(apiMocks.chat).not.toHaveBeenCalled();
+  });
+
+  test("creates a checkpoint without superseding its segment inputs", async () => {
+    const messages = Array.from({ length: 8 }, (_, index) =>
+      message(index % 2 === 0 ? "user" : "assistant", `message-${index + 1}`),
+    );
+    const session = setSession(messages, {
+      sendMemory: true,
+      historyMessageCount: 0,
+      compressMessageLengthThreshold: 0,
+    });
+    session.summaries = Array.from({ length: 4 }, (_, index) => {
+      const sourceMessages = messages.slice(index * 2, index * 2 + 2);
+      return {
+        id: `segment-${index + 1}`,
+        kind: "segment",
+        content: `segment ${index + 1}`,
+        sourceEntryIds: sourceMessages.map((item) => item.id),
+        sourceDigest: createSummarySourceDigest(sourceMessages),
+        inputSummaryIds: [],
+      } satisfies ConversationSummary;
+    });
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish(
+        "global checkpoint",
+        new Response(null, { status: 200 }),
+      );
+    });
+
+    await useChatStore.getState().maintainSummaries(session.id, true);
+
+    const summaries = useChatStore.getState().currentSession().summaries;
+    expect(summaries.slice(0, 4)).toHaveLength(4);
+    expect(summaries.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: "checkpoint",
+        content: "global checkpoint",
+        inputSummaryIds: summaries.slice(0, 4).map((item) => item.id),
+      }),
+    );
+  });
+
+  test("regenerates from raw messages when checkpoint inputs were deleted", async () => {
+    const messages = [
+      message("user", "source question"),
+      message("assistant", "source answer"),
+    ];
+    const session = setSession(messages, { sendMemory: true });
+    session.summaries = [
+      {
+        id: "checkpoint",
+        kind: "checkpoint",
+        content: "old checkpoint",
+        sourceEntryIds: messages.map((item) => item.id),
+        sourceDigest: createSummarySourceDigest(messages),
+        inputSummaryIds: ["deleted-segment"],
+      },
+    ];
+    let requestText = "";
+    apiMocks.chat.mockImplementation((options) => {
+      requestText = options.messages.map(getMessageTextContent).join("\n");
+      options.onFinish(
+        "regenerated checkpoint",
+        new Response(null, { status: 200 }),
+      );
+    });
+
+    await useChatStore.getState().recompressSummary(session.id, "checkpoint");
+
+    const summaries = useChatStore.getState().currentSession().summaries;
+    expect(requestText).toContain("source question");
+    expect(requestText).toContain("source answer");
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].id).not.toBe("checkpoint");
+    expect(summaries[0].content).toBe("regenerated checkpoint");
+    expect(summaries[0].inputSummaryIds).toEqual([]);
   });
 });

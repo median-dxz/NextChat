@@ -61,7 +61,6 @@ const tw = {
       newm: "從角色範本新建聊天",
       next: "下一個聊天",
       prev: "上一個聊天",
-      clear: "清除上下文",
       del: "刪除聊天",
     },
     InputActions: {
@@ -100,7 +99,6 @@ const tw = {
       copyLastMessage: "複製最後一個回覆",
       copyLastCode: "複製最後一個程式碼區塊",
       showShortcutKey: "顯示快捷方式",
-      clearContext: "清除上下文",
     },
   },
   Export: {
@@ -449,8 +447,6 @@ const tw = {
     Toast: (x: any) => `已設定 ${x} 條前置上下文`,
     Edit: "前置上下文和歷史記憶",
     Add: "新增一則",
-    Clear: "上下文已清除",
-    Revert: "恢復上下文",
   },
   Plugin: { Name: "外掛" },
   FineTuned: { Sysmessage: "你是一個助手" },

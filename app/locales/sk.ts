@@ -62,7 +62,6 @@ const sk: PartialLocaleType = {
       newm: "Začať nový chat s maskou",
       next: "Ďalší Chat",
       prev: "Predchádzajúci Chat",
-      clear: "Vymazať kontext",
       del: "Vymazať Chat",
     },
     InputActions: {
@@ -447,8 +446,6 @@ const sk: PartialLocaleType = {
     Toast: (x: any) => `S ${x} kontextovými výzvami`,
     Edit: "Aktuálne nastavenia chatu",
     Add: "Pridať výzvu",
-    Clear: "Kontext vyčistený",
-    Revert: "Vrátiť späť",
   },
   Plugin: {
     Name: "Plugin",

@@ -73,7 +73,6 @@ const en: LocaleType = {
       newm: "Start a new chat with mask",
       next: "Next Chat",
       prev: "Previous Chat",
-      clear: "Clear Context",
       fork: "Copy Chat",
       del: "Delete Chat",
     },
@@ -115,7 +114,6 @@ const en: LocaleType = {
       copyLastMessage: "Copy Last Reply",
       copyLastCode: "Copy Last Code Block",
       showShortcutKey: "Show Shortcuts",
-      clearContext: "Clear Context",
     },
   },
   Export: {
@@ -163,6 +161,19 @@ const en: LocaleType = {
     Reset: "Reset Session",
     ResetConfirm:
       "Resetting will clear the current conversation history and historical memory. Are you sure you want to reset?",
+    SummaryRange: (
+      kind: "segment" | "checkpoint",
+      start: number,
+      end: number,
+    ) =>
+      kind === "checkpoint"
+        ? `Through message ${end}`
+        : `Messages ${start}–${end}`,
+    Expired: "Content changed; this will not be sent",
+    Locate: "Locate",
+    Recompress: "Regenerate",
+    DeleteSummary: "Delete Summary",
+    CompactFailed: "Unable to compact chat history into the context window",
   },
   Home: {
     NewChat: "New Chat",
@@ -312,7 +323,7 @@ const en: LocaleType = {
     CompressThreshold: {
       Title: "History Compression Threshold",
       SubTitle:
-        "Will compress if uncompressed messages length exceeds the value",
+        "Compress when uncompressed history outside the recent window exceeds this value",
     },
 
     Usage: {
@@ -568,9 +579,14 @@ const en: LocaleType = {
     },
 
     Model: "Model",
+    AutomaticModel: "Automatic",
     CompressModel: {
       Title: "Summary Model",
-      SubTitle: "Model used to compress history and generate title",
+      SubTitle: "Model used to compress earlier chat history",
+    },
+    TitleModel: {
+      Title: "Chat Title Model",
+      SubTitle: "Model used to generate the current chat title",
     },
     Temperature: {
       Title: "Temperature",
@@ -583,6 +599,11 @@ const en: LocaleType = {
     MaxTokens: {
       Title: "Max Tokens",
       SubTitle: "Maximum length of input tokens and generated tokens",
+    },
+    ContextWindow: {
+      Title: "Context Window",
+      SubTitle:
+        "Total tokens accepted by the model, calculated separately from the response limit",
     },
     PresencePenalty: {
       Title: "Presence Penalty",
@@ -674,8 +695,7 @@ const en: LocaleType = {
     Toast: (x: any) => `With ${x} contextual prompts`,
     Edit: "Current Chat Settings",
     Add: "Add a Prompt",
-    Clear: "Context Cleared",
-    Revert: "Revert",
+    PresetTitle: "Preset Conversation",
   },
   Discovery: {
     Name: "Discovery",

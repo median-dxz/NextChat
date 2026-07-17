@@ -61,7 +61,6 @@ const pt: PartialLocaleType = {
       newm: "Iniciar um novo chat com máscara",
       next: "Próximo Chat",
       prev: "Chat Anterior",
-      clear: "Limpar Contexto",
       del: "Deletar Chat",
     },
     InputActions: {
@@ -430,8 +429,6 @@ const pt: PartialLocaleType = {
     Toast: (x: any) => `Com ${x} prompts contextuais`,
     Edit: "Configurações do Chat Atual",
     Add: "Adicionar um Prompt",
-    Clear: "Contexto Limpo",
-    Revert: "Reverter",
   },
   Plugin: {
     Name: "Plugin",

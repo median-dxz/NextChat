@@ -62,7 +62,6 @@ const it: PartialLocaleType = {
       newm: "Nuova chat da maschera",
       next: "Chat successiva",
       prev: "Chat precedente",
-      clear: "Pulisci contesto",
       del: "Elimina chat",
     },
     InputActions: {
@@ -507,8 +506,6 @@ const it: PartialLocaleType = {
     Toast: (x: any) => `Include ${x} suggerimenti predefiniti`,
     Edit: "Impostazioni della conversazione attuale",
     Add: "Aggiungi una conversazione",
-    Clear: "Contesto cancellato",
-    Revert: "Ripristina contesto",
   },
   Plugin: {
     Name: "Plugin",

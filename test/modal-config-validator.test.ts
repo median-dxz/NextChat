@@ -3,6 +3,7 @@
 let ModalConfigValidator: {
   model: (x: string) => string;
   max_tokens: (x: number) => number;
+  contextWindowTokens: (x: number) => number;
   presence_penalty: (x: number) => number;
   frequency_penalty: (x: number) => number;
   temperature: (x: number) => number;
@@ -21,6 +22,12 @@ describe("ModalConfigValidator", () => {
     expect(ModalConfigValidator.max_tokens(600000)).toBe(512000);
     expect(ModalConfigValidator.max_tokens(2048)).toBe(2048);
     expect(ModalConfigValidator.max_tokens(NaN)).toBe(1024);
+  });
+
+  test("contextWindowTokens uses an independent conservative budget", () => {
+    expect(ModalConfigValidator.contextWindowTokens(128000)).toBe(128000);
+    expect(ModalConfigValidator.contextWindowTokens(100)).toBe(1024);
+    expect(ModalConfigValidator.contextWindowTokens(NaN)).toBe(32000);
   });
 
   test("temperature clamps to [0, 2]", () => {

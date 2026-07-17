@@ -61,7 +61,6 @@ const cs: PartialLocaleType = {
       newm: "Nová konverzace z masky",
       next: "Další konverzace",
       prev: "Předchozí konverzace",
-      clear: "Vymazat kontext",
       del: "Smazat konverzaci",
     },
     InputActions: {
@@ -492,8 +491,6 @@ const cs: PartialLocaleType = {
     Toast: (x: any) => `Obsahuje ${x} přednastavených promptů`,
     Edit: "Nastavení aktuální konverzace",
     Add: "Přidat novou konverzaci",
-    Clear: "Kontext byl vymazán",
-    Revert: "Obnovit kontext",
   },
   Plugin: {
     Name: "Plugin",

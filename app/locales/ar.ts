@@ -61,7 +61,6 @@ const ar: PartialLocaleType = {
       newm: "إنشاء دردشة من القناع",
       next: "الدردشة التالية",
       prev: "الدردشة السابقة",
-      clear: "مسح السياق",
       del: "حذف الدردشة",
     },
     InputActions: {
@@ -483,8 +482,6 @@ const ar: PartialLocaleType = {
     Toast: (x: any) => `يحتوي على ${x} إشعارات مخصصة`,
     Edit: "إعدادات الدردشة الحالية",
     Add: "إضافة دردشة جديدة",
-    Clear: "تم مسح السياق",
-    Revert: "استعادة السياق",
   },
   Plugin: {
     Name: "الإضافات",

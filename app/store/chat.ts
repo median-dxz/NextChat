@@ -32,6 +32,16 @@ import Locale, { getLang } from "../locales";
 import { prettyObject } from "../utils/format";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
+import {
+  ConversationSummary,
+  createContextProjection,
+  createSummarySourceDigest,
+  estimateRequestMessageTokens,
+  getEffectiveMaxOutputTokens,
+  getContextInputBudget,
+  planConversationContext,
+  planSummaryMaintenance,
+} from "../utils/context-compression";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -40,6 +50,42 @@ import { executeMcpAction, getAllTools, isMcpEnabled } from "@/app/mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 
 const localStorage = safeLocalStorage();
+const summaryJobs = new Map<string, Promise<void>>();
+
+function requestSummary(
+  api: ClientApi,
+  messages: ChatMessage[],
+  modelConfig: ModelConfig,
+  model: string,
+  providerName: string,
+) {
+  return new Promise<string>((resolve, reject) => {
+    const { max_tokens, ...config } = modelConfig;
+    api.llm.chat({
+      messages: messages.concat(
+        createMessage({
+          role: "system",
+          content: Locale.Store.Prompt.Summarize,
+          date: "",
+        }),
+      ),
+      config: { ...config, stream: false, model, providerName },
+      // Reasoning is intentionally ignored; only the final answer is stored.
+      onReasoningUpdate() {},
+      onFinish(message, response) {
+        if (response?.status === 200 && message.trim()) resolve(message.trim());
+        else {
+          reject(
+            new Error(
+              `Summary request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
+            ),
+          );
+        }
+      },
+      onError: reject,
+    });
+  });
+}
 
 export type ChatMessageTool = {
   id: string;
@@ -65,6 +111,7 @@ export type ChatMessage = RequestMessage & {
   tools?: ChatMessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
+  deletedAt?: number;
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -87,12 +134,11 @@ export interface ChatSession {
   id: string;
   topic: string;
 
-  memoryPrompt: string;
+  summaries: ConversationSummary[];
   messages: ChatMessage[];
   stat: ChatStat;
   lastUpdate: number;
-  lastSummarizeIndex: number;
-  clearContextIndex?: number;
+  contextBoundaryAfterMessageId?: string;
 
   mask: Mask;
 }
@@ -107,7 +153,7 @@ function createEmptySession(): ChatSession {
   return {
     id: nanoid(),
     topic: DEFAULT_TOPIC,
-    memoryPrompt: "",
+    summaries: [],
     messages: [],
     stat: {
       tokenCount: 0,
@@ -115,8 +161,6 @@ function createEmptySession(): ChatSession {
       charCount: 0,
     },
     lastUpdate: Date.now(),
-    lastSummarizeIndex: 0,
-
     mask: createEmptyMask(),
   };
 }
@@ -241,6 +285,113 @@ export const useChatStore = createPersistStore(
       };
     }
 
+    async function generateSummary({
+      sessionId,
+      sourceEntryIds,
+      sourceDigest,
+      inputSummaryIds,
+      allowRawFallback = false,
+    }: {
+      sessionId: string;
+      sourceEntryIds: string[];
+      sourceDigest: string;
+      inputSummaryIds: string[];
+      allowRawFallback?: boolean;
+    }) {
+      const session = get().sessions.find((item) => item.id === sessionId);
+      if (!session) return;
+      const projection = createContextProjection(
+        session.messages,
+        session.contextBoundaryAfterMessageId,
+      );
+      const messagesById = new Map(
+        projection.entries.map((message) => [message.id, message]),
+      );
+      const sourceMessages = sourceEntryIds
+        .map((id) => messagesById.get(id))
+        .filter((message): message is ChatMessage => Boolean(message));
+      if (
+        sourceMessages.length !== sourceEntryIds.length ||
+        createSummarySourceDigest(sourceMessages) !== sourceDigest
+      ) {
+        return;
+      }
+
+      const inputSummaries = inputSummaryIds
+        .map((id) => session.summaries.find((summary) => summary.id === id))
+        .filter((summary): summary is ConversationSummary => Boolean(summary));
+      const useSummaryInputs =
+        inputSummaryIds.length > 0 &&
+        inputSummaries.length === inputSummaryIds.length;
+      if (
+        inputSummaryIds.length > 0 &&
+        !useSummaryInputs &&
+        !allowRawFallback
+      ) {
+        return;
+      }
+      const inputMessages = useSummaryInputs
+        ? inputSummaries.map((summary) =>
+            createMessage({
+              role: "system",
+              content: summary.content,
+              date: "",
+            }),
+          )
+        : sourceMessages;
+      const inputSnapshot = useSummaryInputs
+        ? JSON.stringify(
+            inputSummaries.map((summary) => [summary.id, summary.content]),
+          )
+        : sourceDigest;
+
+      const modelConfig = session.mask.modelConfig;
+      const [model, providerName] = modelConfig.compressModel
+        ? [modelConfig.compressModel, modelConfig.compressProviderName]
+        : getSummarizeModel(modelConfig.model, modelConfig.providerName);
+      const content = await requestSummary(
+        getClientApi(providerName as ServiceProvider),
+        inputMessages,
+        modelConfig,
+        model,
+        providerName,
+      );
+
+      const current = get().sessions.find((item) => item.id === sessionId);
+      if (!current) return;
+      const currentProjection = createContextProjection(
+        current.messages,
+        current.contextBoundaryAfterMessageId,
+      );
+      const currentMessagesById = new Map(
+        currentProjection.entries.map((message) => [message.id, message]),
+      );
+      const currentSourceMessages = sourceEntryIds
+        .map((id) => currentMessagesById.get(id))
+        .filter((message): message is ChatMessage => Boolean(message));
+      if (
+        currentSourceMessages.length !== sourceEntryIds.length ||
+        createSummarySourceDigest(currentSourceMessages) !== sourceDigest
+      ) {
+        return;
+      }
+      if (useSummaryInputs) {
+        const currentInputSnapshot = JSON.stringify(
+          inputSummaryIds.map((id) => {
+            const summary = current.summaries.find((item) => item.id === id);
+            return summary ? [summary.id, summary.content] : undefined;
+          }),
+        );
+        if (currentInputSnapshot !== inputSnapshot) return;
+      }
+
+      return {
+        session: current,
+        content,
+        inputSummaryIds: useSummaryInputs ? inputSummaryIds : [],
+      };
+    }
+
     const methods = {
       forkSession() {
         // 获取当前会话
@@ -251,10 +402,18 @@ export const useChatStore = createPersistStore(
 
         newSession.topic = currentSession.topic;
         // 深拷贝消息
-        newSession.messages = currentSession.messages.map((msg) => ({
-          ...msg,
-          id: nanoid(), // 生成新的消息 ID
-        }));
+        const messageIds = new Map<string, string>();
+        newSession.messages = currentSession.messages.map((msg) => {
+          const id = nanoid();
+          messageIds.set(msg.id, id);
+          return { ...msg, id };
+        });
+        // Summaries are derived from message IDs, so the fork rebuilds them.
+        newSession.summaries = [];
+        newSession.contextBoundaryAfterMessageId =
+          currentSession.contextBoundaryAfterMessageId
+            ? messageIds.get(currentSession.contextBoundaryAfterMessageId)
+            : undefined;
         newSession.mask = {
           ...currentSession.mask,
           modelConfig: {
@@ -403,7 +562,10 @@ export const useChatStore = createPersistStore(
 
         get().checkMcpJson(message);
 
-        get().summarizeSession(false, targetSession);
+        get().generateSessionTitle(targetSession);
+        if (targetSession.mask.modelConfig.sendMemory) {
+          void get().maintainSummaries(targetSession.id);
+        }
       },
 
       async onUserInput(
@@ -454,8 +616,16 @@ export const useChatStore = createPersistStore(
         };
 
         // get recent messages
-        const recentMessages = await get().getMessagesWithMemory();
+        const recentMessages = await get().getMessagesWithMemory(userMessage);
         const sendMessages = recentMessages.concat(userMessage);
+        const effectiveMaxOutputTokens = getEffectiveMaxOutputTokens(
+          modelConfig.contextWindowTokens,
+          modelConfig.max_tokens,
+          sendMessages.reduce(
+            (sum, message) => sum + estimateRequestMessageTokens(message),
+            0,
+          ),
+        );
         const messageIndex = session.messages.length + 1;
 
         // save user's and bot's message
@@ -474,7 +644,11 @@ export const useChatStore = createPersistStore(
         // make request
         api.llm.chat({
           messages: sendMessages,
-          config: { ...modelConfig, stream: true },
+          config: {
+            ...modelConfig,
+            max_tokens: effectiveMaxOutputTokens,
+            stream: true,
+          },
           onUpdate(message) {
             botMessage.streaming = true;
             if (message) {
@@ -552,26 +726,9 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      getMemoryPrompt() {
-        const session = get().currentSession();
-
-        if (session.memoryPrompt.length) {
-          return {
-            role: "system",
-            content: Locale.Store.Prompt.History(session.memoryPrompt),
-            date: "",
-          } as ChatMessage;
-        }
-      },
-
-      async getMessagesWithMemory() {
+      async getMessagesWithMemory(currentInput?: RequestMessage) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
-        const clearContextIndex = session.clearContextIndex ?? 0;
-        const messages = session.messages.slice();
-        const totalMessageCount = session.messages.length;
-
-        // in-context prompts
         const contextPrompts = session.mask.context.slice();
 
         // system prompts, to get close to OpenAI Web ChatGPT
@@ -611,57 +768,87 @@ export const useChatStore = createPersistStore(
             systemPrompts.at(0)?.content ?? "empty",
           );
         }
-        const memoryPrompt = get().getMemoryPrompt();
-        // long term memory
-        const shouldSendLongTermMemory =
-          modelConfig.sendMemory &&
-          session.memoryPrompt &&
-          session.memoryPrompt.length > 0 &&
-          session.lastSummarizeIndex > clearContextIndex;
-        const longTermMemoryPrompts =
-          shouldSendLongTermMemory && memoryPrompt ? [memoryPrompt] : [];
-        const longTermMemoryStartIndex = session.lastSummarizeIndex;
+        const fixedMessages = [...systemPrompts, ...contextPrompts];
+        const createPlan = () => {
+          const current = get().sessions.find((item) => item.id === session.id);
+          if (!current) throw new Error("Chat session no longer exists");
+          const projection = createContextProjection(
+            current.messages,
+            current.contextBoundaryAfterMessageId,
+          );
+          return {
+            current,
+            plan: planConversationContext({
+              projection,
+              summaries: modelConfig.sendMemory ? current.summaries : [],
+              historyMessageCount: modelConfig.historyMessageCount,
+              contextWindowTokens: modelConfig.contextWindowTokens,
+              maxOutputTokens: modelConfig.max_tokens,
+              fixedTokenCount: fixedMessages.reduce(
+                (sum, message) => sum + estimateRequestMessageTokens(message),
+                0,
+              ),
+              currentInputTokenCount: currentInput
+                ? estimateRequestMessageTokens(currentInput)
+                : 0,
+            }),
+          };
+        };
 
-        // short term memory
-        const shortTermMemoryStartIndex = Math.max(
-          0,
-          totalMessageCount - modelConfig.historyMessageCount,
-        );
-
-        // lets concat send messages, including 4 parts:
-        // 0. system prompt: to get close to OpenAI Web ChatGPT
-        // 1. long term memory: summarized memory messages
-        // 2. pre-defined in-context prompts
-        // 3. short term memory: latest n messages
-        // 4. newest input message
-        const memoryStartIndex = shouldSendLongTermMemory
-          ? Math.min(longTermMemoryStartIndex, shortTermMemoryStartIndex)
-          : shortTermMemoryStartIndex;
-        // and if user has cleared history messages, we should exclude the memory too.
-        const contextStartIndex = Math.max(clearContextIndex, memoryStartIndex);
-        const maxTokenThreshold = modelConfig.max_tokens;
-
-        // get recent messages as much as possible
-        const reversedRecentMessages = [];
+        let planned = createPlan();
+        const maxSteps =
+          planned.current.messages.length +
+          planned.current.summaries.length +
+          4;
         for (
-          let i = totalMessageCount - 1, tokenCount = 0;
-          i >= contextStartIndex && tokenCount < maxTokenThreshold;
-          i -= 1
+          let step = 0;
+          modelConfig.sendMemory &&
+          planned.plan.requiresCompaction &&
+          !planned.plan.overflow &&
+          step < maxSteps;
+          step += 1
         ) {
-          const msg = messages[i];
-          if (!msg || msg.isError) continue;
-          tokenCount += estimateTokenLength(getMessageTextContent(msg));
-          reversedRecentMessages.push(msg);
+          const before = planned.current.summaries
+            .map((summary) => `${summary.id}:${summary.sourceDigest}`)
+            .join("|");
+          await get().maintainSummaries(session.id, true);
+          planned = createPlan();
+          const after = planned.current.summaries
+            .map((summary) => `${summary.id}:${summary.sourceDigest}`)
+            .join("|");
+          if (before === after) break;
         }
-        // concat all messages
-        const recentMessages = [
-          ...systemPrompts,
-          ...longTermMemoryPrompts,
-          ...contextPrompts,
-          ...reversedRecentMessages.reverse(),
-        ];
+        if (planned.plan.overflow) {
+          throw new Error(
+            "System prompts and current input exceed the context window",
+          );
+        }
+        if (modelConfig.sendMemory && planned.plan.requiresCompaction) {
+          throw new Error(
+            "Unable to compact chat history into the context window",
+          );
+        }
 
-        return recentMessages;
+        const selectedSummaries = planned.plan.selectedSummaryIds
+          .map((id) => planned.current.summaries.find((item) => item.id === id))
+          .filter((item): item is ConversationSummary => Boolean(item))
+          .map((item) =>
+            createMessage({
+              role: "system",
+              content: Locale.Store.Prompt.History(item.content),
+              date: "",
+            }),
+          );
+        const selectedMessages = planned.plan.selectedMessageIds
+          .map((id) => planned.current.messages.find((item) => item.id === id))
+          .filter((item): item is ChatMessage => Boolean(item));
+
+        return [
+          ...systemPrompts,
+          ...selectedSummaries,
+          ...contextPrompts,
+          ...selectedMessages,
+        ];
       },
 
       updateMessage(
@@ -679,13 +866,14 @@ export const useChatStore = createPersistStore(
       resetSession(session: ChatSession) {
         get().updateTargetSession(session, (session) => {
           session.messages = [];
-          session.memoryPrompt = "";
+          session.summaries = [];
+          session.contextBoundaryAfterMessageId = undefined;
         });
       },
 
-      summarizeSession(
-        refreshTitle: boolean = false,
+      generateSessionTitle(
         targetSession: ChatSession,
+        refreshTitle: boolean = false,
       ) {
         const config = useAppConfig.getState();
         const session = targetSession;
@@ -695,14 +883,15 @@ export const useChatStore = createPersistStore(
           return;
         }
 
-        // if not config compressModel, then using getSummarizeModel
-        const [model, providerName] = modelConfig.compressModel
-          ? [modelConfig.compressModel, modelConfig.compressProviderName]
+        const [titleModel, titleProviderName] = modelConfig.titleModel
+          ? [modelConfig.titleModel, modelConfig.titleProviderName]
           : getSummarizeModel(
               session.mask.modelConfig.model,
               session.mask.modelConfig.providerName,
             );
-        const api: ClientApi = getClientApi(providerName as ServiceProvider);
+        const titleApi: ClientApi = getClientApi(
+          titleProviderName as ServiceProvider,
+        );
 
         // remove error messages if any
         const messages = session.messages;
@@ -730,13 +919,15 @@ export const useChatStore = createPersistStore(
                 content: Locale.Store.Prompt.Topic,
               }),
             );
-          api.llm.chat({
+          titleApi.llm.chat({
             messages: topicMessages,
             config: {
-              model,
+              model: titleModel,
               stream: false,
-              providerName,
+              providerName: titleProviderName,
             },
+            // Reasoning is intentionally not persisted as a title.
+            onReasoningUpdate() {},
             onFinish(message, responseRes) {
               if (responseRes?.status === 200) {
                 get().updateTargetSession(
@@ -749,76 +940,124 @@ export const useChatStore = createPersistStore(
             },
           });
         }
-        const summarizeIndex = Math.max(
-          session.lastSummarizeIndex,
-          session.clearContextIndex ?? 0,
-        );
-        let toBeSummarizedMsgs = messages
-          .filter((msg) => !msg.isError)
-          .slice(summarizeIndex);
+      },
 
-        const historyMsgLength = countMessages(toBeSummarizedMsgs);
+      async maintainSummaries(sessionId: string, force = false): Promise<void> {
+        const pending = summaryJobs.get(sessionId);
+        if (pending) {
+          return force
+            ? pending
+            : pending.catch((error) => console.error("[Summarize]", error));
+        }
 
-        if (historyMsgLength > (modelConfig?.max_tokens || 4000)) {
-          const n = toBeSummarizedMsgs.length;
-          toBeSummarizedMsgs = toBeSummarizedMsgs.slice(
-            Math.max(0, n - modelConfig.historyMessageCount),
+        const runMaintenance = async () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session || !session.mask.modelConfig.sendMemory) return;
+          const modelConfig = session.mask.modelConfig;
+          const projection = createContextProjection(
+            session.messages,
+            session.contextBoundaryAfterMessageId,
           );
-        }
-        const memoryPrompt = get().getMemoryPrompt();
-        if (memoryPrompt) {
-          // add memory prompt
-          toBeSummarizedMsgs.unshift(memoryPrompt);
-        }
-
-        const lastSummarizeIndex = session.messages.length;
-
-        console.log(
-          "[Chat History] ",
-          toBeSummarizedMsgs,
-          historyMsgLength,
-          modelConfig.compressMessageLengthThreshold,
-        );
-
-        if (
-          historyMsgLength > modelConfig.compressMessageLengthThreshold &&
-          modelConfig.sendMemory
-        ) {
-          /** Destruct max_tokens while summarizing
-           * this param is just shit
-           **/
-          const { max_tokens, ...modelcfg } = modelConfig;
-          api.llm.chat({
-            messages: toBeSummarizedMsgs.concat(
-              createMessage({
-                role: "system",
-                content: Locale.Store.Prompt.Summarize,
-                date: "",
-              }),
+          const plan = planSummaryMaintenance({
+            projection,
+            summaries: session.summaries,
+            historyMessageCount: modelConfig.historyMessageCount,
+            inputBudget: getContextInputBudget(
+              modelConfig.contextWindowTokens,
+              modelConfig.max_tokens,
             ),
-            config: {
-              ...modelcfg,
-              stream: true,
-              model,
-              providerName,
-            },
-            onUpdate(message) {
-              session.memoryPrompt = message;
-            },
-            onFinish(message, responseRes) {
-              if (responseRes?.status === 200) {
-                console.log("[Memory] ", message);
-                get().updateTargetSession(session, (session) => {
-                  session.lastSummarizeIndex = lastSummarizeIndex;
-                  session.memoryPrompt = message; // Update the memory prompt for stored it in local storage
-                });
-              }
-            },
-            onError(err) {
-              console.error("[Summarize] ", err);
-            },
+            compressionThreshold: modelConfig.compressMessageLengthThreshold,
+            force,
           });
-        }
+          if (!plan) return;
+          const generated = await generateSummary({ sessionId, ...plan });
+          if (!generated) return;
+          get().updateTargetSession(generated.session, (draft) => {
+            draft.summaries.push({
+              id: nanoid(),
+              kind: plan.kind,
+              content: generated.content,
+              sourceEntryIds: plan.sourceEntryIds,
+              sourceDigest: plan.sourceDigest,
+              inputSummaryIds: generated.inputSummaryIds,
+            });
+          });
+        };
+        const execution = runMaintenance().finally(() =>
+          summaryJobs.delete(sessionId),
+        );
+        summaryJobs.set(sessionId, execution);
+        return force
+          ? execution
+          : execution.catch((error) => console.error("[Summarize]", error));
+      },
+
+      async recompressSummary(sessionId: string, summaryId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        const summary = session?.summaries.find(
+          (item) => item.id === summaryId,
+        );
+        if (!session || !summary) return;
+        const generated = await generateSummary({
+          sessionId,
+          sourceEntryIds: summary.sourceEntryIds,
+          sourceDigest: summary.sourceDigest,
+          inputSummaryIds: summary.inputSummaryIds,
+          allowRawFallback: true,
+        });
+        if (!generated) return;
+        get().updateTargetSession(generated.session, (draft) => {
+          const previousIndex = draft.summaries.findIndex(
+            (item) => item.id === summaryId,
+          );
+          if (previousIndex < 0) return;
+          const previous = draft.summaries[previousIndex];
+          draft.summaries[previousIndex] = {
+            ...previous,
+            id: nanoid(),
+            content: generated.content,
+            inputSummaryIds: generated.inputSummaryIds,
+          };
+        });
+      },
+
+      deleteSummary(sessionId: string, summaryId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          draft.summaries = draft.summaries.filter(
+            (summary) => summary.id !== summaryId,
+          );
+        });
+      },
+
+      deleteMessage(sessionId: string, messageId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const message = draft.messages.find((item) => item.id === messageId);
+          if (!message) return;
+          message.content = "";
+          message.reasoning = undefined;
+          message.tools = undefined;
+          message.audio_url = undefined;
+          message.deletedAt = Date.now();
+        });
+      },
+
+      updateMessageContent(
+        sessionId: string,
+        messageId: string,
+        content: ChatMessage["content"],
+      ) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const message = draft.messages.find((item) => item.id === messageId);
+          if (!message || message.deletedAt) return;
+          message.content = content;
+          if (message.role === "assistant") message.reasoning = undefined;
+        });
       },
 
       updateStat(message: ChatMessage, session: ChatSession) {
@@ -866,7 +1105,7 @@ export const useChatStore = createPersistStore(
                     typeof result === "object"
                       ? JSON.stringify(result)
                       : String(result);
-                  get().onUserInput(
+                  return get().onUserInput(
                     `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
                     [],
                     true,
@@ -885,7 +1124,26 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.3,
+    version: 4.2,
+    merge(persistedState, currentState) {
+      const restoredState = persistedState as
+        Partial<typeof DEFAULT_CHAT_STATE> | undefined;
+      const sessions = restoredState?.sessions ?? currentState.sessions;
+
+      sessions.forEach((session) => {
+        session.messages.forEach((message) => {
+          if (message.streaming === true) {
+            message.streaming = false;
+          }
+        });
+      });
+
+      return {
+        ...currentState,
+        ...restoredState,
+        sessions,
+      };
+    },
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -947,6 +1205,41 @@ export const useChatStore = createPersistStore(
           const config = useAppConfig.getState();
           s.mask.modelConfig.compressModel = "";
           s.mask.modelConfig.compressProviderName = "";
+        });
+      }
+
+      if (version < 4.2) {
+        newState.sessions.forEach((session: any) => {
+          const oldMemory = String(session.memoryPrompt ?? "").trim();
+          const oldBoundary = Math.max(0, session.clearContextIndex ?? 0);
+          const oldEnd = Math.min(
+            session.messages.length,
+            Math.max(oldBoundary, session.lastSummarizeIndex ?? 0),
+          );
+          session.summaries = [];
+          if (oldMemory && oldEnd > oldBoundary) {
+            const sourceMessages = session.messages.slice(oldBoundary, oldEnd);
+            if (sourceMessages.length > 0) {
+              session.summaries.push({
+                id: nanoid(),
+                kind: "checkpoint",
+                content: oldMemory,
+                sourceEntryIds: sourceMessages.map(
+                  (message: any) => message.id,
+                ),
+                sourceDigest: createSummarySourceDigest(sourceMessages),
+                inputSummaryIds: [],
+              });
+            }
+          }
+          session.contextBoundaryAfterMessageId =
+            oldBoundary > 0 ? session.messages[oldBoundary - 1]?.id : undefined;
+          session.mask.modelConfig.contextWindowTokens ??= 32_000;
+          session.mask.modelConfig.titleModel ??= "";
+          session.mask.modelConfig.titleProviderName ??= "";
+          delete session.memoryPrompt;
+          delete session.lastSummarizeIndex;
+          delete session.clearContextIndex;
         });
       }
 

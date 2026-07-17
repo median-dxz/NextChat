@@ -62,7 +62,6 @@ const fr: PartialLocaleType = {
       newm: "Créer une discussion à partir du masque",
       next: "Discussion suivante",
       prev: "Discussion précédente",
-      clear: "Effacer le contexte",
       del: "Supprimer la discussion",
     },
     InputActions: {
@@ -506,8 +505,6 @@ const fr: PartialLocaleType = {
     Toast: (x: any) => `Contient ${x} invites prédéfinies`,
     Edit: "Paramètres de la discussion actuelle",
     Add: "Ajouter une discussion",
-    Clear: "Contexte effacé",
-    Revert: "Restaurer le contexte",
   },
   Plugin: {
     Name: "Plugin",

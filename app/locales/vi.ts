@@ -61,7 +61,6 @@ const vi: PartialLocaleType = {
       newm: "Tạo cuộc trò chuyện từ mặt nạ",
       next: "Cuộc trò chuyện tiếp theo",
       prev: "Cuộc trò chuyện trước đó",
-      clear: "Xóa ngữ cảnh",
       del: "Xóa cuộc trò chuyện",
     },
     InputActions: {
@@ -491,8 +490,6 @@ const vi: PartialLocaleType = {
     Toast: (x: any) => `Bao gồm ${x} lệnh gợi ý đã định sẵn`,
     Edit: "Cài đặt cuộc trò chuyện hiện tại",
     Add: "Thêm một cuộc trò chuyện",
-    Clear: "Ngữ cảnh đã được xóa",
-    Revert: "Khôi phục ngữ cảnh",
   },
   Plugin: {
     Name: "Plugin",

@@ -63,7 +63,6 @@ const es: PartialLocaleType = {
       newm: "Nueva conversación desde la máscara",
       next: "Siguiente conversación",
       prev: "Conversación anterior",
-      clear: "Limpiar contexto",
       del: "Eliminar conversación",
     },
     InputActions: {
@@ -506,8 +505,6 @@ const es: PartialLocaleType = {
     Toast: (x: any) => `Contiene ${x} prompts predefinidos`,
     Edit: "Configuración del chat actual",
     Add: "Agregar una conversación",
-    Clear: "Contexto borrado",
-    Revert: "Restaurar contexto",
   },
   Plugin: {
     Name: "Complemento",

@@ -62,7 +62,6 @@ const da: PartialLocaleType = {
       newm: "Ny chat med persona",
       next: "Næste chat",
       prev: "Forrige chat",
-      clear: "Ryd alt før",
       fork: "Kopiér chat",
       del: "Slet chat",
     },
@@ -106,7 +105,6 @@ const da: PartialLocaleType = {
       copyLastMessage: "Kopiér sidste svar",
       copyLastCode: "Kopiér sidste kodeblok",
       showShortcutKey: "Vis hurtigtaster",
-      clearContext: "Ryd kontekst",
     },
   },
   Export: {
@@ -632,8 +630,6 @@ const da: PartialLocaleType = {
     Toast: (x: any) => `Inkluderer ${x} ekstra prompts`,
     Edit: "Chatindstillinger",
     Add: "Tilføj prompt",
-    Clear: "Kontekst ryddet",
-    Revert: "Fortryd",
   },
   Discovery: {
     Name: "Søgning og plugins",
