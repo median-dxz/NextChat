@@ -11,6 +11,7 @@ export interface ConversationSummary {
   sourceEntryIds: string[];
   sourceDigest: string;
   inputSummaryIds: string[];
+  stable?: boolean;
 }
 
 export interface ContextProjectionEntry extends RequestMessage {
@@ -140,7 +141,7 @@ export function isSummaryCurrent(
   summary: ConversationSummary,
   projection: ContextProjection,
 ) {
-  if (!summary.sourceDigest || summary.sourceEntryIds.length === 0) {
+  if (summary.sourceEntryIds.length === 0) {
     return false;
   }
   const order = new Map(
@@ -148,6 +149,12 @@ export function isSummaryCurrent(
   );
   const indexes = summary.sourceEntryIds.map((id) => order.get(id));
   if (indexes.some((index) => index === undefined)) return false;
+  if (summary.stable) {
+    return indexes.every(
+      (index, position) => position === 0 || index! > indexes[position - 1]!,
+    );
+  }
+  if (!summary.sourceDigest) return false;
   for (let index = 1; index < indexes.length; index += 1) {
     if (indexes[index]! !== indexes[index - 1]! + 1) return false;
   }

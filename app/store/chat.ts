@@ -39,9 +39,13 @@ import {
   estimateRequestMessageTokens,
   getEffectiveMaxOutputTokens,
   getContextInputBudget,
-  planConversationContext,
   planSummaryMaintenance,
 } from "../utils/context-compression";
+import {
+  materializeNodeSummaries,
+  planNodeConversationContext,
+  planNodeSummarySource,
+} from "../utils/node-summary";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -68,6 +72,8 @@ import {
 
 const localStorage = safeLocalStorage();
 const summaryJobs = new Map<string, Promise<void>>();
+const nodeSummaryJobs = new Map<string, Promise<void>>();
+const globalMemoryJobs = new Map<string, Promise<void>>();
 
 function requestSummary(
   api: ClientApi,
@@ -95,6 +101,34 @@ function requestSummary(
           reject(
             new Error(
               `Summary request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
+            ),
+          );
+        }
+      },
+      onError: reject,
+    });
+  });
+}
+
+function requestOneShot(
+  api: ClientApi,
+  messages: ChatMessage[],
+  modelConfig: ModelConfig,
+  model: string,
+  providerName: string,
+) {
+  return new Promise<string>((resolve, reject) => {
+    const { max_tokens, ...config } = modelConfig;
+    api.llm.chat({
+      messages,
+      config: { ...config, stream: false, model, providerName },
+      onReasoningUpdate() {},
+      onFinish(message, response) {
+        if (response?.status === 200 && message.trim()) resolve(message.trim());
+        else {
+          reject(
+            new Error(
+              `Global memory request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
             ),
           );
         }
@@ -679,7 +713,10 @@ export const useChatStore = createPersistStore(
 
         get().generateSessionTitle(targetSession);
         if (targetSession.mask.modelConfig.sendMemory) {
-          void get().maintainSummaries(targetSession.id);
+          void get().generateNodeSummary(targetSession.id, message.id);
+        }
+        if (targetSession.globalMemory.enabled) {
+          void get().updateGlobalMemory(targetSession.id);
         }
       },
 
@@ -959,11 +996,18 @@ export const useChatStore = createPersistStore(
             getSessionMessagesToCursor(current),
             current.contextBoundaryAfterMessageId,
           );
+          const summaries = modelConfig.sendMemory
+            ? [
+                ...current.summaries,
+                ...materializeNodeSummaries(projection.entries),
+              ]
+            : [];
           return {
             current,
-            plan: planConversationContext({
+            summaries,
+            plan: planNodeConversationContext({
               projection,
-              summaries: modelConfig.sendMemory ? current.summaries : [],
+              summaries,
               historyMessageCount: modelConfig.historyMessageCount,
               contextWindowTokens: modelConfig.contextWindowTokens,
               maxOutputTokens: modelConfig.max_tokens,
@@ -978,42 +1022,14 @@ export const useChatStore = createPersistStore(
           };
         };
 
-        let planned = createPlan();
-        const maxSteps =
-          planned.current.messages.length +
-          planned.current.summaries.length +
-          4;
-        for (
-          let step = 0;
-          modelConfig.sendMemory &&
-          planned.plan.requiresCompaction &&
-          !planned.plan.overflow &&
-          step < maxSteps;
-          step += 1
-        ) {
-          const before = planned.current.summaries
-            .map((summary) => `${summary.id}:${summary.sourceDigest}`)
-            .join("|");
-          await get().maintainSummaries(session.id, true);
-          planned = createPlan();
-          const after = planned.current.summaries
-            .map((summary) => `${summary.id}:${summary.sourceDigest}`)
-            .join("|");
-          if (before === after) break;
-        }
+        const planned = createPlan();
         if (planned.plan.overflow) {
           throw new Error(
             "System prompts and current input exceed the context window",
           );
         }
-        if (modelConfig.sendMemory && planned.plan.requiresCompaction) {
-          throw new Error(
-            "Unable to compact chat history into the context window",
-          );
-        }
-
         const selectedSummaries = planned.plan.selectedSummaryIds
-          .map((id) => planned.current.summaries.find((item) => item.id === id))
+          .map((id) => planned.summaries.find((item) => item.id === id))
           .filter((item): item is ConversationSummary => Boolean(item))
           .map((item) =>
             createMessage({
@@ -1180,6 +1196,165 @@ export const useChatStore = createPersistStore(
           : execution.catch((error) => console.error("[Summarize]", error));
       },
 
+      async generateNodeSummary(
+        sessionId: string,
+        nodeId: string,
+        force = false,
+      ): Promise<void> {
+        const jobKey = `${sessionId}:${nodeId}`;
+        const pending = nodeSummaryJobs.get(jobKey);
+        if (pending) return force ? pending : undefined;
+
+        const run = async () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          const node = session?.messages.find((item) => item.id === nodeId);
+          if (!session || !node || node.role !== "assistant") return;
+          if (!force && node.summaryAttemptedAt) return;
+
+          const modelConfig = session.mask.modelConfig;
+          const projection = projectConversationToCursor({
+            ...session,
+            activeCursorId: node.id,
+          });
+          const plan = planNodeSummarySource(
+            projection,
+            node.id,
+            getContextInputBudget(
+              modelConfig.contextWindowTokens,
+              modelConfig.max_tokens,
+            ),
+            modelConfig.compressMessageLengthThreshold,
+          );
+          if (!plan) return;
+
+          const attemptedAt = Date.now();
+          get().updateTargetSession(session, (draft) => {
+            const target = draft.messages.find((item) => item.id === node.id);
+            if (target) target.summaryAttemptedAt = attemptedAt;
+          });
+          if (!force && node.nodeSummaries?.[plan.kind]) return;
+
+          const [model, providerName] = modelConfig.compressModel
+            ? [modelConfig.compressModel, modelConfig.compressProviderName]
+            : getSummarizeModel(modelConfig.model, modelConfig.providerName);
+          const content = await requestSummary(
+            getClientApi(providerName as ServiceProvider),
+            plan.inputNodes.map((input) =>
+              input.hidden ? { ...input, content: "" } : input,
+            ),
+            modelConfig,
+            model,
+            providerName,
+          );
+
+          const current = get().sessions.find((item) => item.id === sessionId);
+          if (!current) return;
+          get().updateTargetSession(current, (draft) => {
+            const target = draft.messages.find((item) => item.id === node.id);
+            if (!target || target.role !== "assistant") return;
+            if (!force && target.nodeSummaries?.[plan.kind]) return;
+            const previous = target.nodeSummaries?.[plan.kind];
+            const now = Date.now();
+            target.nodeSummaries ??= {};
+            target.nodeSummaries[plan.kind] = {
+              content,
+              sourceNodeIds: plan.sourceNodeIds,
+              tokenCount: estimateTokenLength(content),
+              createdAt: previous?.createdAt ?? now,
+              updatedAt: now,
+            };
+          });
+        };
+        const execution = run().finally(() => nodeSummaryJobs.delete(jobKey));
+        nodeSummaryJobs.set(jobKey, execution);
+        return force
+          ? execution
+          : execution.catch((error) => console.error("[Node Summary]", error));
+      },
+
+      editGlobalMemory(
+        sessionId: string,
+        update: Partial<Pick<GlobalMemory, "enabled" | "prompt" | "content">>,
+      ) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          Object.assign(draft.globalMemory, update);
+          draft.globalMemory.revision += 1;
+        });
+      },
+
+      async updateGlobalMemory(sessionId: string, prompt?: string) {
+        const previous = globalMemoryJobs.get(sessionId) ?? Promise.resolve();
+        const execution = previous
+          .catch(() => undefined)
+          .then(async () => {
+            const session = get().sessions.find(
+              (item) => item.id === sessionId,
+            );
+            if (!session || !session.globalMemory.enabled) return;
+            const memoryPrompt = (prompt ?? session.globalMemory.prompt).trim();
+            if (!memoryPrompt) return;
+
+            const projection = projectConversationToCursor(session);
+            const assistant = projection
+              .slice()
+              .reverse()
+              .find(
+                (node) =>
+                  node.role === "assistant" && !node.streaming && !node.isError,
+              );
+            const user = assistant?.parentId
+              ? session.messages.find((node) => node.id === assistant.parentId)
+              : undefined;
+            if (!assistant || !user || user.role !== "user") return;
+
+            const revision = session.globalMemory.revision;
+            const modelConfig = session.mask.modelConfig;
+            const [model, providerName] = modelConfig.compressModel
+              ? [modelConfig.compressModel, modelConfig.compressProviderName]
+              : getSummarizeModel(modelConfig.model, modelConfig.providerName);
+            const messages: ChatMessage[] = [
+              createMessage({
+                role: "system",
+                content: memoryPrompt,
+                date: "",
+              }),
+              createMessage({
+                role: "system",
+                content: session.globalMemory.content,
+                date: "",
+              }),
+              user.hidden ? { ...user, content: "" } : user,
+              assistant.hidden ? { ...assistant, content: "" } : assistant,
+            ];
+            const content = await requestOneShot(
+              getClientApi(providerName as ServiceProvider),
+              messages,
+              modelConfig,
+              model,
+              providerName,
+            );
+            const current = get().sessions.find(
+              (item) => item.id === sessionId,
+            );
+            if (!current || current.globalMemory.revision !== revision) return;
+            get().updateTargetSession(current, (draft) => {
+              if (draft.globalMemory.revision !== revision) return;
+              draft.globalMemory.content = content;
+              draft.globalMemory.revision += 1;
+            });
+          });
+        globalMemoryJobs.set(sessionId, execution);
+        return execution
+          .catch((error) => console.error("[Global Memory]", error))
+          .finally(() => {
+            if (globalMemoryJobs.get(sessionId) === execution) {
+              globalMemoryJobs.delete(sessionId);
+            }
+          });
+      },
+
       async recompressSummary(sessionId: string, summaryId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         const summary = session?.summaries.find(
@@ -1227,7 +1402,12 @@ export const useChatStore = createPersistStore(
           draft.messages = graph.messages;
           draft.rootNodeId = graph.rootNodeId;
           draft.activeCursorId = graph.activeCursorId;
-          if (draft.contextBoundaryAfterMessageId === messageId) {
+          if (
+            draft.contextBoundaryAfterMessageId &&
+            !graph.messages.some(
+              (message) => message.id === draft.contextBoundaryAfterMessageId,
+            )
+          ) {
             draft.contextBoundaryAfterMessageId = undefined;
           }
         });

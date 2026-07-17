@@ -423,6 +423,97 @@ describe("chat store derived state", () => {
     expect(retried.rootNodeId).toBe(replacementUser.id);
   });
 
+  test("generates a node summary once and binds it to the assistant", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    const assistantId = session.messages[1].id;
+    let finish: ((message: string, response: Response) => void) | undefined;
+    apiMocks.chat.mockImplementation((options) => {
+      finish = options.onFinish;
+    });
+
+    const first = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, assistantId);
+    const second = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, assistantId);
+    expect(apiMocks.chat).toHaveBeenCalledTimes(1);
+    finish?.("compact answer", new Response(null, { status: 200 }));
+    await Promise.all([first, second]);
+
+    const assistant = useChatStore
+      .getState()
+      .currentSession()
+      .messages.find((item) => item.id === assistantId)!;
+    expect(assistant.summaryAttemptedAt).toBeTypeOf("number");
+    expect(assistant.nodeSummaries?.segment).toEqual(
+      expect.objectContaining({
+        content: "compact answer",
+        sourceNodeIds: session.messages.map((item) => item.id),
+      }),
+    );
+  });
+
+  test("serializes global memory updates", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    session.globalMemory = {
+      enabled: true,
+      prompt: "update memory",
+      content: "old memory",
+      revision: 0,
+    };
+    const requests: any[] = [];
+    apiMocks.chat.mockImplementation((options) => requests.push(options));
+
+    const first = useChatStore.getState().updateGlobalMemory(session.id);
+    const second = useChatStore.getState().updateGlobalMemory(session.id);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    requests[0].onFinish("memory one", new Response(null, { status: 200 }));
+    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    requests[1].onFinish("memory two", new Response(null, { status: 200 }));
+    await Promise.all([first, second]);
+
+    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject({
+      content: "memory two",
+      revision: 2,
+    });
+  });
+
+  test("does not overwrite a manual global memory edit", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    session.globalMemory = {
+      enabled: true,
+      prompt: "update memory",
+      content: "old memory",
+      revision: 0,
+    };
+    let finish: ((message: string, response: Response) => void) | undefined;
+    apiMocks.chat.mockImplementation((options) => {
+      finish = options.onFinish;
+    });
+
+    const updating = useChatStore.getState().updateGlobalMemory(session.id);
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    useChatStore
+      .getState()
+      .editGlobalMemory(session.id, { content: "manual memory" });
+    finish?.("stale generated memory", new Response(null, { status: 200 }));
+    await updating;
+
+    expect(useChatStore.getState().currentSession().globalMemory.content).toBe(
+      "manual memory",
+    );
+  });
+
   test("uses only final content from history in the next turn", async () => {
     setSession([message("assistant", "final answer", "private reasoning")]);
     let requestedMessages: ChatMessage[] = [];
@@ -504,8 +595,8 @@ describe("chat store derived state", () => {
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
-  test("emergency compaction progresses past one oversized old turn", async () => {
-    const session = setSession(
+  test("context planning does not block on emergency compaction", async () => {
+    setSession(
       [
         message("user", "a".repeat(4_000)),
         message("assistant", "b".repeat(4_000)),
@@ -519,26 +610,18 @@ describe("chat store derived state", () => {
         max_tokens: 128,
       },
     );
-    apiMocks.chat.mockImplementation((options) => {
-      options.onFinish("old turn summary", new Response(null, { status: 200 }));
-    });
-
     await expect(
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          role: "system",
-          content: expect.stringContaining("old turn summary"),
-        }),
-      ]),
-    );
-    expect(session.summaries).toHaveLength(2);
+    ).resolves.toEqual([
+      expect.objectContaining({ content: "recent question" }),
+      expect.objectContaining({ content: "recent answer" }),
+    ]);
+    expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
-  test("propagates the summary model error during blocking compaction", async () => {
+  test("context planning remains usable when no summary is available", async () => {
     setSession(
       [
         message("user", "a".repeat(4_000)),
@@ -551,15 +634,14 @@ describe("chat store derived state", () => {
         max_tokens: 128,
       },
     );
-    apiMocks.chat.mockImplementation((options) => {
-      options.onError(new Error("summary model unavailable"));
-    });
-
     await expect(
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).rejects.toThrow("summary model unavailable");
+    ).resolves.toEqual([
+      expect.objectContaining({ role: "assistant" }),
+    ]);
+    expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
   test("replans after an existing summary job without forcing an extra request", async () => {

@@ -16,6 +16,7 @@ export interface ConversationNode extends ChatMessage {
   activeBranchRootId?: string;
   hidden?: boolean;
   nodeSummaries?: Partial<Record<NodeSummaryKind, NodeSummary>>;
+  summaryAttemptedAt?: number;
 }
 
 export interface GlobalMemory {
