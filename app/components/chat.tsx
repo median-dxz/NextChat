@@ -49,6 +49,7 @@ import HeadphoneIcon from "../icons/headphone.svg";
 import {
   BOT_HELLO,
   ChatMessage,
+  createConversationNode,
   createMessage,
   DEFAULT_TOPIC,
   getSessionActiveMessages,
@@ -107,7 +108,7 @@ import {
   UNFINISHED_INPUT,
 } from "../constant";
 import { Avatar } from "./emoji";
-import { ContextPrompts, MaskAvatar, MaskConfig } from "./mask";
+import { MaskAvatar, MaskConfig } from "./mask";
 import { useMaskStore } from "../store/mask";
 import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
@@ -123,13 +124,7 @@ import { isEmpty } from "lodash-es";
 import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
-import type { ConversationSummary } from "../utils/context-compression";
-import {
-  getVisibleMessages,
-  mergeEditedMessagesWithTombstones,
-} from "../utils/chat-session";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { SessionSummaryList } from "./session-summary-list";
 import { createConversationGraphIndex } from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
@@ -173,10 +168,7 @@ const MCPAction = () => {
   );
 };
 
-export function SessionConfigModel(props: {
-  onClose: () => void;
-  onLocateSummary: (summary: ConversationSummary) => void;
-}) {
+export function SessionConfigModel(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const maskStore = useMaskStore();
@@ -188,19 +180,6 @@ export function SessionConfigModel(props: {
         title={Locale.Context.Edit}
         onClose={() => props.onClose()}
         actions={[
-          <IconButton
-            key="reset"
-            icon={<ResetIcon />}
-            bordered
-            text={Locale.Chat.Config.Reset}
-            onClick={async () => {
-              if (await showConfirm(Locale.Memory.ResetConfirm)) {
-                chatStore.updateTargetSession(session, (session) => {
-                  session.summaries = [];
-                });
-              }
-            }}
-          />,
           <IconButton
             key="copy"
             icon={<CopyIcon />}
@@ -227,10 +206,6 @@ export function SessionConfigModel(props: {
           }}
           shouldSyncFromGlobal
         />
-        <SessionSummaryList
-          session={session}
-          onLocate={props.onLocateSummary}
-        />
       </Modal>
     </div>
   );
@@ -240,11 +215,10 @@ function PromptToast(props: {
   showToast?: boolean;
   showModal?: boolean;
   setShowModal: (_: boolean) => void;
-  onLocateSummary: (summary: ConversationSummary) => void;
 }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const context = session.mask.context;
+  const context = session.pinnedInputs;
 
   return (
     <div className={styles["prompt-toast"]} key="prompt-toast">
@@ -261,10 +235,7 @@ function PromptToast(props: {
         </div>
       )}
       {props.showModal && (
-        <SessionConfigModel
-          onClose={() => props.setShowModal(false)}
-          onLocateSummary={props.onLocateSummary}
-        />
+        <SessionConfigModel onClose={() => props.setShowModal(false)} />
       )}
     </div>
   );
@@ -487,6 +458,7 @@ export function ChatActions(props: {
   setAttachImages: (images: string[]) => void;
   setUploading: (uploading: boolean) => void;
   showPromptModal: () => void;
+  showGlobalMemory: () => void;
   scrollToBottom: () => void;
   showPromptHints: () => void;
   hitBottom: boolean;
@@ -629,6 +601,12 @@ export function ChatActions(props: {
           icon={<span aria-hidden="true">↰−</span>}
           active={session.pendingOutlineDelta === -1}
           disabled={!cursorNode || cursorNode.outlineLevel <= 1}
+        />
+        <ChatAction
+          onClick={props.showGlobalMemory}
+          text={Locale.Chat.Graph.GlobalMemory}
+          icon={<BrainIcon />}
+          active={session.globalMemory.enabled}
         />
 
         {showUploadImage && (
@@ -845,9 +823,14 @@ export function ChatActions(props: {
 export function EditMessageModal(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const [messages, setMessages] = useState(() =>
-    getVisibleMessages(session.messages),
-  );
+  const messages = getSessionActiveMessages(session);
+  const runGraphAction = (action: () => void) => {
+    try {
+      action();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   return (
     <div className="modal-mask">
@@ -868,17 +851,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
             text={Locale.UI.Confirm}
             icon={<ConfirmIcon />}
             key="ok"
-            onClick={() => {
-              chatStore.updateTargetSession(
-                session,
-                (session) =>
-                  (session.messages = mergeEditedMessagesWithTombstones(
-                    session.messages,
-                    messages,
-                  )),
-              );
-              props.onClose();
-            }}
+            onClick={props.onClose}
           />,
         ]}
       >
@@ -899,14 +872,86 @@ export function EditMessageModal(props: { onClose: () => void }) {
             ></input>
           </ListItem>
         </List>
-        <ContextPrompts
-          context={messages}
-          updateContext={(updater) => {
-            const newMessages = messages.slice();
-            updater(newMessages);
-            setMessages(newMessages);
-          }}
-        />
+        <div className={styles["graph-editor"]}>
+          {messages.map((message, index) => (
+            <div className={styles["graph-editor-row"]} key={message.id}>
+              <div className={styles["graph-editor-meta"]}>
+                <span>L{message.outlineLevel}</span>
+                <span>{message.role}</span>
+                <code>{message.id}</code>
+              </div>
+              <textarea
+                aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
+                value={getMessageTextContent(message)}
+                onChange={(event) =>
+                  chatStore.updateMessageContent(
+                    session.id,
+                    message.id,
+                    event.target.value,
+                  )
+                }
+              />
+              <div className={styles["graph-editor-actions"]}>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={() =>
+                    runGraphAction(() =>
+                      chatStore.swapMessages(
+                        session.id,
+                        message.id,
+                        messages[index - 1].id,
+                      ),
+                    )
+                  }
+                >
+                  {Locale.Chat.Graph.MoveUp}
+                </button>
+                <button
+                  type="button"
+                  disabled={index === messages.length - 1}
+                  onClick={() =>
+                    runGraphAction(() =>
+                      chatStore.swapMessages(
+                        session.id,
+                        message.id,
+                        messages[index + 1].id,
+                      ),
+                    )
+                  }
+                >
+                  {Locale.Chat.Graph.MoveDown}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    runGraphAction(() =>
+                      chatStore.insertMessageBetween(
+                        session.id,
+                        createConversationNode({
+                          role: "user",
+                          content: "",
+                        }),
+                        message.id,
+                        messages[index + 1]?.id,
+                      ),
+                    )
+                  }
+                >
+                  {Locale.Chat.Graph.Insert}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    chatStore.deleteMessage(session.id, message.id)
+                  }
+                >
+                  {Locale.Chat.Actions.Delete}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </Modal>
     </div>
   );
@@ -933,6 +978,7 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
   const [checkpoint, setCheckpoint] = useState(
     () => node?.nodeSummaries?.checkpoint?.content ?? "",
   );
+  const [generating, setGenerating] = useState(false);
 
   if (!node) return null;
 
@@ -971,6 +1017,22 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
     });
     props.onClose();
   };
+  const generate = async () => {
+    setGenerating(true);
+    try {
+      await chatStore.generateNodeSummary(session.id, node.id, true);
+      const current = useChatStore
+        .getState()
+        .currentSession()
+        .messages.find((item) => item.id === node.id);
+      setSegment(current?.nodeSummaries?.segment?.content ?? "");
+      setCheckpoint(current?.nodeSummaries?.checkpoint?.content ?? "");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="modal-mask">
@@ -978,6 +1040,17 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
         title={Locale.Chat.Graph.Node}
         onClose={props.onClose}
         actions={[
+          ...(node.role === "assistant"
+            ? [
+                <IconButton
+                  key="generate"
+                  text={Locale.Chat.Graph.GenerateSummary}
+                  icon={generating ? <LoadingButtonIcon /> : <BrainIcon />}
+                  disabled={generating}
+                  onClick={() => void generate()}
+                />,
+              ]
+            : []),
           <IconButton
             key="save"
             type="primary"
@@ -1083,6 +1156,82 @@ function BranchSelectorModal(props: {
   );
 }
 
+function GlobalMemoryModal(props: { onClose: () => void }) {
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const [enabled, setEnabled] = useState(session.globalMemory.enabled);
+  const [prompt, setPrompt] = useState(session.globalMemory.prompt);
+  const [content, setContent] = useState(session.globalMemory.content);
+  const [updating, setUpdating] = useState(false);
+
+  const save = () => {
+    chatStore.editGlobalMemory(session.id, { enabled, prompt, content });
+  };
+  const update = async () => {
+    save();
+    setUpdating(true);
+    try {
+      await chatStore.updateGlobalMemory(session.id, prompt);
+      setContent(useChatStore.getState().currentSession().globalMemory.content);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="modal-mask">
+      <Modal
+        title={Locale.Chat.Graph.GlobalMemory}
+        onClose={props.onClose}
+        actions={[
+          <IconButton
+            key="update"
+            text={Locale.Chat.Graph.UpdateMemory}
+            icon={updating ? <LoadingButtonIcon /> : <BrainIcon />}
+            disabled={updating || !enabled || !prompt.trim()}
+            onClick={() => void update()}
+          />,
+          <IconButton
+            key="save"
+            type="primary"
+            text={Locale.Chat.Graph.SaveMemory}
+            icon={<ConfirmIcon />}
+            onClick={() => {
+              save();
+              props.onClose();
+            }}
+          />,
+        ]}
+      >
+        <div className={styles["node-viewer"]}>
+          <label className={styles["global-memory-toggle"]}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+            />
+            <span>{Locale.Chat.Graph.Enabled}</span>
+          </label>
+          <label>
+            <span>{Locale.Chat.Graph.Prompt}</span>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>{Locale.Chat.Graph.Content}</span>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </label>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 export function ShortcutKeyModal(props: { onClose: () => void }) {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
   const shortcuts = [
@@ -1154,6 +1303,7 @@ function ChatView() {
   const fontFamily = config.fontFamily;
 
   const [showExport, setShowExport] = useState(false);
+  const [showGlobalMemory, setShowGlobalMemory] = useState(false);
   const [viewingNodeId, setViewingNodeId] = useState<string>();
   const [branchParentId, setBranchParentId] = useState<string>();
 
@@ -1173,7 +1323,6 @@ function ChatView() {
     contentRef,
     isAtBottom,
     requestBottom,
-    detach,
     handleScroll,
     userScrollHandlers,
   } = useScrollToBottom(isMobileScreen ? 4 : 10);
@@ -1362,9 +1511,15 @@ function ChatView() {
   };
 
   const onPinMessage = (message: ChatMessage) => {
-    chatStore.updateTargetSession(session, (session) =>
-      session.mask.context.push(message),
-    );
+    chatStore.updateTargetSession(session, (session) => {
+      session.pinnedInputs.push(
+        createMessage({
+          role: message.role,
+          content: message.content,
+          date: message.date,
+        }),
+      );
+    });
 
     showToast(Locale.Chat.Actions.PinToastContent, {
       text: Locale.Chat.Actions.PinToastAction,
@@ -1538,48 +1693,6 @@ function ChatView() {
   function scrollToBottom() {
     setMsgRenderIndex(renderMessages.length - CHAT_PAGE_SIZE);
     requestBottom("button");
-  }
-
-  function locateSummary(summary: ConversationSummary) {
-    const visibleSourceIds = new Set(
-      session.messages
-        .filter((message) => !message.deletedAt)
-        .map((message) => message.id),
-    );
-    let anchorId = summary.sourceEntryIds
-      .slice()
-      .reverse()
-      .find((id) => visibleSourceIds.has(id));
-    const sourceEndIndex = session.messages.findIndex(
-      (message) => message.id === summary.sourceEntryIds.at(-1),
-    );
-    for (
-      let distance = 1;
-      !anchorId && sourceEndIndex >= 0 && distance < session.messages.length;
-      distance += 1
-    ) {
-      const after = session.messages[sourceEndIndex + distance];
-      const before = session.messages[sourceEndIndex - distance];
-      anchorId = [after, before].find(
-        (message) => message && !message.deletedAt,
-      )?.id;
-    }
-    if (!anchorId) return;
-    const anchorIndex = renderMessages.findIndex(
-      (message) => message.id === anchorId,
-    );
-    if (anchorIndex < 0) return;
-
-    setShowPromptModal(false);
-    detach();
-    setMsgRenderIndex(anchorIndex - CHAT_PAGE_SIZE);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        document
-          .getElementById(`chat-message-${anchorId}`)
-          ?.scrollIntoView({ block: "center" });
-      });
-    });
   }
 
   const [showPromptModal, setShowPromptModal] = useState(false);
@@ -1890,7 +2003,6 @@ function ChatView() {
             showToast={!isAtBottom}
             showModal={showPromptModal}
             setShowModal={setShowPromptModal}
-            onLocateSummary={locateSummary}
           />
         </div>
         <div className={styles["chat-main"]}>
@@ -2282,6 +2394,7 @@ function ChatView() {
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
                 showPromptModal={() => setShowPromptModal(true)}
+                showGlobalMemory={() => setShowGlobalMemory(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={isAtBottom}
                 uploading={uploading}
@@ -2404,6 +2517,10 @@ function ChatView() {
           onClose={() => setBranchParentId(undefined)}
           onStartBranch={() => inputRef.current?.focus()}
         />
+      )}
+
+      {showGlobalMemory && (
+        <GlobalMemoryModal onClose={() => setShowGlobalMemory(false)} />
       )}
     </>
   );
