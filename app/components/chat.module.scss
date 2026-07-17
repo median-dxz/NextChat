@@ -69,6 +69,18 @@
     height: 16px;
     width: var(--icon-width);
     overflow: hidden;
+    cursor: pointer;
+    font-family: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
 
     .text {
       white-space: nowrap;
@@ -97,6 +109,12 @@
       align-items: center;
       justify-content: center;
     }
+  }
+
+  .chat-input-action-active {
+    color: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
   }
 }
 
@@ -283,6 +301,99 @@
 
   .chat-message-header {
     flex-direction: row-reverse;
+  }
+}
+
+.chat-message-hidden {
+  filter: grayscale(1);
+  opacity: 0.48;
+}
+
+.node-viewer {
+  display: grid;
+  gap: 14px;
+
+  label {
+    display: grid;
+    gap: 6px;
+    color: var(--black);
+    font-size: 13px;
+  }
+
+  textarea {
+    min-height: 110px;
+    padding: 10px;
+    resize: vertical;
+    border: var(--border-in-light);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--black);
+    font: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.node-viewer-metadata {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+
+  div {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.25fr) 1fr;
+    gap: 8px;
+  }
+
+  dt {
+    color: var(--black);
+    opacity: 0.65;
+  }
+
+  dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--black);
+  }
+}
+
+.branch-selector {
+  display: grid;
+  gap: 8px;
+
+  button {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 10px 12px;
+    border: var(--border-in-light);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--black);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

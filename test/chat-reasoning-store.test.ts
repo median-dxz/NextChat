@@ -366,6 +366,63 @@ describe("chat store derived state", () => {
     ).toBe(12_000);
   });
 
+  test("retries an assistant by preserving its user node", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "old answer"),
+    ]);
+    const userId = session.messages[0].id;
+    const assistantId = session.messages[1].id;
+    let requestedMessages: ChatMessage[] = [];
+    apiMocks.chat.mockImplementation((options) => {
+      requestedMessages = options.messages;
+    });
+
+    await useChatStore.getState().retryMessage(session.id, assistantId);
+
+    const retried = useChatStore.getState().currentSession();
+    expect(retried.messages).toHaveLength(2);
+    expect(retried.messages[0].id).toBe(userId);
+    expect(retried.messages[1]).toMatchObject({
+      role: "assistant",
+      parentId: userId,
+      streaming: true,
+    });
+    expect(retried.messages[1].id).not.toBe(assistantId);
+    expect(requestedMessages.map(getMessageTextContent)).toEqual(["question"]);
+  });
+
+  test("retries a user by replacing the direct user and assistant nodes", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "old answer"),
+      message("user", "later question"),
+    ]);
+    const oldUserId = session.messages[0].id;
+    const oldAssistantId = session.messages[1].id;
+    const laterId = session.messages[2].id;
+    apiMocks.chat.mockImplementation(() => undefined);
+
+    await useChatStore.getState().retryMessage(session.id, oldUserId);
+
+    const retried = useChatStore.getState().currentSession();
+    const ids = retried.messages.map((item) => item.id);
+    expect(ids).not.toContain(oldUserId);
+    expect(ids).not.toContain(oldAssistantId);
+    expect(ids).toContain(laterId);
+    const replacementUser = retried.messages.find(
+      (item) => item.role === "user" && item.id !== laterId,
+    )!;
+    const replacementAssistant = retried.messages.find(
+      (item) => item.role === "assistant",
+    )!;
+    expect(retried.messages.find((item) => item.id === laterId)?.parentId).toBe(
+      replacementAssistant.id,
+    );
+    expect(replacementAssistant.parentId).toBe(replacementUser.id);
+    expect(retried.rootNodeId).toBe(replacementUser.id);
+  });
+
   test("uses only final content from history in the next turn", async () => {
     setSession([message("assistant", "final answer", "private reasoning")]);
     let requestedMessages: ChatMessage[] = [];

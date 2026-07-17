@@ -50,7 +50,9 @@ import { executeMcpAction, getAllTools, isMcpEnabled } from "@/app/mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import {
   ConversationNode,
+  ConversationGraphState,
   GlobalMemory,
+  createConversationGraphIndex,
   createEmptyGlobalMemory,
   deleteConversationNode,
   insertConversationNode,
@@ -685,16 +687,28 @@ export const useChatStore = createPersistStore(
         content: string,
         attachImages?: string[],
         isMcpResponse?: boolean,
+        retry?: {
+          source: ConversationNode;
+          reuseUser: boolean;
+          insertBeforeId?: string;
+        },
       ) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
 
         // MCP Response no need to fill template
-        let mContent: string | MultimodalContent[] = isMcpResponse
-          ? content
-          : fillTemplateWith(content, modelConfig);
+        let mContent: string | MultimodalContent[] = retry
+          ? retry.source.content
+          : isMcpResponse
+            ? content
+            : fillTemplateWith(content, modelConfig);
 
-        if (!isMcpResponse && attachImages && attachImages.length > 0) {
+        if (
+          !retry &&
+          !isMcpResponse &&
+          attachImages &&
+          attachImages.length > 0
+        ) {
           mContent = [
             ...(content ? [{ type: "text" as const, text: content }] : []),
             ...attachImages.map((url) => ({
@@ -704,11 +718,13 @@ export const useChatStore = createPersistStore(
           ];
         }
 
-        let userMessage: ConversationNode = createConversationNode({
-          role: "user",
-          content: mContent,
-          isMcpResponse,
-        });
+        let userMessage: ConversationNode = retry?.reuseUser
+          ? { ...retry.source }
+          : createConversationNode({
+              role: "user",
+              content: mContent,
+              isMcpResponse: retry?.source.isMcpResponse ?? isMcpResponse,
+            });
 
         const botMessage: ConversationNode = createConversationNode({
           role: "assistant",
@@ -729,8 +745,12 @@ export const useChatStore = createPersistStore(
         };
 
         // get recent messages
-        const recentMessages = await get().getMessagesWithMemory(userMessage);
-        const sendMessages = recentMessages.concat(userMessage);
+        const recentMessages = await get().getMessagesWithMemory(
+          retry?.reuseUser ? undefined : userMessage,
+        );
+        const sendMessages = retry?.reuseUser
+          ? recentMessages
+          : recentMessages.concat(userMessage);
         const effectiveMaxOutputTokens = getEffectiveMaxOutputTokens(
           modelConfig.contextWindowTokens,
           modelConfig.max_tokens,
@@ -743,26 +763,57 @@ export const useChatStore = createPersistStore(
 
         // save user's and bot's message
         get().updateTargetSession(session, (session) => {
-          const savedUserMessage: ConversationNode = {
-            ...userMessage,
-            content: mContent,
-          };
-          let graph = insertConversationNode(
-            session,
-            savedUserMessage,
-            session.pendingOutlineDelta ?? 0,
-          );
+          const savedUserMessage: ConversationNode = retry?.reuseUser
+            ? userMessage
+            : { ...userMessage, content: mContent };
+          let graph = retry?.reuseUser
+            ? session
+            : retry?.insertBeforeId
+              ? insertProjectedConversationNode(
+                  session,
+                  savedUserMessage,
+                  undefined,
+                  retry.insertBeforeId,
+                )
+              : insertConversationNode(
+                  session,
+                  savedUserMessage,
+                  session.pendingOutlineDelta ?? 0,
+                );
           graph = insertConversationNode(
             graph,
             botMessage,
             0,
             savedUserMessage.id,
           );
+          const insertedUser = graph.messages.find(
+            (message) => message.id === savedUserMessage.id,
+          )!;
+          const insertedBot = graph.messages.find(
+            (message) => message.id === botMessage.id,
+          )!;
+          Object.assign(userMessage, {
+            parentId: insertedUser.parentId,
+            outlineLevel: insertedUser.outlineLevel,
+          });
+          Object.assign(botMessage, {
+            parentId: insertedBot.parentId,
+            outlineLevel: insertedBot.outlineLevel,
+          });
           session.messages = graph.messages;
           session.rootNodeId = graph.rootNodeId;
           session.activeCursorId = graph.activeCursorId;
           session.pendingOutlineDelta = undefined;
         });
+
+        const syncMessage = (message: ConversationNode) => {
+          get().updateTargetSession(session, (current) => {
+            const target = current.messages.find(
+              (item) => item.id === message.id,
+            );
+            if (target) Object.assign(target, message);
+          });
+        };
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
         // make request
@@ -779,17 +830,13 @@ export const useChatStore = createPersistStore(
               finishReasoningTiming();
               botMessage.content = message;
             }
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            syncMessage(botMessage);
           },
           onReasoningUpdate(reasoning) {
             botMessage.streaming = true;
             reasoningStartedAt ??= Date.now();
             botMessage.reasoning = reasoning;
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            syncMessage(botMessage);
           },
           async onFinish(message) {
             botMessage.streaming = false;
@@ -797,15 +844,16 @@ export const useChatStore = createPersistStore(
             if (message || botMessage.reasoning) {
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
+              syncMessage(botMessage);
               get().onNewMessage(botMessage, session);
+            } else {
+              syncMessage(botMessage);
             }
             ChatControllerPool.remove(session.id, botMessage.id);
           },
           onBeforeTool(tool: ChatMessageTool) {
             (botMessage.tools = botMessage?.tools || []).push(tool);
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            syncMessage(botMessage);
           },
           onAfterTool(tool: ChatMessageTool) {
             botMessage?.tools?.forEach((t, i, tools) => {
@@ -813,9 +861,7 @@ export const useChatStore = createPersistStore(
                 tools[i] = { ...tool };
               }
             });
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            syncMessage(botMessage);
           },
           onError(error) {
             const isAborted = error.message?.includes?.("aborted");
@@ -829,9 +875,8 @@ export const useChatStore = createPersistStore(
             finishReasoningTiming();
             userMessage.isError = !isAborted;
             botMessage.isError = !isAborted;
-            get().updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            syncMessage(userMessage);
+            syncMessage(botMessage);
             ChatControllerPool.remove(
               session.id,
               botMessage.id ?? messageIndex,
@@ -1188,9 +1233,77 @@ export const useChatStore = createPersistStore(
         });
       },
 
+      async retryMessage(sessionId: string, messageId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session || get().currentSession().id !== sessionId) return false;
+        const index = createConversationGraphIndex(session.messages);
+        const target = index.nodesById.get(messageId);
+        if (
+          !target ||
+          (target.role !== "user" && target.role !== "assistant")
+        ) {
+          return false;
+        }
+
+        let source: ConversationNode;
+        let reuseUser = false;
+        let insertBeforeId: string | undefined;
+        const removedIds = new Set<string>([target.id]);
+        let graph: ConversationGraphState = session;
+
+        if (target.role === "assistant") {
+          const user = target.parentId
+            ? index.nodesById.get(target.parentId)
+            : undefined;
+          if (!user || user.role !== "user") {
+            throw new Error("An assistant retry requires its direct user node");
+          }
+          source = { ...user };
+          reuseUser = true;
+          graph = deleteConversationNode(graph, target.id);
+          graph = { ...graph, activeCursorId: user.id };
+          validateConversationGraph(graph);
+        } else {
+          source = { ...target };
+          const response = index.sameLevelChildByParentId.get(target.id);
+          graph = deleteConversationNode(graph, target.id);
+          if (response?.role === "assistant") {
+            removedIds.add(response.id);
+            graph = deleteConversationNode(graph, response.id);
+          }
+          graph = { ...graph, activeCursorId: target.parentId };
+          validateConversationGraph(graph);
+          if (!target.parentId) insertBeforeId = graph.rootNodeId;
+        }
+
+        get().updateTargetSession(session, (draft) => {
+          draft.messages = graph.messages;
+          draft.rootNodeId = graph.rootNodeId;
+          draft.activeCursorId = graph.activeCursorId;
+          draft.pendingOutlineDelta = undefined;
+          if (
+            draft.contextBoundaryAfterMessageId &&
+            removedIds.has(draft.contextBoundaryAfterMessageId)
+          ) {
+            draft.contextBoundaryAfterMessageId = undefined;
+          }
+        });
+
+        await get().onUserInput("", undefined, source.isMcpResponse, {
+          source,
+          reuseUser,
+          insertBeforeId,
+        });
+        return true;
+      },
+
       setNextOutlineDelta(sessionId: string, delta?: -1 | 1) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
+        const cursor = session.messages.find(
+          (item) => item.id === session.activeCursorId,
+        );
+        if (!cursor || (delta === -1 && cursor.outlineLevel <= 1)) return;
         get().updateTargetSession(session, (draft) => {
           draft.pendingOutlineDelta =
             draft.pendingOutlineDelta === delta ? undefined : delta;

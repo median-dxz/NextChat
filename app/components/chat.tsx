@@ -51,6 +51,7 @@ import {
   ChatMessage,
   createMessage,
   DEFAULT_TOPIC,
+  getSessionActiveMessages,
   ModelType,
   SubmitKey,
   Theme,
@@ -126,10 +127,10 @@ import type { ConversationSummary } from "../utils/context-compression";
 import {
   getVisibleMessages,
   mergeEditedMessagesWithTombstones,
-  runResendTransaction,
 } from "../utils/chat-session";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
 import { SessionSummaryList } from "./session-summary-list";
+import { createConversationGraphIndex } from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
 
@@ -397,6 +398,8 @@ export function ChatAction(props: {
   text: string;
   icon: React.ReactElement;
   onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
 }) {
   const iconRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -417,14 +420,20 @@ export function ChatAction(props: {
   }
 
   return (
-    <div
-      className={clsx(styles["chat-input-action"], "clickable")}
+    <button
+      type="button"
+      className={clsx(styles["chat-input-action"], "clickable", {
+        [styles["chat-input-action-active"]]: props.active,
+      })}
       onClick={() => {
         props.onClick();
         setTimeout(updateWidth, 1);
       }}
       onMouseEnter={updateWidth}
       onTouchStart={updateWidth}
+      aria-label={props.text}
+      aria-pressed={props.active}
+      disabled={props.disabled}
       style={
         {
           "--icon-width": `${width.icon}px`,
@@ -438,7 +447,7 @@ export function ChatAction(props: {
       <div className={styles["text"]} ref={textRef}>
         {props.text}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -492,6 +501,9 @@ export function ChatActions(props: {
   const chatStore = useChatStore();
   const pluginStore = usePluginStore();
   const session = chatStore.currentSession();
+  const cursorNode = session.messages.find(
+    (message) => message.id === session.activeCursorId,
+  );
 
   // switch themes
   const theme = config.theme;
@@ -603,6 +615,21 @@ export function ChatActions(props: {
             icon={<SettingsIcon />}
           />
         )}
+
+        <ChatAction
+          onClick={() => chatStore.setNextOutlineDelta(session.id, 1)}
+          text={Locale.Chat.InputActions.OutlineIn}
+          icon={<span aria-hidden="true">↳+</span>}
+          active={session.pendingOutlineDelta === 1}
+          disabled={!cursorNode}
+        />
+        <ChatAction
+          onClick={() => chatStore.setNextOutlineDelta(session.id, -1)}
+          text={Locale.Chat.InputActions.OutlineOut}
+          icon={<span aria-hidden="true">↰−</span>}
+          active={session.pendingOutlineDelta === -1}
+          disabled={!cursorNode || cursorNode.outlineLevel <= 1}
+        />
 
         {showUploadImage && (
           <ChatAction
@@ -893,6 +920,169 @@ export function DeleteImageButton(props: { deleteImage: () => void }) {
   );
 }
 
+function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const node = session.messages.find((item) => item.id === props.nodeId);
+  const [content, setContent] = useState(() =>
+    node ? getMessageTextContent(node) : "",
+  );
+  const [segment, setSegment] = useState(
+    () => node?.nodeSummaries?.segment?.content ?? "",
+  );
+  const [checkpoint, setCheckpoint] = useState(
+    () => node?.nodeSummaries?.checkpoint?.content ?? "",
+  );
+
+  if (!node) return null;
+
+  const save = () => {
+    chatStore.updateTargetSession(session, (draft) => {
+      const target = draft.messages.find((item) => item.id === node.id);
+      if (!target) return;
+      const images = getMessageImages(target);
+      target.content = images.length
+        ? [
+            { type: "text", text: content },
+            ...images.map((url) => ({
+              type: "image_url" as const,
+              image_url: { url },
+            })),
+          ]
+        : content;
+      const now = Date.now();
+      const updateSummary = (kind: "segment" | "checkpoint", value: string) => {
+        if (!value.trim()) {
+          if (target.nodeSummaries) delete target.nodeSummaries[kind];
+          return;
+        }
+        const previous = target.nodeSummaries?.[kind];
+        target.nodeSummaries ??= {};
+        target.nodeSummaries[kind] = {
+          content: value,
+          sourceNodeIds: previous?.sourceNodeIds ?? [target.id],
+          tokenCount: Math.ceil(value.length / 4),
+          createdAt: previous?.createdAt ?? now,
+          updatedAt: now,
+        };
+      };
+      updateSummary("segment", segment);
+      updateSummary("checkpoint", checkpoint);
+    });
+    props.onClose();
+  };
+
+  return (
+    <div className="modal-mask">
+      <Modal
+        title={Locale.Chat.Graph.Node}
+        onClose={props.onClose}
+        actions={[
+          <IconButton
+            key="save"
+            type="primary"
+            text={Locale.Chat.Graph.Save}
+            icon={<ConfirmIcon />}
+            onClick={save}
+          />,
+        ]}
+      >
+        <div className={styles["node-viewer"]}>
+          <dl className={styles["node-viewer-metadata"]}>
+            <div>
+              <dt>ID</dt>
+              <dd>{node.id}</dd>
+            </div>
+            <div>
+              <dt>{Locale.Chat.Graph.OutlineLevel}</dt>
+              <dd>{node.outlineLevel}</dd>
+            </div>
+            <div>
+              <dt>{Locale.Chat.Graph.Parent}</dt>
+              <dd>{node.parentId ?? "—"}</dd>
+            </div>
+          </dl>
+          <label>
+            <span>{Locale.Chat.Actions.Edit}</span>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>{Locale.Chat.Graph.Segment}</span>
+            <textarea
+              value={segment}
+              onChange={(e) => setSegment(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>{Locale.Chat.Graph.Checkpoint}</span>
+            <textarea
+              value={checkpoint}
+              onChange={(e) => setCheckpoint(e.target.value)}
+            />
+          </label>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function BranchSelectorModal(props: {
+  parentId: string;
+  onClose: () => void;
+  onStartBranch: () => void;
+}) {
+  const chatStore = useChatStore();
+  const session = chatStore.currentSession();
+  const index = createConversationGraphIndex(session.messages);
+  const parent = index.nodesById.get(props.parentId);
+  if (!parent) return null;
+  const branches = (index.childrenByParentId.get(parent.id) ?? []).filter(
+    (node) => node.outlineLevel === parent.outlineLevel + 1,
+  );
+  const select = (branchRootId?: string) => {
+    chatStore.selectConversationBranch(session.id, parent.id, branchRootId);
+    props.onClose();
+  };
+
+  return (
+    <div className="modal-mask">
+      <Modal title={Locale.Chat.Graph.BranchTitle} onClose={props.onClose}>
+        <div className={styles["branch-selector"]}>
+          <button type="button" onClick={() => select(undefined)}>
+            {Locale.Chat.Graph.NoBranch}
+          </button>
+          {branches.map((branch) => (
+            <button
+              type="button"
+              key={branch.id}
+              aria-pressed={parent.activeBranchRootId === branch.id}
+              onClick={() => select(branch.id)}
+            >
+              <strong>L{branch.outlineLevel}</strong>
+              <span>
+                {getMessageTextContent(branch).slice(0, 120) || branch.id}
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              chatStore.startConversationBranch(session.id, parent.id);
+              props.onStartBranch();
+              props.onClose();
+            }}
+          >
+            {Locale.Chat.Graph.NewBranch}
+          </button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 export function ShortcutKeyModal(props: { onClose: () => void }) {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
   const shortcuts = [
@@ -964,6 +1154,8 @@ function ChatView() {
   const fontFamily = config.fontFamily;
 
   const [showExport, setShowExport] = useState(false);
+  const [viewingNodeId, setViewingNodeId] = useState<string>();
+  const [branchParentId, setBranchParentId] = useState<string>();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState(() => {
@@ -1153,26 +1345,9 @@ function ChatView() {
   };
 
   const onResend = (message: ChatMessage) => {
-    // when it is resending a message
-    // 1. for a user's message, find the next bot response
-    // 2. for a bot's message, find the last user's input
-    // 3. delete original user input and bot's message
-    // 4. resend the user's input
-
     setIsLoading(true);
-    runResendTransaction({
-      messages: session.messages,
-      targetMessageId: message.id,
-      contextBoundaryAfterMessageId: session.contextBoundaryAfterMessageId,
-      update(messages, contextBoundaryAfterMessageId) {
-        chatStore.updateTargetSession(session, (draft) => {
-          draft.messages = messages;
-          draft.contextBoundaryAfterMessageId = contextBoundaryAfterMessageId;
-        });
-      },
-      resend: (textContent, images) =>
-        chatStore.onUserInput(textContent, images),
-    })
+    chatStore
+      .retryMessage(session.id, message.id)
       .then((prepared) => {
         setIsLoading(false);
         if (!prepared) console.error("[Chat] failed to resend", message);
@@ -1262,7 +1437,10 @@ function ChatView() {
   }
 
   // preview messages
-  const visibleSessionMessages = getVisibleMessages(session.messages);
+  const visibleSessionMessages = getSessionActiveMessages(session);
+  const storedNodesById = new Map(
+    session.messages.map((message) => [message.id, message]),
+  );
   const renderMessages = context
     .concat(visibleSessionMessages as RenderMessage[])
     .concat(
@@ -1738,6 +1916,7 @@ function ChatView() {
                     const absoluteIndex = msgRenderIndex + i;
                     const isUser = message.role === "user";
                     const isContext = absoluteIndex < context.length;
+                    const storedNode = storedNodesById.get(message.id);
                     const isActiveTurn = isMessageInStreamingTurn(
                       renderMessages,
                       absoluteIndex,
@@ -1755,11 +1934,12 @@ function ChatView() {
                       <Fragment key={message.id}>
                         <div
                           id={`chat-message-${message.id}`}
-                          className={
+                          className={clsx(
                             isUser
                               ? styles["chat-message-user"]
-                              : styles["chat-message"]
-                          }
+                              : styles["chat-message"],
+                            storedNode?.hidden && styles["chat-message-hidden"],
+                          )}
                         >
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
@@ -1875,6 +2055,64 @@ function ChatView() {
                                             onDelete(message.id ?? i)
                                           }
                                         />
+
+                                        {storedNode && (
+                                          <>
+                                            <ChatAction
+                                              text={Locale.Chat.Graph.Node}
+                                              icon={
+                                                <span aria-hidden="true">
+                                                  ⓘ
+                                                </span>
+                                              }
+                                              onClick={() =>
+                                                setViewingNodeId(storedNode.id)
+                                              }
+                                            />
+                                            <ChatAction
+                                              text={Locale.Chat.Graph.Branch}
+                                              icon={
+                                                <span aria-hidden="true">
+                                                  ⑂
+                                                </span>
+                                              }
+                                              onClick={() =>
+                                                setBranchParentId(storedNode.id)
+                                              }
+                                            />
+                                            <ChatAction
+                                              text={Locale.Chat.Graph.Continue}
+                                              icon={<ReturnIcon />}
+                                              onClick={() =>
+                                                chatStore.continueFromNode(
+                                                  session.id,
+                                                  storedNode.id,
+                                                )
+                                              }
+                                            />
+                                            <ChatAction
+                                              text={
+                                                storedNode.hidden
+                                                  ? Locale.Chat.Graph.Show
+                                                  : Locale.Chat.Graph.Hide
+                                              }
+                                              icon={
+                                                <span aria-hidden="true">
+                                                  {storedNode.hidden
+                                                    ? "◉"
+                                                    : "◌"}
+                                                </span>
+                                              }
+                                              onClick={() =>
+                                                chatStore.setMessageHidden(
+                                                  session.id,
+                                                  storedNode.id,
+                                                  !storedNode.hidden,
+                                                )
+                                              }
+                                            />
+                                          </>
+                                        )}
 
                                         <ChatAction
                                           text={Locale.Chat.Actions.Pin}
@@ -2151,6 +2389,21 @@ function ChatView() {
 
       {showShortcutKeyModal && (
         <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />
+      )}
+
+      {viewingNodeId && (
+        <NodeViewerModal
+          nodeId={viewingNodeId}
+          onClose={() => setViewingNodeId(undefined)}
+        />
+      )}
+
+      {branchParentId && (
+        <BranchSelectorModal
+          parentId={branchParentId}
+          onClose={() => setBranchParentId(undefined)}
+          onStartBranch={() => inputRef.current?.focus()}
+        />
       )}
     </>
   );
