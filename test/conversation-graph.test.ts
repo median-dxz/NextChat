@@ -1,9 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
+  deleteConversationNode,
+  insertConversationNode,
+  insertProjectedConversationNode,
   projectActiveConversation,
   projectConversationToCursor,
   remapConversationNodes,
+  setActiveConversationBranch,
+  swapConversationNodes,
   toLevelOneConversationNodes,
   validateConversationGraph,
 } from "../app/utils/conversation-graph";
@@ -174,5 +179,188 @@ describe("conversation graph storage", () => {
       ids.get("a"),
       ids.get("branch"),
     ]);
+  });
+
+  test("inserts a same-level node into the continuation chain", () => {
+    const graph = {
+      messages: [node("a", 1), node("b", 1, "a")],
+      rootNodeId: "a",
+      activeCursorId: "a",
+    };
+
+    const inserted = insertConversationNode(graph, node("x", 99));
+
+    expect(projectActiveConversation(inserted).map((item) => item.id)).toEqual([
+      "a",
+      "x",
+      "b",
+    ]);
+    expect(inserted.messages.find((item) => item.id === "x")).toMatchObject({
+      parentId: "a",
+      outlineLevel: 1,
+    });
+    expect(inserted.messages.find((item) => item.id === "b")?.parentId).toBe(
+      "x",
+    );
+    expect(inserted.activeCursorId).toBe("x");
+  });
+
+  test("uses a one-shot outline delta to enter and leave a branch", () => {
+    let graph = insertConversationNode(
+      { messages: [], rootNodeId: undefined, activeCursorId: undefined },
+      node("root", 99),
+    );
+    graph = insertConversationNode(graph, node("branch", 99), 1);
+    graph = insertConversationNode(graph, node("deep", 99));
+    graph = insertConversationNode(graph, node("after", 99), -1);
+
+    expect(projectActiveConversation(graph).map((item) => item.id)).toEqual([
+      "root",
+      "branch",
+      "deep",
+      "after",
+    ]);
+    expect(graph.messages.find((item) => item.id === "branch")).toMatchObject({
+      parentId: "root",
+      outlineLevel: 2,
+    });
+    expect(graph.messages.find((item) => item.id === "after")).toMatchObject({
+      parentId: "root",
+      outlineLevel: 1,
+    });
+  });
+
+  test("reparents a deeper projected neighbor when inserting before it", () => {
+    const graph = {
+      messages: [
+        { ...node("a", 2), activeBranchRootId: "branch" },
+        node("branch", 3, "a"),
+      ],
+      rootNodeId: "a",
+      activeCursorId: "branch",
+    };
+
+    const inserted = insertProjectedConversationNode(
+      graph,
+      node("x", 99),
+      "a",
+      "branch",
+    );
+
+    expect(projectActiveConversation(inserted).map((item) => item.id)).toEqual([
+      "a",
+      "x",
+      "branch",
+    ]);
+    expect(inserted.messages.find((item) => item.id === "x")).toMatchObject({
+      parentId: "a",
+      outlineLevel: 2,
+      activeBranchRootId: "branch",
+    });
+    expect(
+      inserted.messages.find((item) => item.id === "branch")?.parentId,
+    ).toBe("x");
+  });
+
+  test("swaps only nodes in the same outline chain and carries branches", () => {
+    const graph = {
+      messages: [
+        { ...node("a", 1), activeBranchRootId: "b" },
+        node("d", 1, "a"),
+        { ...node("e", 1, "d"), activeBranchRootId: "f" },
+        node("h", 1, "e"),
+        node("b", 2, "a"),
+        node("c", 2, "b"),
+        node("f", 2, "e"),
+        node("g", 2, "f"),
+      ],
+      rootNodeId: "a",
+      activeCursorId: "h",
+    };
+
+    const swapped = swapConversationNodes(graph, "a", "e");
+
+    expect(projectActiveConversation(swapped).map((item) => item.id)).toEqual([
+      "e",
+      "f",
+      "g",
+      "d",
+      "a",
+      "b",
+      "c",
+      "h",
+    ]);
+    expect(swapped.messages.find((item) => item.id === "b")?.parentId).toBe(
+      "a",
+    );
+    expect(() => swapConversationNodes(graph, "b", "f")).toThrow(
+      "same outline chain",
+    );
+  });
+
+  test("deletes a same-level node but cascades its deeper branches", () => {
+    const graph = {
+      messages: [
+        { ...node("a", 1), activeBranchRootId: "branch" },
+        node("b", 1, "a"),
+        node("branch", 2, "a"),
+        node("deep", 2, "branch"),
+      ],
+      rootNodeId: "a",
+      activeCursorId: "b",
+    };
+
+    const deleted = deleteConversationNode(graph, "a");
+
+    expect(deleted.messages.map((item) => item.id)).toEqual(["b"]);
+    expect(deleted.messages[0].parentId).toBeUndefined();
+    expect(deleted.rootNodeId).toBe("b");
+    expect(deleted.activeCursorId).toBe("b");
+  });
+
+  test("deleting a branch root cascades the branch and invalidates its cursor", () => {
+    const graph = {
+      messages: [
+        { ...node("root", 1), activeBranchRootId: "branch" },
+        node("after", 1, "root"),
+        node("branch", 2, "root"),
+        node("deep", 2, "branch"),
+      ],
+      rootNodeId: "root",
+      activeCursorId: "deep",
+    };
+
+    const deleted = deleteConversationNode(graph, "branch");
+
+    expect(deleted.messages.map((item) => item.id)).toEqual([
+      "root",
+      "after",
+    ]);
+    expect(deleted.messages[0].activeBranchRootId).toBeUndefined();
+    expect(deleted.activeCursorId).toBeUndefined();
+  });
+
+  test("branch selection preserves a main-chain cursor and clears an old branch cursor", () => {
+    const messages = [
+      { ...node("root", 1), activeBranchRootId: "old" },
+      node("after", 1, "root"),
+      node("old", 2, "root"),
+      node("next", 2, "root"),
+    ];
+
+    expect(
+      setActiveConversationBranch(
+        { messages, rootNodeId: "root", activeCursorId: "after" },
+        "root",
+        "next",
+      ).activeCursorId,
+    ).toBe("after");
+    expect(
+      setActiveConversationBranch(
+        { messages, rootNodeId: "root", activeCursorId: "old" },
+        "root",
+        "next",
+      ).activeCursorId,
+    ).toBeUndefined();
   });
 });

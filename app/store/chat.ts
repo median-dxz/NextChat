@@ -52,9 +52,14 @@ import {
   ConversationNode,
   GlobalMemory,
   createEmptyGlobalMemory,
+  deleteConversationNode,
+  insertConversationNode,
+  insertProjectedConversationNode,
   projectActiveConversation,
   projectConversationToCursor,
   remapConversationNodes,
+  setActiveConversationBranch,
+  swapConversationNodes,
   toLevelOneConversationNodes,
   validateConversationGraph,
 } from "../utils/conversation-graph";
@@ -161,6 +166,7 @@ export interface ChatSession {
   messages: ConversationNode[];
   rootNodeId?: string;
   activeCursorId?: string;
+  pendingOutlineDelta?: -1 | 1;
   pinnedInputs: ChatMessage[];
   globalMemory: GlobalMemory;
   stat: ChatStat;
@@ -254,6 +260,7 @@ function migrateSessionToConversationGraph(session: any) {
   delete session.memoryPrompt;
   delete session.lastSummarizeIndex;
   delete session.clearContextIndex;
+  delete session.pendingOutlineDelta;
 
   validateConversationGraph(session);
 }
@@ -697,25 +704,16 @@ export const useChatStore = createPersistStore(
           ];
         }
 
-        const parent = session.activeCursorId
-          ? session.messages.find(
-              (message) => message.id === session.activeCursorId,
-            )
-          : undefined;
         let userMessage: ConversationNode = createConversationNode({
           role: "user",
           content: mContent,
           isMcpResponse,
-          parentId: parent?.id,
-          outlineLevel: parent?.outlineLevel ?? 1,
         });
 
         const botMessage: ConversationNode = createConversationNode({
           role: "assistant",
           streaming: true,
           model: modelConfig.model,
-          parentId: userMessage.id,
-          outlineLevel: userMessage.outlineLevel,
         });
         let reasoningStartedAt: number | undefined;
         const finishReasoningTiming = () => {
@@ -745,16 +743,25 @@ export const useChatStore = createPersistStore(
 
         // save user's and bot's message
         get().updateTargetSession(session, (session) => {
-          const savedUserMessage = {
+          const savedUserMessage: ConversationNode = {
             ...userMessage,
             content: mContent,
           };
-          session.messages = session.messages.concat([
+          let graph = insertConversationNode(
+            session,
             savedUserMessage,
+            session.pendingOutlineDelta ?? 0,
+          );
+          graph = insertConversationNode(
+            graph,
             botMessage,
-          ]);
-          session.rootNodeId ??= savedUserMessage.id;
-          session.activeCursorId = botMessage.id;
+            0,
+            savedUserMessage.id,
+          );
+          session.messages = graph.messages;
+          session.rootNodeId = graph.rootNodeId;
+          session.activeCursorId = graph.activeCursorId;
+          session.pendingOutlineDelta = undefined;
         });
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
@@ -1002,6 +1009,7 @@ export const useChatStore = createPersistStore(
           session.summaries = [];
           session.rootNodeId = undefined;
           session.activeCursorId = undefined;
+          session.pendingOutlineDelta = undefined;
           session.globalMemory = createEmptyGlobalMemory();
           session.contextBoundaryAfterMessageId = undefined;
         });
@@ -1170,13 +1178,105 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
+          const graph = deleteConversationNode(draft, messageId);
+          draft.messages = graph.messages;
+          draft.rootNodeId = graph.rootNodeId;
+          draft.activeCursorId = graph.activeCursorId;
+          if (draft.contextBoundaryAfterMessageId === messageId) {
+            draft.contextBoundaryAfterMessageId = undefined;
+          }
+        });
+      },
+
+      setNextOutlineDelta(sessionId: string, delta?: -1 | 1) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          draft.pendingOutlineDelta =
+            draft.pendingOutlineDelta === delta ? undefined : delta;
+        });
+      },
+
+      continueFromNode(sessionId: string, nodeId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        const activeIds = new Set(
+          getSessionActiveMessages(session).map((node) => node.id),
+        );
+        if (!activeIds.has(nodeId)) return;
+        get().updateTargetSession(session, (draft) => {
+          draft.activeCursorId = nodeId;
+        });
+      },
+
+      selectConversationBranch(
+        sessionId: string,
+        parentId: string,
+        branchRootId?: string,
+      ) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const graph = setActiveConversationBranch(
+            draft,
+            parentId,
+            branchRootId,
+          );
+          draft.messages = graph.messages;
+          draft.activeCursorId = graph.activeCursorId;
+        });
+      },
+
+      startConversationBranch(sessionId: string, parentId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        const activeIds = new Set(
+          getSessionActiveMessages(session).map((node) => node.id),
+        );
+        if (!activeIds.has(parentId)) return;
+        get().updateTargetSession(session, (draft) => {
+          draft.activeCursorId = parentId;
+          draft.pendingOutlineDelta = 1;
+        });
+      },
+
+      insertMessageBetween(
+        sessionId: string,
+        message: ConversationNode,
+        previousId?: string,
+        nextId?: string,
+      ) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const graph = insertProjectedConversationNode(
+            draft,
+            message,
+            previousId,
+            nextId,
+          );
+          draft.messages = graph.messages;
+          draft.rootNodeId = graph.rootNodeId;
+          draft.activeCursorId = graph.activeCursorId;
+        });
+      },
+
+      swapMessages(sessionId: string, firstId: string, secondId: string) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const graph = swapConversationNodes(draft, firstId, secondId);
+          draft.messages = graph.messages;
+          draft.rootNodeId = graph.rootNodeId;
+        });
+      },
+
+      setMessageHidden(sessionId: string, messageId: string, hidden: boolean) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
           const message = draft.messages.find((item) => item.id === messageId);
-          if (!message) return;
-          message.content = "";
-          message.reasoning = undefined;
-          message.tools = undefined;
-          message.audio_url = undefined;
-          message.deletedAt = Date.now();
+          if (message) message.hidden = hidden;
         });
       },
 
