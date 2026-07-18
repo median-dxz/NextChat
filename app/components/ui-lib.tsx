@@ -128,6 +128,7 @@ interface ModalProps {
 }
 export function Modal(props: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropPointerRef = useRef<number | null>(null);
   const titleId = useId();
 
   useEffect(() => {
@@ -150,6 +151,18 @@ export function Modal(props: ModalProps) {
   }, []);
 
   const [isMax, setMax] = useState(!!props.defaultMax);
+  const isBackdropPointer = (
+    event: React.PointerEvent<HTMLDialogElement>,
+  ) => {
+    if (event.target !== event.currentTarget) return false;
+    const rect = event.currentTarget.getBoundingClientRect();
+    return (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    );
+  };
 
   return (
     <dialog
@@ -162,16 +175,19 @@ export function Modal(props: ModalProps) {
         },
         props.className,
       )}
-      onClick={(event) => {
-        if (event.target !== event.currentTarget) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const isOutside =
-          event.clientX < rect.left ||
-          event.clientX > rect.right ||
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom;
-        if (isOutside) props.onClose?.();
+      onPointerDown={(event) => {
+        backdropPointerRef.current = isBackdropPointer(event)
+          ? event.pointerId
+          : null;
       }}
+      onPointerUp={(event) => {
+        const shouldClose =
+          backdropPointerRef.current === event.pointerId &&
+          isBackdropPointer(event);
+        backdropPointerRef.current = null;
+        if (shouldClose) props.onClose?.();
+      }}
+      onPointerCancel={() => (backdropPointerRef.current = null)}
     >
       <div className={styles["modal-header"]}>
         <div id={titleId} className={styles["modal-title"]}>
@@ -232,12 +248,6 @@ export function showModal(props: ModalProps) {
     props.onClose?.();
     root.unmount();
     div.remove();
-  };
-
-  div.onclick = (e) => {
-    if (e.target === div) {
-      closeModal();
-    }
   };
 
   root.render(<Modal {...props} onClose={closeModal}></Modal>);
