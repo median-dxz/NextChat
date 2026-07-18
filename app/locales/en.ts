@@ -107,6 +107,7 @@ const en: LocaleType = {
       NewBranch: "Create Child Branch",
       BranchTitle: "Select Active Branch",
       GenerateSummary: "Generate Node Summary",
+      Pin: "Pin to contextual prompts",
       TemporaryMemoryModel: "Model for this update",
       UseConfiguredMemoryModel: "Use the configured memory model",
       GlobalMemory: "Global Memory",

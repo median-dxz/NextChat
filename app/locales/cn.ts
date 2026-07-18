@@ -106,6 +106,7 @@ const cn = {
       NewBranch: "新建子分支",
       BranchTitle: "选择活动分支",
       GenerateSummary: "生成节点摘要",
+      Pin: "固定到预设提示词",
       TemporaryMemoryModel: "本次更新模型",
       UseConfiguredMemoryModel: "使用设置中的历史记忆模型",
       GlobalMemory: "全局记忆",

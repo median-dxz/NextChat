@@ -437,6 +437,11 @@
   min-height: 112px;
 }
 
+.node-viewer-secondary-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .node-summary-editor {
   overflow: hidden;
   border: var(--border-in-light);

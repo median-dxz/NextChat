@@ -1047,7 +1047,11 @@ export function DeleteImageButton(props: { deleteImage: () => void }) {
   );
 }
 
-function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
+function NodeViewerModal(props: {
+  nodeId: string;
+  onClose: () => void;
+  onPin: (message: ChatMessage) => void;
+}) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const node = session.messages.find((item) => item.id === props.nodeId);
@@ -1197,6 +1201,14 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
               onChange={(e) => setContent(e.target.value)}
             />
           </label>
+          <div className={styles["node-viewer-secondary-action"]}>
+            <IconButton
+              bordered
+              text={Locale.Chat.Graph.Pin}
+              icon={<PinIcon />}
+              onClick={() => props.onPin(node)}
+            />
+          </div>
           {role === "assistant" && (
             <div className={styles["node-summary-editor"]}>
               <details
@@ -2386,11 +2398,6 @@ function ChatView() {
                                         )}
 
                                         <ChatAction
-                                          text={Locale.Chat.Actions.Pin}
-                                          icon={<PinIcon />}
-                                          onClick={() => onPinMessage(message)}
-                                        />
-                                        <ChatAction
                                           text={Locale.Chat.Actions.Copy}
                                           icon={<CopyIcon />}
                                           onClick={() =>
@@ -2705,6 +2712,7 @@ function ChatView() {
         <NodeViewerModal
           nodeId={viewingNodeId}
           onClose={() => setViewingNodeId(undefined)}
+          onPin={onPinMessage}
         />
       )}
 
