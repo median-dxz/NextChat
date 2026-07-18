@@ -990,9 +990,9 @@
   color: var(--black);
   text-align: right;
   width: auto;
-  flex: 1;
+  flex: none;
+  order: -1;
   box-sizing: border-box;
-  padding-right: 10px;
   pointer-events: none;
   z-index: 1;
 }
@@ -1000,6 +1000,8 @@
 .chat-message-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   width: 100%;
   min-height: 28px;
 }
@@ -1025,7 +1027,11 @@
 
 .chat-message-user {
   .chat-message-meta {
-    flex-direction: row-reverse;
+    justify-content: flex-start;
+  }
+
+  .chat-message-action-date {
+    order: initial;
   }
 
   .chat-message-node-actions {
