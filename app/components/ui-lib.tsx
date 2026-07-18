@@ -120,6 +120,9 @@ interface ModalProps {
   children?: any;
   actions?: React.ReactNode[];
   defaultMax?: boolean;
+  className?: string;
+  contentClassName?: string;
+  showMaximize?: boolean;
   footer?: React.ReactNode;
   onClose?: () => void;
 }
@@ -152,9 +155,13 @@ export function Modal(props: ModalProps) {
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className={clsx(styles["modal-container"], {
-        [styles["modal-container-max"]]: isMax,
-      })}
+      className={clsx(
+        styles["modal-container"],
+        {
+          [styles["modal-container-max"]]: isMax,
+        },
+        props.className,
+      )}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
         const rect = event.currentTarget.getBoundingClientRect();
@@ -172,14 +179,16 @@ export function Modal(props: ModalProps) {
         </div>
 
         <div className={styles["modal-header-actions"]}>
-          <button
-            type="button"
-            className={styles["modal-header-action"]}
-            onClick={() => setMax(!isMax)}
-            aria-label={isMax ? Locale.UI.Restore : Locale.UI.Maximize}
-          >
-            {isMax ? <MinIcon /> : <MaxIcon />}
-          </button>
+          {props.showMaximize !== false && (
+            <button
+              type="button"
+              className={styles["modal-header-action"]}
+              onClick={() => setMax(!isMax)}
+              aria-label={isMax ? Locale.UI.Restore : Locale.UI.Maximize}
+            >
+              {isMax ? <MinIcon /> : <MaxIcon />}
+            </button>
+          )}
           <button
             type="button"
             className={styles["modal-header-action"]}
@@ -191,18 +200,24 @@ export function Modal(props: ModalProps) {
         </div>
       </div>
 
-      <div className={styles["modal-content"]}>{props.children}</div>
-
-      <div className={styles["modal-footer"]}>
-        {props.footer}
-        <div className={styles["modal-actions"]}>
-          {props.actions?.map((action, i) => (
-            <div key={i} className={styles["modal-action"]}>
-              {action}
-            </div>
-          ))}
-        </div>
+      <div
+        className={clsx(styles["modal-content"], props.contentClassName)}
+      >
+        {props.children}
       </div>
+
+      {(props.footer || props.actions?.length) && (
+        <div className={styles["modal-footer"]}>
+          {props.footer}
+          <div className={styles["modal-actions"]}>
+            {props.actions?.map((action, i) => (
+              <div key={i} className={styles["modal-action"]}>
+                {action}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </dialog>
   );
 }

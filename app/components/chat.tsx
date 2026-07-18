@@ -829,6 +829,9 @@ export function EditMessageModal(props: { onClose: () => void }) {
       <Modal
         title={Locale.Chat.EditMessage.Title}
         onClose={props.onClose}
+        className={styles["graph-editor-dialog"]}
+        contentClassName={styles["graph-editor-dialog-content"]}
+        showMaximize={false}
         actions={[
           <IconButton
             text={Locale.UI.Cancel}
@@ -891,6 +894,15 @@ export function EditMessageModal(props: { onClose: () => void }) {
                         <div
                           ref={draggable.innerRef}
                           {...draggable.draggableProps}
+                          className={styles["graph-editor-entry"]}
+                          style={
+                            {
+                              "--outline-indent": Math.min(
+                                message.outlineLevel - 1,
+                                8,
+                              ),
+                            } as React.CSSProperties
+                          }
                         >
                           <div className={styles["graph-editor-row"]}>
                             <button
@@ -923,45 +935,46 @@ export function EditMessageModal(props: { onClose: () => void }) {
                             >
                               <DragIcon />
                             </button>
-                            <div className={styles["graph-editor-content"]}>
-                              <div className={styles["graph-editor-meta"]}>
-                                <span>L{message.outlineLevel}</span>
-                                <Select
-                                  value={message.role}
-                                  aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
-                                  onChange={(event) =>
-                                    chatStore.updateTargetSession(
-                                      session,
-                                      (draft) => {
-                                        const target = draft.messages.find(
-                                          (item) => item.id === message.id,
-                                        );
-                                        if (target)
-                                          target.role = event.currentTarget
-                                            .value as ChatMessage["role"];
-                                      },
-                                    )
-                                  }
-                                >
-                                  {ROLES.map((role) => (
-                                    <option key={role} value={role}>
-                                      {role}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </div>
-                              <textarea
-                                aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
-                                value={getMessageTextContent(message)}
+                            <div className={styles["graph-editor-role"]}>
+                              <span className={styles["graph-editor-level"]}>
+                                L{message.outlineLevel}
+                              </span>
+                              <Select
+                                value={message.role}
+                                aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
                                 onChange={(event) =>
-                                  chatStore.updateMessageContent(
-                                    session.id,
-                                    message.id,
-                                    event.target.value,
+                                  chatStore.updateTargetSession(
+                                    session,
+                                    (draft) => {
+                                      const target = draft.messages.find(
+                                        (item) => item.id === message.id,
+                                      );
+                                      if (target)
+                                        target.role = event.currentTarget
+                                          .value as ChatMessage["role"];
+                                    },
                                   )
                                 }
-                              />
+                              >
+                                {ROLES.map((role) => (
+                                  <option key={role} value={role}>
+                                    {role}
+                                  </option>
+                                ))}
+                              </Select>
                             </div>
+                            <textarea
+                              rows={1}
+                              aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
+                              value={getMessageTextContent(message)}
+                              onChange={(event) =>
+                                chatStore.updateMessageContent(
+                                  session.id,
+                                  message.id,
+                                  event.target.value,
+                                )
+                              }
+                            />
                             <IconButton
                               icon={<DeleteIcon />}
                               aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
@@ -1028,6 +1041,10 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
   const [checkpoint, setCheckpoint] = useState(
     () => node?.nodeSummaries?.checkpoint?.content ?? "",
   );
+  const [segmentOpen, setSegmentOpen] = useState(() => Boolean(segment));
+  const [checkpointOpen, setCheckpointOpen] = useState(() =>
+    Boolean(checkpoint),
+  );
   const [role, setRole] = useState<ChatMessage["role"]>(
     () => node?.role ?? "user",
   );
@@ -1083,6 +1100,10 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
         .messages.find((item) => item.id === node.id);
       setSegment(current?.nodeSummaries?.segment?.content ?? "");
       setCheckpoint(current?.nodeSummaries?.checkpoint?.content ?? "");
+      setSegmentOpen(Boolean(current?.nodeSummaries?.segment?.content));
+      setCheckpointOpen(
+        Boolean(current?.nodeSummaries?.checkpoint?.content),
+      );
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1095,8 +1116,11 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
       <Modal
         title={Locale.Chat.Graph.Node}
         onClose={props.onClose}
+        className={styles["node-viewer-dialog"]}
+        contentClassName={styles["node-viewer-dialog-content"]}
+        showMaximize={false}
         actions={[
-          ...(node.role === "assistant"
+          ...(role === "assistant"
             ? [
                 <IconButton
                   key="generate"
@@ -1119,9 +1143,9 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
         <div className={styles["node-viewer"]}>
           <div className={styles["node-viewer-properties"]}>
             <div className={styles["node-viewer-level"]}>
-              {Locale.Chat.Graph.OutlineLevel} L{node.outlineLevel}
+              L{node.outlineLevel}
             </div>
-            <label>
+            <label className={styles["node-viewer-role"]}>
               <span>{Locale.Chat.Graph.Role}</span>
               <Select
                 value={role}
@@ -1137,7 +1161,7 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
                 ))}
               </Select>
             </label>
-            <label className={styles["global-memory-toggle"]}>
+            <label className={styles["node-viewer-visibility"]}>
               <input
                 type="checkbox"
                 checked={hidden}
@@ -1146,27 +1170,50 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
               <span>{Locale.Chat.Graph.Hide}</span>
             </label>
           </div>
-          <label>
+          <label className={styles["node-viewer-content"]}>
             <span>{Locale.Chat.Actions.Edit}</span>
             <textarea
+              rows={5}
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
           </label>
-          <label>
-            <span>{Locale.Chat.Graph.Segment}</span>
-            <textarea
-              value={segment}
-              onChange={(e) => setSegment(e.target.value)}
-            />
-          </label>
-          <label>
-            <span>{Locale.Chat.Graph.Checkpoint}</span>
-            <textarea
-              value={checkpoint}
-              onChange={(e) => setCheckpoint(e.target.value)}
-            />
-          </label>
+          {role === "assistant" && (
+            <div className={styles["node-summary-editor"]}>
+              <details
+                open={segmentOpen}
+                onToggle={(event) =>
+                  setSegmentOpen(event.currentTarget.open)
+                }
+              >
+                <summary>
+                  <span>{Locale.Chat.Graph.Segment}</span>
+                  <span>{segment ? `${segment.length}` : "—"}</span>
+                </summary>
+                <textarea
+                  rows={4}
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                />
+              </details>
+              <details
+                open={checkpointOpen}
+                onToggle={(event) =>
+                  setCheckpointOpen(event.currentTarget.open)
+                }
+              >
+                <summary>
+                  <span>{Locale.Chat.Graph.Checkpoint}</span>
+                  <span>{checkpoint ? `${checkpoint.length}` : "—"}</span>
+                </summary>
+                <textarea
+                  rows={4}
+                  value={checkpoint}
+                  onChange={(e) => setCheckpoint(e.target.value)}
+                />
+              </details>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
@@ -1193,10 +1240,36 @@ function BranchSelectorModal(props: {
 
   return (
     <div className="modal-mask">
-      <Modal title={Locale.Chat.Graph.BranchTitle} onClose={props.onClose}>
+      <Modal
+        title={Locale.Chat.Graph.BranchTitle}
+        onClose={props.onClose}
+        className={styles["branch-selector-dialog"]}
+        contentClassName={styles["branch-selector-dialog-content"]}
+        showMaximize={false}
+        actions={[
+          <IconButton
+            key="new-branch"
+            type="primary"
+            text={Locale.Chat.Graph.NewBranch}
+            icon={<AddIcon />}
+            onClick={() => {
+              chatStore.startConversationBranch(session.id, parent.id);
+              props.onStartBranch();
+              props.onClose();
+            }}
+          />,
+        ]}
+      >
         <div className={styles["branch-selector"]}>
-          <button type="button" onClick={() => select(undefined)}>
-            {Locale.Chat.Graph.NoBranch}
+          <button
+            type="button"
+            aria-pressed={!parent.activeBranchRootId}
+            onClick={() => select(undefined)}
+          >
+            <span className={styles["branch-selector-indicator"]} />
+            <span className={styles["branch-selector-copy"]}>
+              <strong>{Locale.Chat.Graph.NoBranch}</strong>
+            </span>
           </button>
           {branches.map((branch) => (
             <button
@@ -1205,22 +1278,17 @@ function BranchSelectorModal(props: {
               aria-pressed={parent.activeBranchRootId === branch.id}
               onClick={() => select(branch.id)}
             >
-              <strong>L{branch.outlineLevel}</strong>
-              <span>
-                {getMessageTextContent(branch).slice(0, 120) || branch.id}
+              <span className={styles["branch-selector-indicator"]} />
+              <span className={styles["branch-selector-copy"]}>
+                <strong>
+                  {getMessageTextContent(branch).slice(0, 120) || branch.id}
+                </strong>
+              </span>
+              <span className={styles["branch-selector-level"]}>
+                L{branch.outlineLevel}
               </span>
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => {
-              chatStore.startConversationBranch(session.id, parent.id);
-              props.onStartBranch();
-              props.onClose();
-            }}
-          >
-            {Locale.Chat.Graph.NewBranch}
-          </button>
         </div>
       </Modal>
     </div>
@@ -1266,6 +1334,9 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
       <Modal
         title={Locale.Chat.Graph.GlobalMemory}
         onClose={props.onClose}
+        className={styles["global-memory-dialog"]}
+        contentClassName={styles["global-memory-dialog-content"]}
+        showMaximize={false}
         actions={[
           <IconButton
             key="update"
@@ -1286,7 +1357,7 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
           />,
         ]}
       >
-        <div className={styles["node-viewer"]}>
+        <div className={styles["global-memory-editor"]}>
           <label className={styles["global-memory-toggle"]}>
             <input
               type="checkbox"
@@ -1295,21 +1366,23 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
             />
             <span>{Locale.Chat.Graph.Enabled}</span>
           </label>
-          <label>
+          <label className={styles["global-memory-field"]}>
             <span>{Locale.Chat.Graph.Prompt}</span>
             <textarea
+              rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
           </label>
-          <label>
+          <label className={styles["global-memory-field"]}>
             <span>{Locale.Chat.Graph.Content}</span>
             <textarea
+              rows={6}
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
           </label>
-          <label>
+          <label className={styles["global-memory-model"]}>
             <span>{Locale.Chat.Graph.TemporaryMemoryModel}</span>
             <Select
               value={updateModel}
