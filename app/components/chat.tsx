@@ -34,7 +34,8 @@ import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
 import AddIcon from "../icons/add.svg";
 import DragIcon from "../icons/drag.svg";
-import BreakIcon from "../icons/break.svg";
+import BranchIcon from "../icons/branch.svg";
+import ContinueIcon from "../icons/continue.svg";
 import EyeIcon from "../icons/eye.svg";
 import EyeOffIcon from "../icons/eye-off.svg";
 
@@ -854,6 +855,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
           <ListItem
             title={Locale.Chat.EditMessage.Topic.Title}
             subTitle={Locale.Chat.EditMessage.Topic.SubTitle}
+            className={styles["graph-editor-topic-row"]}
           >
             <div className={styles["graph-editor-topic"]}>
               <input
@@ -897,44 +899,25 @@ export function EditMessageModal(props: { onClose: () => void }) {
                           className={styles["graph-editor-entry"]}
                           style={
                             {
+                              ...draggable.draggableProps.style,
                               "--outline-indent": Math.min(
                                 message.outlineLevel - 1,
                                 8,
                               ),
-                            } as React.CSSProperties
+                            } as React.CSSProperties & {
+                              "--outline-indent": number;
+                            }
                           }
                         >
                           <div className={styles["graph-editor-row"]}>
-                            <button
-                              type="button"
+                            <div
                               className={styles["graph-editor-drag"]}
                               {...draggable.dragHandleProps}
                               aria-label={`${Locale.Chat.Graph.Drag} ${index + 1}`}
-                              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                              title={`${Locale.Chat.Graph.Drag} (Alt+↑/↓)`}
-                              onKeyDown={(event) => {
-                                if (
-                                  !event.altKey ||
-                                  !["ArrowUp", "ArrowDown"].includes(event.key)
-                                ) {
-                                  return;
-                                }
-                                event.preventDefault();
-                                const targetIndex =
-                                  index + (event.key === "ArrowUp" ? -1 : 1);
-                                const target = messages[targetIndex];
-                                if (!target) return;
-                                runGraphAction(() =>
-                                  chatStore.swapMessages(
-                                    session.id,
-                                    message.id,
-                                    target.id,
-                                  ),
-                                );
-                              }}
+                              title={Locale.Chat.Graph.Drag}
                             >
                               <DragIcon />
-                            </button>
+                            </div>
                             <div className={styles["graph-editor-role"]}>
                               <span className={styles["graph-editor-level"]}>
                                 L{message.outlineLevel}
@@ -1251,7 +1234,7 @@ function BranchSelectorModal(props: {
             key="new-branch"
             type="primary"
             text={Locale.Chat.Graph.NewBranch}
-            icon={<AddIcon />}
+            icon={<BranchIcon />}
             onClick={() => {
               chatStore.startConversationBranch(session.id, parent.id);
               props.onStartBranch();
@@ -2284,6 +2267,13 @@ function ChatView() {
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
                               <div className={styles["chat-message-avatar"]}>
+                                <div className={styles["chat-message-edit"]}>
+                                  <IconButton
+                                    icon={<EditIcon />}
+                                    aria={Locale.Chat.Actions.Edit}
+                                    onClick={editMessage}
+                                  />
+                                </div>
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (
@@ -2504,43 +2494,48 @@ function ChatView() {
                               </div>
                             )}
 
-                            {!isActiveTurn && renderActions && (
+                            <div className={styles["chat-message-meta"]}>
+                              {!isActiveTurn && showActions && storedNode && (
+                                <div
+                                  className={clsx(
+                                    styles["chat-message-node-actions"],
+                                    styles["chat-input-actions"],
+                                    renderActions &&
+                                      styles[
+                                        "chat-message-node-actions-active"
+                                      ],
+                                  )}
+                                >
+                                  <ChatAction
+                                    text={Locale.Chat.Graph.Branch}
+                                    icon={<BranchIcon />}
+                                    onClick={() =>
+                                      setBranchParentId(storedNode.id)
+                                    }
+                                  />
+                                  <ChatAction
+                                    text={Locale.Chat.Graph.Continue}
+                                    icon={<ContinueIcon />}
+                                    active={
+                                      session.activeCursorId === storedNode.id
+                                    }
+                                    onClick={() => {
+                                      chatStore.continueFromNode(
+                                        session.id,
+                                        storedNode.id,
+                                      );
+                                      inputRef.current?.focus();
+                                    }}
+                                  />
+                                </div>
+                              )}
                               <div
-                                className={styles["chat-message-node-actions"]}
+                                className={styles["chat-message-action-date"]}
                               >
-                                <ChatAction
-                                  text={Locale.Chat.Actions.Edit}
-                                  icon={<EditIcon />}
-                                  onClick={editMessage}
-                                />
-                                {storedNode && (
-                                  <>
-                                    <ChatAction
-                                      text={Locale.Chat.Graph.Branch}
-                                      icon={<BreakIcon />}
-                                      onClick={() =>
-                                        setBranchParentId(storedNode.id)
-                                      }
-                                    />
-                                    <ChatAction
-                                      text={Locale.Chat.Graph.Continue}
-                                      icon={<ReturnIcon />}
-                                      onClick={() =>
-                                        chatStore.continueFromNode(
-                                          session.id,
-                                          storedNode.id,
-                                        )
-                                      }
-                                    />
-                                  </>
-                                )}
+                                {isContext
+                                  ? Locale.Chat.IsContext
+                                  : message.date.toLocaleString()}
                               </div>
-                            )}
-
-                            <div className={styles["chat-message-action-date"]}>
-                              {isContext
-                                ? Locale.Chat.IsContext
-                                : message.date.toLocaleString()}
                             </div>
                           </div>
                         </div>
