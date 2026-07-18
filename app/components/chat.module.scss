@@ -580,7 +580,7 @@
 
 .graph-editor-row {
   display: grid;
-  grid-template-columns: 28px 138px minmax(0, 1fr) 36px;
+  grid-template-columns: 28px 138px minmax(0, 1fr) 38px;
   align-items: center;
   gap: 8px;
   min-height: 56px;
@@ -619,6 +619,11 @@
       outline: none;
     }
   }
+}
+
+.graph-editor-row textarea.graph-editor-content-active {
+  grid-column: 1 / -1;
+  min-height: calc(5 * 1.45em + 22px);
 }
 
 .graph-editor-role {
@@ -690,6 +695,9 @@
 
 .graph-editor-delete {
   justify-self: end;
+  width: 38px;
+  height: 38px;
+  padding: 9px;
 }
 
 .graph-editor-insert {
@@ -735,7 +743,7 @@
   }
 
   .graph-editor-row {
-    grid-template-columns: 24px 104px minmax(0, 1fr) 32px;
+    grid-template-columns: 24px 104px minmax(0, 1fr) 38px;
     gap: 5px;
   }
 

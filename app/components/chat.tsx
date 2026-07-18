@@ -808,6 +808,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const messages = getSessionActiveMessages(session);
+  const [editingMessageId, setEditingMessageId] = useState<string>();
   const runGraphAction = (action: () => void) => {
     try {
       action();
@@ -910,46 +911,70 @@ export function EditMessageModal(props: { onClose: () => void }) {
                           }
                         >
                           <div className={styles["graph-editor-row"]}>
-                            <div
-                              className={styles["graph-editor-drag"]}
-                              {...draggable.dragHandleProps}
-                              aria-label={`${Locale.Chat.Graph.Drag} ${index + 1}`}
-                              title={Locale.Chat.Graph.Drag}
-                            >
-                              <DragIcon />
-                            </div>
-                            <div className={styles["graph-editor-role"]}>
-                              <span className={styles["graph-editor-level"]}>
-                                L{message.outlineLevel}
-                              </span>
-                              <Select
-                                value={message.role}
-                                aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
-                                onChange={(event) =>
-                                  chatStore.updateTargetSession(
-                                    session,
-                                    (draft) => {
-                                      const target = draft.messages.find(
-                                        (item) => item.id === message.id,
-                                      );
-                                      if (target)
-                                        target.role = event.currentTarget
-                                          .value as ChatMessage["role"];
-                                    },
-                                  )
-                                }
-                              >
-                                {ROLES.map((role) => (
-                                  <option key={role} value={role}>
-                                    {role}
-                                  </option>
-                                ))}
-                              </Select>
-                            </div>
+                            {editingMessageId !== message.id && (
+                              <>
+                                <div
+                                  className={styles["graph-editor-drag"]}
+                                  {...draggable.dragHandleProps}
+                                  aria-label={`${Locale.Chat.Graph.Drag} ${index + 1}`}
+                                  title={Locale.Chat.Graph.Drag}
+                                >
+                                  <DragIcon />
+                                </div>
+                                <div className={styles["graph-editor-role"]}>
+                                  <span
+                                    className={styles["graph-editor-level"]}
+                                  >
+                                    L{message.outlineLevel}
+                                  </span>
+                                  <Select
+                                    value={message.role}
+                                    aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
+                                    onChange={(event) =>
+                                      chatStore.updateTargetSession(
+                                        session,
+                                        (draft) => {
+                                          const target = draft.messages.find(
+                                            (item) => item.id === message.id,
+                                          );
+                                          if (target)
+                                            target.role = event.currentTarget
+                                              .value as ChatMessage["role"];
+                                        },
+                                      )
+                                    }
+                                  >
+                                    {ROLES.map((role) => (
+                                      <option key={role} value={role}>
+                                        {role}
+                                      </option>
+                                    ))}
+                                  </Select>
+                                </div>
+                              </>
+                            )}
                             <textarea
-                              rows={1}
+                              rows={editingMessageId === message.id ? 5 : 1}
+                              className={clsx(
+                                editingMessageId === message.id &&
+                                  styles["graph-editor-content-active"],
+                              )}
                               aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
                               value={getMessageTextContent(message)}
+                              onFocus={() => setEditingMessageId(message.id)}
+                              onBlur={() => {
+                                setEditingMessageId((current) =>
+                                  current === message.id ? undefined : current,
+                                );
+                                window.getSelection()?.removeAllRanges();
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  event.currentTarget.blur();
+                                }
+                              }}
                               onChange={(event) =>
                                 chatStore.updateMessageContent(
                                   session.id,
@@ -958,15 +983,20 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                 )
                               }
                             />
-                            <IconButton
-                              icon={<DeleteIcon />}
-                              aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
-                              bordered
-                              className={styles["graph-editor-delete"]}
-                              onClick={() =>
-                                chatStore.deleteMessage(session.id, message.id)
-                              }
-                            />
+                            {editingMessageId !== message.id && (
+                              <IconButton
+                                icon={<DeleteIcon />}
+                                aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
+                                bordered
+                                className={styles["graph-editor-delete"]}
+                                onClick={() =>
+                                  chatStore.deleteMessage(
+                                    session.id,
+                                    message.id,
+                                  )
+                                }
+                              />
+                            )}
                           </div>
                           <button
                             type="button"
