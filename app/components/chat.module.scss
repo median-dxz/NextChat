@@ -1013,7 +1013,7 @@
 .chat-message-meta {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   width: 100%;
   min-height: 32px;
@@ -1043,10 +1043,6 @@
   .chat-message-header .chat-message-actions {
     inset-inline-start: auto;
     inset-inline-end: calc(100% + 10px);
-  }
-
-  .chat-message-meta {
-    justify-content: flex-start;
   }
 
   .chat-message-action-date {
