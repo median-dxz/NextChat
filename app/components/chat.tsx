@@ -970,7 +970,13 @@ export function EditMessageModal(props: { onClose: () => void }) {
                           </div>
                           <button
                             type="button"
-                            className={styles["graph-editor-insert"]}
+                            className={clsx(
+                              styles["graph-editor-insert"],
+                              messages[index + 1] &&
+                                messages[index + 1].outlineLevel !==
+                                  message.outlineLevel &&
+                                styles["graph-editor-outline-divider"],
+                            )}
                             aria-label={`${Locale.Chat.Graph.Insert} ${index + 1}`}
                             onClick={() =>
                               runGraphAction(() =>

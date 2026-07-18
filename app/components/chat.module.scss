@@ -651,6 +651,31 @@
   }
 }
 
+.graph-editor-outline-divider {
+  gap: 8px;
+  opacity: 0.55;
+
+  &::before,
+  &::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--black);
+    opacity: 0.14;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+
+    &::before,
+    &::after {
+      background: var(--primary);
+      opacity: 0.45;
+    }
+  }
+}
+
 .graph-editor-drag {
   width: 28px;
   height: 44px;
