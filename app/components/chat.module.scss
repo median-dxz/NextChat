@@ -768,8 +768,12 @@
   margin-top: 20px;
   display: flex;
   align-items: center;
+  position: relative;
 
   .chat-message-actions {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: calc(100% + 10px);
     display: flex;
     box-sizing: border-box;
     font-size: 12px;
@@ -777,7 +781,7 @@
     justify-content: space-between;
     transition: all ease 0.3s;
     transform: scale(0.9) translateY(5px);
-    margin: 0 10px;
+    margin: 0;
     opacity: 0;
     pointer-events: none;
 
@@ -992,6 +996,7 @@
 
 .chat-message-action-date {
   font-size: 12px;
+  line-height: 1;
   opacity: 0.2;
   white-space: nowrap;
   transition: all ease 0.6s;
@@ -1011,17 +1016,18 @@
   justify-content: flex-end;
   gap: 8px;
   width: 100%;
-  min-height: 28px;
+  min-height: 32px;
+  padding-block: 3px;
+  box-sizing: border-box;
 }
 
 .chat-message-node-actions {
   display: flex;
   flex: none;
   gap: 5px;
-  margin-top: 3px;
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.92) translateY(3px);
+  transform: scale(0.92);
   transform-origin: left center;
   transition: opacity ease 0.2s, transform ease 0.2s;
 
@@ -1029,11 +1035,16 @@
   &:focus-within {
     opacity: 1;
     pointer-events: auto;
-    transform: scale(1) translateY(0);
+    transform: scale(1);
   }
 }
 
 .chat-message-user {
+  .chat-message-header .chat-message-actions {
+    inset-inline-start: auto;
+    inset-inline-end: calc(100% + 10px);
+  }
+
   .chat-message-meta {
     justify-content: flex-start;
   }
