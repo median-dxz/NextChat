@@ -21,6 +21,7 @@ import React, {
   useState,
   useCallback,
   useRef,
+  useId,
 } from "react";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
@@ -123,17 +124,24 @@ interface ModalProps {
   onClose?: () => void;
 }
 export function Modal(props: ModalProps) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        props.onClose?.();
-      }
-    };
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
-    window.addEventListener("keydown", onKeyDown);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    if (!dialog.open) dialog.showModal();
+    const onCancel = (event: Event) => {
+      event.preventDefault();
+      props.onClose?.();
+    };
+    dialog.addEventListener("cancel", onCancel);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      dialog.removeEventListener("cancel", onCancel);
+      if (dialog.open) dialog.close();
+      trigger?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -141,27 +149,45 @@ export function Modal(props: ModalProps) {
   const [isMax, setMax] = useState(!!props.defaultMax);
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
       className={clsx(styles["modal-container"], {
         [styles["modal-container-max"]]: isMax,
       })}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const isOutside =
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom;
+        if (isOutside) props.onClose?.();
+      }}
     >
       <div className={styles["modal-header"]}>
-        <div className={styles["modal-title"]}>{props.title}</div>
+        <div id={titleId} className={styles["modal-title"]}>
+          {props.title}
+        </div>
 
         <div className={styles["modal-header-actions"]}>
-          <div
+          <button
+            type="button"
             className={styles["modal-header-action"]}
             onClick={() => setMax(!isMax)}
+            aria-label={isMax ? Locale.UI.Restore : Locale.UI.Maximize}
           >
             {isMax ? <MinIcon /> : <MaxIcon />}
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
             className={styles["modal-header-action"]}
             onClick={props.onClose}
+            aria-label={Locale.UI.Close}
           >
             <CloseIcon />
-          </div>
+          </button>
         </div>
       </div>
 
@@ -177,7 +203,7 @@ export function Modal(props: ModalProps) {
           ))}
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 

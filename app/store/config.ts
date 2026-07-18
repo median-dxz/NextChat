@@ -78,6 +78,8 @@ export const DEFAULT_CONFIG = {
     compressMessageLengthThreshold: 1000,
     compressModel: "",
     compressProviderName: "",
+    memoryModel: "",
+    memoryProviderName: "",
     titleModel: "",
     titleProviderName: "",
     enableInjectSystemPrompts: true,
@@ -202,7 +204,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.3,
+    version: 4.4,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -264,6 +266,12 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
         state.modelConfig.titleProviderName =
           DEFAULT_CONFIG.modelConfig.titleProviderName;
+      }
+
+      if (version < 4.4) {
+        state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
+        state.modelConfig.memoryProviderName =
+          DEFAULT_CONFIG.modelConfig.memoryProviderName;
       }
 
       return state as any;

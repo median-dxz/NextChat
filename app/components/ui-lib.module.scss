@@ -90,6 +90,10 @@
 }
 
 .modal-container {
+  margin: auto;
+  padding: 0;
+  border: 0;
+  color: var(--black);
   box-shadow: var(--card-shadow);
   background-color: var(--white);
   border-radius: 12px;
@@ -97,6 +101,10 @@
   max-width: 900px;
   min-width: 300px;
   animation: slide-in ease 0.3s;
+
+  &::backdrop {
+    background: transparent;
+  }
 
   --modal-padding: 20px;
 
@@ -130,6 +138,11 @@
 
       .modal-header-action {
         cursor: pointer;
+        display: inline-flex;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
 
         &:not(:last-child) {
           margin-right: 20px;
@@ -170,6 +183,7 @@
 
 @media screen and (max-width: 600px) {
   .modal-container {
+    margin: auto auto 0;
     width: 100vw;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;

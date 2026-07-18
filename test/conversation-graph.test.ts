@@ -340,12 +340,14 @@ describe("conversation graph storage", () => {
     expect(deleted.activeCursorId).toBeUndefined();
   });
 
-  test("branch selection preserves a main-chain cursor and clears an old branch cursor", () => {
+  test("branch selection preserves a main-chain cursor and moves an old branch cursor to the new branch tail", () => {
     const messages = [
       { ...node("root", 1), activeBranchRootId: "old" },
       node("after", 1, "root"),
       node("old", 2, "root"),
       node("next", 2, "root"),
+      { ...node("next-tail", 2, "next"), activeBranchRootId: "nested" },
+      node("nested", 3, "next-tail"),
     ];
 
     expect(
@@ -361,6 +363,6 @@ describe("conversation graph storage", () => {
         "root",
         "next",
       ).activeCursorId,
-    ).toBeUndefined();
+    ).toBe("next-tail");
   });
 });

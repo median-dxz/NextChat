@@ -32,10 +32,12 @@ import ConfirmIcon from "../icons/confirm.svg";
 import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
+import AddIcon from "../icons/add.svg";
+import DragIcon from "../icons/drag.svg";
+import BreakIcon from "../icons/break.svg";
+import EyeIcon from "../icons/eye.svg";
+import EyeOffIcon from "../icons/eye-off.svg";
 
-import LightIcon from "../icons/light.svg";
-import DarkIcon from "../icons/dark.svg";
-import AutoIcon from "../icons/auto.svg";
 import BottomIcon from "../icons/bottom.svg";
 import StopIcon from "../icons/pause.svg";
 import RobotIcon from "../icons/robot.svg";
@@ -55,7 +57,6 @@ import {
   getSessionActiveMessages,
   ModelType,
   SubmitKey,
-  Theme,
   useAccessStore,
   useAppConfig,
   useChatStore,
@@ -92,6 +93,7 @@ import {
   List,
   ListItem,
   Modal,
+  Select,
   Selector,
   showConfirm,
   showPrompt,
@@ -116,7 +118,7 @@ import { ExportMessageModal } from "./exporter";
 import { ReasoningDisclosure } from "./reasoning";
 import { getClientConfig } from "../config/client";
 import { useAllModels } from "../utils/hooks";
-import { ClientApi, MultimodalContent } from "../client/api";
+import { ClientApi, MultimodalContent, ROLES } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
@@ -126,6 +128,12 @@ import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
 import { createConversationGraphIndex } from "../utils/conversation-graph";
+import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type OnDragEndResponder,
+} from "@hello-pangea/dnd";
 
 const localStorage = safeLocalStorage();
 
@@ -477,17 +485,6 @@ export function ChatActions(props: {
     (message) => message.id === session.activeCursorId,
   );
 
-  // switch themes
-  const theme = config.theme;
-
-  function nextTheme() {
-    const themes = [Theme.Auto, Theme.Light, Theme.Dark];
-    const themeIndex = themes.indexOf(theme);
-    const nextIndex = (themeIndex + 1) % themes.length;
-    const nextTheme = themes[nextIndex];
-    config.update((config) => (config.theme = nextTheme));
-  }
-
   // stop all responses
   const couldStop = ChatControllerPool.hasPending();
   const stopAll = () => ChatControllerPool.stopAll();
@@ -617,34 +614,20 @@ export function ChatActions(props: {
           />
         )}
         <ChatAction
-          onClick={nextTheme}
-          text={Locale.Chat.InputActions.Theme[theme]}
-          icon={
-            <>
-              {theme === Theme.Auto ? (
-                <AutoIcon />
-              ) : theme === Theme.Light ? (
-                <LightIcon />
-              ) : theme === Theme.Dark ? (
-                <DarkIcon />
-              ) : null}
-            </>
-          }
-        />
-
-        <ChatAction
           onClick={props.showPromptHints}
           text={Locale.Chat.InputActions.Prompt}
           icon={<PromptIcon />}
         />
 
-        <ChatAction
-          onClick={() => {
-            navigate(Path.Masks);
-          }}
-          text={Locale.Chat.InputActions.Masks}
-          icon={<MaskIcon />}
-        />
+        {isMobileScreen && (
+          <ChatAction
+            onClick={() => {
+              navigate(Path.Masks);
+            }}
+            text={Locale.Chat.InputActions.Masks}
+            icon={<MaskIcon />}
+          />
+        )}
 
         <ChatAction
           onClick={() => setShowModelSelector(true)}
@@ -831,6 +814,15 @@ export function EditMessageModal(props: { onClose: () => void }) {
       showToast(error instanceof Error ? error.message : String(error));
     }
   };
+  const onDragEnd: OnDragEndResponder = (result) => {
+    if (!result.destination || result.source.index === result.destination.index)
+      return;
+    const source = messages[result.source.index];
+    const destination = messages[result.destination.index];
+    runGraphAction(() =>
+      chatStore.swapMessages(session.id, source.id, destination.id),
+    );
+  };
 
   return (
     <div className="modal-mask">
@@ -860,97 +852,155 @@ export function EditMessageModal(props: { onClose: () => void }) {
             title={Locale.Chat.EditMessage.Topic.Title}
             subTitle={Locale.Chat.EditMessage.Topic.SubTitle}
           >
-            <input
-              type="text"
-              value={session.topic}
-              onInput={(e) =>
-                chatStore.updateTargetSession(
-                  session,
-                  (session) => (session.topic = e.currentTarget.value),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-        <div className={styles["graph-editor"]}>
-          {messages.map((message, index) => (
-            <div className={styles["graph-editor-row"]} key={message.id}>
-              <div className={styles["graph-editor-meta"]}>
-                <span>L{message.outlineLevel}</span>
-                <span>{message.role}</span>
-                <code>{message.id}</code>
-              </div>
-              <textarea
-                aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
-                value={getMessageTextContent(message)}
-                onChange={(event) =>
-                  chatStore.updateMessageContent(
-                    session.id,
-                    message.id,
-                    event.target.value,
+            <div className={styles["graph-editor-topic"]}>
+              <input
+                type="text"
+                value={session.topic}
+                onInput={(e) =>
+                  chatStore.updateTargetSession(
+                    session,
+                    (session) => (session.topic = e.currentTarget.value),
                   )
                 }
               />
-              <div className={styles["graph-editor-actions"]}>
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() =>
-                    runGraphAction(() =>
-                      chatStore.swapMessages(
-                        session.id,
-                        message.id,
-                        messages[index - 1].id,
-                      ),
-                    )
-                  }
-                >
-                  {Locale.Chat.Graph.MoveUp}
-                </button>
-                <button
-                  type="button"
-                  disabled={index === messages.length - 1}
-                  onClick={() =>
-                    runGraphAction(() =>
-                      chatStore.swapMessages(
-                        session.id,
-                        message.id,
-                        messages[index + 1].id,
-                      ),
-                    )
-                  }
-                >
-                  {Locale.Chat.Graph.MoveDown}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    runGraphAction(() =>
-                      chatStore.insertMessageBetween(
-                        session.id,
-                        createConversationNode({
-                          role: "user",
-                          content: "",
-                        }),
-                        message.id,
-                        messages[index + 1]?.id,
-                      ),
-                    )
-                  }
-                >
-                  {Locale.Chat.Graph.Insert}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    chatStore.deleteMessage(session.id, message.id)
-                  }
-                >
-                  {Locale.Chat.Actions.Delete}
-                </button>
-              </div>
+              <IconButton
+                icon={<ReloadIcon />}
+                bordered
+                aria={Locale.Chat.Actions.RefreshTitle}
+                title={Locale.Chat.Actions.RefreshTitle}
+                onClick={() => {
+                  showToast(Locale.Chat.Actions.RefreshToast);
+                  chatStore.generateSessionTitle(session, true);
+                }}
+              />
             </div>
-          ))}
+          </ListItem>
+        </List>
+        <div className={styles["graph-editor"]}>
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="conversation-graph-editor">
+              {(droppable) => (
+                <div ref={droppable.innerRef} {...droppable.droppableProps}>
+                  {messages.map((message, index) => (
+                    <Draggable
+                      draggableId={message.id}
+                      index={index}
+                      key={message.id}
+                    >
+                      {(draggable) => (
+                        <div
+                          ref={draggable.innerRef}
+                          {...draggable.draggableProps}
+                        >
+                          <div className={styles["graph-editor-row"]}>
+                            <button
+                              type="button"
+                              className={styles["graph-editor-drag"]}
+                              {...draggable.dragHandleProps}
+                              aria-label={`${Locale.Chat.Graph.Drag} ${index + 1}`}
+                              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                              title={`${Locale.Chat.Graph.Drag} (Alt+↑/↓)`}
+                              onKeyDown={(event) => {
+                                if (
+                                  !event.altKey ||
+                                  !["ArrowUp", "ArrowDown"].includes(event.key)
+                                ) {
+                                  return;
+                                }
+                                event.preventDefault();
+                                const targetIndex =
+                                  index + (event.key === "ArrowUp" ? -1 : 1);
+                                const target = messages[targetIndex];
+                                if (!target) return;
+                                runGraphAction(() =>
+                                  chatStore.swapMessages(
+                                    session.id,
+                                    message.id,
+                                    target.id,
+                                  ),
+                                );
+                              }}
+                            >
+                              <DragIcon />
+                            </button>
+                            <div className={styles["graph-editor-content"]}>
+                              <div className={styles["graph-editor-meta"]}>
+                                <span>L{message.outlineLevel}</span>
+                                <Select
+                                  value={message.role}
+                                  aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
+                                  onChange={(event) =>
+                                    chatStore.updateTargetSession(
+                                      session,
+                                      (draft) => {
+                                        const target = draft.messages.find(
+                                          (item) => item.id === message.id,
+                                        );
+                                        if (target)
+                                          target.role = event.currentTarget
+                                            .value as ChatMessage["role"];
+                                      },
+                                    )
+                                  }
+                                >
+                                  {ROLES.map((role) => (
+                                    <option key={role} value={role}>
+                                      {role}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                              <textarea
+                                aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
+                                value={getMessageTextContent(message)}
+                                onChange={(event) =>
+                                  chatStore.updateMessageContent(
+                                    session.id,
+                                    message.id,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <IconButton
+                              icon={<DeleteIcon />}
+                              aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
+                              bordered
+                              className={styles["graph-editor-delete"]}
+                              onClick={() =>
+                                chatStore.deleteMessage(session.id, message.id)
+                              }
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className={styles["graph-editor-insert"]}
+                            aria-label={`${Locale.Chat.Graph.Insert} ${index + 1}`}
+                            onClick={() =>
+                              runGraphAction(() =>
+                                chatStore.insertMessageBetween(
+                                  session.id,
+                                  createConversationNode({
+                                    role: "user",
+                                    content: "",
+                                  }),
+                                  message.id,
+                                  messages[index + 1]?.id,
+                                ),
+                              )
+                            }
+                          >
+                            <AddIcon />
+                          </button>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {droppable.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         </div>
       </Modal>
     </div>
@@ -978,6 +1028,10 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
   const [checkpoint, setCheckpoint] = useState(
     () => node?.nodeSummaries?.checkpoint?.content ?? "",
   );
+  const [role, setRole] = useState<ChatMessage["role"]>(
+    () => node?.role ?? "user",
+  );
+  const [hidden, setHidden] = useState(() => Boolean(node?.hidden));
   const [generating, setGenerating] = useState(false);
 
   if (!node) return null;
@@ -986,6 +1040,8 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
     chatStore.updateTargetSession(session, (draft) => {
       const target = draft.messages.find((item) => item.id === node.id);
       if (!target) return;
+      target.role = role;
+      target.hidden = hidden;
       const images = getMessageImages(target);
       target.content = images.length
         ? [
@@ -1061,20 +1117,35 @@ function NodeViewerModal(props: { nodeId: string; onClose: () => void }) {
         ]}
       >
         <div className={styles["node-viewer"]}>
-          <dl className={styles["node-viewer-metadata"]}>
-            <div>
-              <dt>ID</dt>
-              <dd>{node.id}</dd>
+          <div className={styles["node-viewer-properties"]}>
+            <div className={styles["node-viewer-level"]}>
+              {Locale.Chat.Graph.OutlineLevel} L{node.outlineLevel}
             </div>
-            <div>
-              <dt>{Locale.Chat.Graph.OutlineLevel}</dt>
-              <dd>{node.outlineLevel}</dd>
-            </div>
-            <div>
-              <dt>{Locale.Chat.Graph.Parent}</dt>
-              <dd>{node.parentId ?? "—"}</dd>
-            </div>
-          </dl>
+            <label>
+              <span>{Locale.Chat.Graph.Role}</span>
+              <Select
+                value={role}
+                aria-label={Locale.Chat.Graph.Role}
+                onChange={(event) =>
+                  setRole(event.currentTarget.value as ChatMessage["role"])
+                }
+              >
+                {ROLES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className={styles["global-memory-toggle"]}>
+              <input
+                type="checkbox"
+                checked={hidden}
+                onChange={(event) => setHidden(event.currentTarget.checked)}
+              />
+              <span>{Locale.Chat.Graph.Hide}</span>
+            </label>
+          </div>
           <label>
             <span>{Locale.Chat.Actions.Edit}</span>
             <textarea
@@ -1163,6 +1234,8 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
   const [prompt, setPrompt] = useState(session.globalMemory.prompt);
   const [content, setContent] = useState(session.globalMemory.content);
   const [updating, setUpdating] = useState(false);
+  const [updateModel, setUpdateModel] = useState("@");
+  const availableModels = useAllModels().filter((model) => model.available);
 
   const save = () => {
     chatStore.editGlobalMemory(session.id, { enabled, prompt, content });
@@ -1171,7 +1244,17 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
     save();
     setUpdating(true);
     try {
-      await chatStore.updateGlobalMemory(session.id, prompt);
+      const [model, providerName] = getModelProvider(updateModel);
+      await chatStore.updateGlobalMemory(
+        session.id,
+        prompt,
+        updateModel === "@"
+          ? undefined
+          : {
+              model,
+              providerName: providerName ?? ServiceProvider.OpenAI,
+            },
+      );
       setContent(useChatStore.getState().currentSession().globalMemory.content);
     } finally {
       setUpdating(false);
@@ -1225,6 +1308,26 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
+          </label>
+          <label>
+            <span>{Locale.Chat.Graph.TemporaryMemoryModel}</span>
+            <Select
+              value={updateModel}
+              aria-label={Locale.Chat.Graph.TemporaryMemoryModel}
+              onChange={(event) => setUpdateModel(event.currentTarget.value)}
+            >
+              <option value="@">
+                {Locale.Chat.Graph.UseConfiguredMemoryModel}
+              </option>
+              {availableModels.map((model) => (
+                <option
+                  key={`${model.name}@${model.provider?.providerName}`}
+                  value={`${model.name}@${model.provider?.providerName}`}
+                >
+                  {model.displayName} ({model.provider?.providerName})
+                </option>
+              ))}
+            </Select>
           </label>
         </div>
       </Modal>
@@ -1306,6 +1409,7 @@ function ChatView() {
   const [showGlobalMemory, setShowGlobalMemory] = useState(false);
   const [viewingNodeId, setViewingNodeId] = useState<string>();
   const [branchParentId, setBranchParentId] = useState<string>();
+  const [actionMessageId, setActionMessageId] = useState<string>();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState(() => {
@@ -1951,17 +2055,6 @@ function ChatView() {
             </div>
           </div>
           <div className="window-actions">
-            <div className="window-action-button">
-              <IconButton
-                icon={<ReloadIcon />}
-                bordered
-                title={Locale.Chat.Actions.RefreshTitle}
-                onClick={() => {
-                  showToast(Locale.Chat.Actions.RefreshToast);
-                  chatStore.generateSessionTitle(session, true);
-                }}
-              />
-            </div>
             {!isMobileScreen && (
               <div className="window-action-button">
                 <IconButton
@@ -2042,6 +2135,46 @@ function ChatView() {
                       ) &&
                       (!isActiveTurn || Boolean(message.streaming));
                     const showTyping = message.preview || message.streaming;
+                    const renderActions =
+                      showActions && actionMessageId === message.id;
+                    const editMessage = async () => {
+                      if (storedNode) {
+                        setViewingNodeId(storedNode.id);
+                        return;
+                      }
+                      const newMessage = await showPrompt(
+                        Locale.Chat.Actions.Edit,
+                        getMessageTextContent(message),
+                        10,
+                      );
+                      let newContent: string | MultimodalContent[] = newMessage;
+                      const images = getMessageImages(message);
+                      if (images.length > 0) {
+                        newContent = [{ type: "text", text: newMessage }];
+                        images.forEach((url) =>
+                          (newContent as MultimodalContent[]).push({
+                            type: "image_url",
+                            image_url: { url },
+                          }),
+                        );
+                      }
+                      if (
+                        session.messages.some((item) => item.id === message.id)
+                      ) {
+                        chatStore.updateMessageContent(
+                          session.id,
+                          message.id,
+                          newContent,
+                        );
+                      } else {
+                        chatStore.updateTargetSession(session, (draft) => {
+                          const item = draft.mask.context.find(
+                            (item) => item.id === message.id,
+                          );
+                          if (item) item.content = newContent;
+                        });
+                      }
+                    };
 
                     return (
                       <Fragment key={message.id}>
@@ -2053,71 +2186,31 @@ function ChatView() {
                               : styles["chat-message"],
                             storedNode?.hidden && styles["chat-message-hidden"],
                           )}
+                          onPointerEnter={() => setActionMessageId(message.id)}
+                          onPointerLeave={() =>
+                            setActionMessageId((current) =>
+                              current === message.id ? undefined : current,
+                            )
+                          }
+                          onFocusCapture={() => setActionMessageId(message.id)}
+                          onBlurCapture={(event) => {
+                            if (
+                              !event.currentTarget.contains(
+                                event.relatedTarget as Node | null,
+                              )
+                            ) {
+                              setActionMessageId((current) =>
+                                current === message.id ? undefined : current,
+                              );
+                            }
+                          }}
+                          onClick={() => {
+                            if (isMobileScreen) setActionMessageId(message.id);
+                          }}
                         >
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
                               <div className={styles["chat-message-avatar"]}>
-                                {!isActiveTurn && (
-                                  <div className={styles["chat-message-edit"]}>
-                                    <IconButton
-                                      icon={<EditIcon />}
-                                      aria={Locale.Chat.Actions.Edit}
-                                      onClick={async () => {
-                                        const newMessage = await showPrompt(
-                                          Locale.Chat.Actions.Edit,
-                                          getMessageTextContent(message),
-                                          10,
-                                        );
-                                        let newContent:
-                                          string | MultimodalContent[] =
-                                          newMessage;
-                                        const images =
-                                          getMessageImages(message);
-                                        if (images.length > 0) {
-                                          newContent = [
-                                            { type: "text", text: newMessage },
-                                          ];
-                                          for (
-                                            let i = 0;
-                                            i < images.length;
-                                            i++
-                                          ) {
-                                            newContent.push({
-                                              type: "image_url",
-                                              image_url: {
-                                                url: images[i],
-                                              },
-                                            });
-                                          }
-                                        }
-                                        if (
-                                          session.messages.some(
-                                            (item) => item.id === message.id,
-                                          )
-                                        ) {
-                                          chatStore.updateMessageContent(
-                                            session.id,
-                                            message.id,
-                                            newContent,
-                                          );
-                                        } else {
-                                          chatStore.updateTargetSession(
-                                            session,
-                                            (draft) => {
-                                              const item =
-                                                draft.mask.context.find(
-                                                  (item) =>
-                                                    item.id === message.id,
-                                                );
-                                              if (item)
-                                                item.content = newContent;
-                                            },
-                                          );
-                                        }
-                                      }}
-                                    ></IconButton>
-                                  </div>
-                                )}
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (
@@ -2142,7 +2235,7 @@ function ChatView() {
                                 </div>
                               )}
 
-                              {showActions && (
+                              {renderActions && (
                                 <div className={styles["chat-message-actions"]}>
                                   <div className={styles["chat-input-actions"]}>
                                     {message.streaming ? (
@@ -2170,61 +2263,27 @@ function ChatView() {
                                         />
 
                                         {storedNode && (
-                                          <>
-                                            <ChatAction
-                                              text={Locale.Chat.Graph.Node}
-                                              icon={
-                                                <span aria-hidden="true">
-                                                  ⓘ
-                                                </span>
-                                              }
-                                              onClick={() =>
-                                                setViewingNodeId(storedNode.id)
-                                              }
-                                            />
-                                            <ChatAction
-                                              text={Locale.Chat.Graph.Branch}
-                                              icon={
-                                                <span aria-hidden="true">
-                                                  ⑂
-                                                </span>
-                                              }
-                                              onClick={() =>
-                                                setBranchParentId(storedNode.id)
-                                              }
-                                            />
-                                            <ChatAction
-                                              text={Locale.Chat.Graph.Continue}
-                                              icon={<ReturnIcon />}
-                                              onClick={() =>
-                                                chatStore.continueFromNode(
-                                                  session.id,
-                                                  storedNode.id,
-                                                )
-                                              }
-                                            />
-                                            <ChatAction
-                                              text={
-                                                storedNode.hidden
-                                                  ? Locale.Chat.Graph.Show
-                                                  : Locale.Chat.Graph.Hide
-                                              }
-                                              icon={
-                                                <span aria-hidden="true">
-                                                  {storedNode.hidden
-                                                    ? "◉"
-                                                    : "◌"}
-                                                </span>
-                                              }
-                                              onClick={() =>
-                                                chatStore.setMessageHidden(
-                                                  session.id,
-                                                  storedNode.id,
-                                                  !storedNode.hidden,
-                                                )
-                                              }
-                                            />
-                                          </>
+                                          <ChatAction
+                                            text={
+                                              storedNode.hidden
+                                                ? Locale.Chat.Graph.Show
+                                                : Locale.Chat.Graph.Hide
+                                            }
+                                            icon={
+                                              storedNode.hidden ? (
+                                                <EyeIcon />
+                                              ) : (
+                                                <EyeOffIcon />
+                                              )
+                                            }
+                                            onClick={() =>
+                                              chatStore.setMessageHidden(
+                                                session.id,
+                                                storedNode.id,
+                                                !storedNode.hidden,
+                                              )
+                                            }
+                                          />
                                         )}
 
                                         <ChatAction
@@ -2369,6 +2428,39 @@ function ChatView() {
                             {message?.audio_url && (
                               <div className={styles["chat-message-audio"]}>
                                 <audio src={message.audio_url} controls />
+                              </div>
+                            )}
+
+                            {!isActiveTurn && renderActions && (
+                              <div
+                                className={styles["chat-message-node-actions"]}
+                              >
+                                <ChatAction
+                                  text={Locale.Chat.Actions.Edit}
+                                  icon={<EditIcon />}
+                                  onClick={editMessage}
+                                />
+                                {storedNode && (
+                                  <>
+                                    <ChatAction
+                                      text={Locale.Chat.Graph.Branch}
+                                      icon={<BreakIcon />}
+                                      onClick={() =>
+                                        setBranchParentId(storedNode.id)
+                                      }
+                                    />
+                                    <ChatAction
+                                      text={Locale.Chat.Graph.Continue}
+                                      icon={<ReturnIcon />}
+                                      onClick={() =>
+                                        chatStore.continueFromNode(
+                                          session.id,
+                                          storedNode.id,
+                                        )
+                                      }
+                                    />
+                                  </>
+                                )}
                               </div>
                             )}
 

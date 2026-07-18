@@ -286,6 +286,34 @@ describe("chat store derived state", () => {
     ).toBe(65_000);
   });
 
+  test("preserves an intentionally empty graph cursor during hydration", async () => {
+    const persistedSession = structuredClone(initialSession);
+    persistedSession.messages = toLevelOneConversationNodes([
+      message("user", "root"),
+      message("assistant", "tail"),
+    ]);
+    persistedSession.rootNodeId = persistedSession.messages[0].id;
+    persistedSession.activeCursorId = undefined;
+    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
+      JSON.stringify({
+        state: {
+          sessions: [persistedSession],
+          currentSessionIndex: 0,
+          lastInput: "",
+          lastUpdateTime: 0,
+          _hasHydrated: true,
+        },
+        version: 4.3,
+      }),
+    );
+
+    await useChatStore.persist.rehydrate();
+
+    expect(
+      useChatStore.getState().currentSession().activeCursorId,
+    ).toBeUndefined();
+  });
+
   test("stops a persisted reasoning stream during hydration", async () => {
     const persistedSession = structuredClone(initialSession) as any;
     persistedSession.messages = [
@@ -484,6 +512,70 @@ describe("chat store derived state", () => {
       content: "memory two",
       revision: 2,
     });
+  });
+
+  test("uses the configured conversation memory model", async () => {
+    const session = setSession(
+      [message("user", "question"), message("assistant", "answer")],
+      {
+        memoryModel: "memory-model",
+        memoryProviderName: "OpenAI",
+      },
+    );
+    session.globalMemory = {
+      enabled: true,
+      prompt: "update memory",
+      content: "old memory",
+      revision: 0,
+    };
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish("new memory", new Response(null, { status: 200 }));
+    });
+
+    await useChatStore.getState().updateGlobalMemory(session.id);
+
+    expect(apiMocks.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          model: "memory-model",
+          providerName: "OpenAI",
+        }),
+      }),
+    );
+  });
+
+  test("allows a one-off conversation memory model override", async () => {
+    const session = setSession(
+      [message("user", "question"), message("assistant", "answer")],
+      {
+        memoryModel: "configured-model",
+        memoryProviderName: "OpenAI",
+      },
+    );
+    session.globalMemory = {
+      enabled: true,
+      prompt: "update memory",
+      content: "old memory",
+      revision: 0,
+    };
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish("new memory", new Response(null, { status: 200 }));
+    });
+
+    await useChatStore.getState().updateGlobalMemory(
+      session.id,
+      undefined,
+      { model: "temporary-model", providerName: "Google" },
+    );
+
+    expect(apiMocks.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          model: "temporary-model",
+          providerName: "Google",
+        }),
+      }),
+    );
   });
 
   test("does not overwrite a manual global memory edit", async () => {

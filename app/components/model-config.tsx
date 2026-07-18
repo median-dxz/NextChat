@@ -25,6 +25,9 @@ export function ModelConfigList(props: {
   const titleModelValue = props.modelConfig.titleModel
     ? `${props.modelConfig.titleModel}@${props.modelConfig.titleProviderName}`
     : "@";
+  const memoryModelValue = props.modelConfig.memoryModel
+    ? `${props.modelConfig.memoryModel}@${props.modelConfig.memoryProviderName}`
+    : "@";
 
   return (
     <>
@@ -282,6 +285,34 @@ export function ModelConfigList(props: {
             props.updateConfig((config) => {
               config.compressModel = ModalConfigValidator.model(model);
               config.compressProviderName = providerName as ServiceProvider;
+            });
+          }}
+        >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
+          {allModels
+            .filter((v) => v.available)
+            .map((v, i) => (
+              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
+                {v.displayName}({v.provider?.providerName})
+              </option>
+            ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.MemoryModel.Title}
+        subTitle={Locale.Settings.MemoryModel.SubTitle}
+      >
+        <Select
+          className={styles["select-compress-model"]}
+          aria-label={Locale.Settings.MemoryModel.Title}
+          value={memoryModelValue}
+          onChange={(e) => {
+            const [model, providerName] = getModelProvider(
+              e.currentTarget.value,
+            );
+            props.updateConfig((config) => {
+              config.memoryModel = ModalConfigValidator.model(model);
+              config.memoryProviderName = providerName as ServiceProvider;
             });
           }}
         >

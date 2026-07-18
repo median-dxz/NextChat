@@ -75,6 +75,11 @@ const summaryJobs = new Map<string, Promise<void>>();
 const nodeSummaryJobs = new Map<string, Promise<void>>();
 const globalMemoryJobs = new Map<string, Promise<void>>();
 
+interface MemoryModelOverride {
+  model: string;
+  providerName: string;
+}
+
 function requestSummary(
   api: ClientApi,
   messages: ChatMessage[],
@@ -1287,7 +1292,11 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      async updateGlobalMemory(sessionId: string, prompt?: string) {
+      async updateGlobalMemory(
+        sessionId: string,
+        prompt?: string,
+        modelOverride?: MemoryModelOverride,
+      ) {
         const previous = globalMemoryJobs.get(sessionId) ?? Promise.resolve();
         const execution = previous
           .catch(() => undefined)
@@ -1314,9 +1323,19 @@ export const useChatStore = createPersistStore(
 
             const revision = session.globalMemory.revision;
             const modelConfig = session.mask.modelConfig;
-            const [model, providerName] = modelConfig.compressModel
-              ? [modelConfig.compressModel, modelConfig.compressProviderName]
-              : getSummarizeModel(modelConfig.model, modelConfig.providerName);
+            const [model, providerName] = modelOverride
+              ? [modelOverride.model, modelOverride.providerName]
+              : modelConfig.memoryModel
+                ? [modelConfig.memoryModel, modelConfig.memoryProviderName]
+                : modelConfig.compressModel
+                  ? [
+                      modelConfig.compressModel,
+                      modelConfig.compressProviderName,
+                    ]
+                  : getSummarizeModel(
+                      modelConfig.model,
+                      modelConfig.providerName,
+                    );
             const messages: ChatMessage[] = [
               createMessage({
                 role: "system",
@@ -1668,9 +1687,10 @@ export const useChatStore = createPersistStore(
           outlineLevel: 0,
         }));
         session.globalMemory ??= createEmptyGlobalMemory();
+        session.mask.modelConfig.memoryModel ??= "";
+        session.mask.modelConfig.memoryProviderName ??= "";
         if (session.messages.length > 0) {
           session.rootNodeId ??= session.messages[0]?.id;
-          session.activeCursorId ??= session.messages.at(-1)?.id;
         }
         session.messages.forEach((message) => {
           if (message.streaming === true) {

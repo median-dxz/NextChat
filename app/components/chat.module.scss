@@ -56,6 +56,8 @@
 
   .chat-input-action {
     display: inline-flex;
+    box-sizing: content-box;
+    appearance: none;
     border-radius: 20px;
     font-size: 12px;
     background-color: var(--white);
@@ -108,6 +110,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .icon {
+      width: 16px;
+      min-width: 16px;
+      height: 16px;
+
+      > svg {
+        width: 16px;
+        height: 16px;
+      }
     }
   }
 
@@ -361,6 +374,26 @@
   }
 }
 
+.node-viewer-properties {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  label {
+    min-width: 140px;
+  }
+}
+
+.node-viewer-level {
+  align-self: center;
+  padding: 7px 10px;
+  border: var(--border-in-light);
+  border-radius: 999px;
+  color: var(--black);
+  font-size: 12px;
+}
+
 .node-viewer .global-memory-toggle {
   display: flex;
   flex-direction: row;
@@ -405,20 +438,45 @@
 }
 
 .graph-editor {
-  display: grid;
-  gap: 12px;
   margin-top: 12px;
+}
+
+.graph-editor-topic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input {
+    min-width: 0;
+    flex: 1;
+  }
 }
 
 .graph-editor-row {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  grid-template-columns: 32px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
   border: var(--border-in-light);
   border-radius: 10px;
+  background: var(--white);
+  box-shadow: var(--card-shadow);
+
+  &:focus-within {
+    border-color: var(--primary);
+  }
+
+  .graph-editor-content {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+  }
 
   textarea {
-    min-height: 84px;
+    min-height: 64px;
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px;
     resize: vertical;
     border: var(--border-in-light);
@@ -429,48 +487,64 @@
   }
 }
 
-.graph-editor-meta,
-.graph-editor-actions {
+.graph-editor-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.graph-editor-meta {
   min-width: 0;
   color: var(--black);
   font-size: 12px;
 
-  code {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    opacity: 0.6;
+  select {
+    width: auto;
+    min-width: 100px;
   }
 }
 
-.graph-editor-actions {
-  flex-wrap: wrap;
+.graph-editor-drag,
+.graph-editor-insert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--black);
+  cursor: pointer;
 
-  button {
-    padding: 5px 9px;
-    border: var(--border-in-light);
-    border-radius: 6px;
-    background: var(--white);
-    color: var(--black);
-    font: inherit;
-    cursor: pointer;
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
 
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.45;
-    }
+.graph-editor-drag {
+  width: 32px;
+  height: 44px;
+  opacity: 0.48;
+  touch-action: none;
 
-    &:focus-visible {
-      outline: 2px solid var(--primary);
-      outline-offset: 2px;
-    }
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
+
+.graph-editor-delete {
+  justify-self: end;
+}
+
+.graph-editor-insert {
+  width: 100%;
+  height: 26px;
+  margin: 3px 0;
+  border-radius: 6px;
+  opacity: 0.2;
+  transition: opacity ease 0.2s, background-color ease 0.2s;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
   }
 }
 
@@ -521,6 +595,12 @@
       transform: scale(1) translateY(0);
     }
   }
+}
+
+.chat-message,
+.chat-message-user {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 320px;
 }
 
 .chat-message-user > .chat-message-container {
@@ -706,6 +786,24 @@
   padding-right: 10px;
   pointer-events: none;
   z-index: 1;
+}
+
+.chat-message-node-actions {
+  display: flex;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 6px 8px 2px;
+  opacity: 0.62;
+  transition: opacity ease 0.2s;
+
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+}
+
+.chat-message-user .chat-message-node-actions {
+  align-self: flex-end;
 }
 
 .chat-message-user > .chat-message-container > .chat-message-item {

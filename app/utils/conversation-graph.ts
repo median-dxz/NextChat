@@ -242,9 +242,22 @@ export function setActiveConversationBranch(
     graph.rootNodeId,
     activeCursorId,
   );
-  return projectConversationToCursor(candidate).length > 0
-    ? candidate
-    : { ...candidate, activeCursorId: undefined };
+  if (projectConversationToCursor(candidate).length > 0) return candidate;
+  if (!branchRootId) return { ...candidate, activeCursorId: undefined };
+
+  const candidateIndex = createConversationGraphIndex(candidate.messages);
+  let branchTail = candidateIndex.nodesById.get(branchRootId)!;
+  let successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
+  while (successor) {
+    branchTail = successor;
+    successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
+  }
+  return completeGraphMutation(
+    candidate,
+    candidate.messages,
+    candidate.rootNodeId,
+    branchTail.id,
+  );
 }
 
 export function insertConversationNode(
