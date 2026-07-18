@@ -5,7 +5,9 @@ import type {
 } from "./context-compression";
 import {
   estimateRequestMessageTokens,
+  getCompleteTurns,
   getContextInputBudget,
+  isSummaryCurrent,
 } from "./context-compression";
 import { estimateTokenLength } from "./token";
 
@@ -56,12 +58,14 @@ export function planNodeSummarySource(
 export function materializeNodeSummaries(
   projection: ConversationNode[],
 ): ConversationSummary[] {
-  const projectedIds = new Set(projection.map((node) => node.id));
+  const usableIds = new Set(
+    projection.filter((node) => !node.hidden).map((node) => node.id),
+  );
   return projection.flatMap((node) =>
     Object.entries(node.nodeSummaries ?? {}).flatMap(([kind, summary]) => {
       if (
         !summary ||
-        !summary.sourceNodeIds.every((id) => projectedIds.has(id))
+        !summary.sourceNodeIds.every((id) => usableIds.has(id))
       ) {
         return [];
       }
@@ -146,39 +150,65 @@ export function planNodeConversationContext(args: {
     inputBudget - args.fixedTokenCount - args.currentInputTokenCount,
   );
   const entries = args.projection.entries;
-  const recentStart = Math.max(0, entries.length - args.historyMessageCount);
-  const mandatoryRecent = entries.slice(recentStart);
+  const completeTurns = getCompleteTurns(entries, true);
+  const recentTurns: ConversationNode[][] = [];
+  let recentMessageCount = 0;
+  for (let index = completeTurns.length - 1; index >= 0; index -= 1) {
+    if (recentMessageCount >= args.historyMessageCount) break;
+    recentTurns.unshift(completeTurns[index]);
+    recentMessageCount += completeTurns[index].length;
+  }
+  let mandatoryRecent = recentTurns.flat();
+  let mandatoryTokens = mandatoryRecent.reduce(
+    (sum, node) => sum + estimateRequestMessageTokens(node),
+    0,
+  );
+  while (mandatoryRecent.length > 0 && mandatoryTokens > availableBudget) {
+    const removedTurn = recentTurns.shift();
+    if (!removedTurn) break;
+    mandatoryTokens -= removedTurn.reduce(
+      (sum, node) => sum + estimateRequestMessageTokens(node),
+      0,
+    );
+    mandatoryRecent = recentTurns.flat();
+  }
+  const recentStart = mandatoryRecent.length
+    ? entries.findIndex((node) => node.id === mandatoryRecent[0].id)
+    : entries.length;
   const selectedMessageIds = mandatoryRecent.map((node) => node.id);
   const mandatoryCovered = new Set(
     mandatoryRecent.filter((node) => !node.hidden).map((node) => node.id),
-  );
-  const mandatoryTokens = mandatoryRecent.reduce(
-    (sum, node) => sum + estimateRequestMessageTokens(node),
-    0,
   );
   const optionalBudget = Math.max(0, availableBudget - mandatoryTokens);
   const optionalIds = new Set(
     entries.slice(0, recentStart).map((node) => node.id),
   );
+  const hiddenIds = new Set(
+    entries.filter((node) => node.hidden).map((node) => node.id),
+  );
+  const optionalTurns = getCompleteTurns(entries.slice(0, recentStart), true);
   const representations: Representation[] = [
-    ...entries.slice(0, recentStart).map((node) => ({
-      id: node.id,
+    ...optionalTurns.map((turn) => ({
+      id: `raw-turn:${turn.map((node) => node.id).join(":")}`,
       kind: "raw" as const,
-      tokens: estimateRequestMessageTokens(node),
-      sourceIds: [node.id],
+      tokens: turn.reduce(
+        (sum, node) => sum + estimateRequestMessageTokens(node),
+        0,
+      ),
+      sourceIds: turn.map((node) => node.id),
     })),
     ...args.summaries
-      .filter((summary) => summary.sourceEntryIds.length > 0)
+      .filter((summary) => isSummaryCurrent(summary, args.projection))
       .filter((summary) =>
         summary.sourceEntryIds.every(
-          (id) => optionalIds.has(id) || !mandatoryCovered.has(id),
+          (id) => optionalIds.has(id) && !hiddenIds.has(id),
         ),
       )
       .map((summary) => ({
         id: summary.id,
         kind: summary.kind,
         tokens: estimateTokenLength(summary.content),
-        sourceIds: summary.sourceEntryIds.filter((id) => optionalIds.has(id)),
+        sourceIds: summary.sourceEntryIds,
       }))
       .filter((summary) => summary.sourceIds.length > 0),
   ];
@@ -218,7 +248,7 @@ export function planNodeConversationContext(args: {
             : [...state.selectedSummaryIds, representation.id],
         selectedMessageIds:
           representation.kind === "raw"
-            ? [...state.selectedMessageIds, representation.id]
+            ? [...state.selectedMessageIds, ...representation.sourceIds]
             : state.selectedMessageIds,
         coveredIds,
       });

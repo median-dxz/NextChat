@@ -140,7 +140,6 @@ describe("chat store derived state", () => {
       "pinned",
       "root",
       "active branch",
-      "continuation",
     ]);
   });
 
@@ -665,7 +664,7 @@ describe("chat store derived state", () => {
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
-  test("preserves an assistant when its deleted predecessor is not migrated", async () => {
+  test("does not send an assistant whose user predecessor was deleted", async () => {
     setSession(
       [
         {
@@ -682,9 +681,7 @@ describe("chat store derived state", () => {
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([
-      expect.objectContaining({ role: "assistant", content: "orphan answer" }),
-    ]);
+    ).resolves.toEqual([]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
@@ -714,15 +711,17 @@ describe("chat store derived state", () => {
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
-  test("context planning remains usable when no summary is available", async () => {
+  test("never sends an oversized recent window when no summary is available", async () => {
     setSession(
-      [
-        message("user", "a".repeat(4_000)),
-        message("assistant", "b".repeat(4_000)),
-      ],
+      Array.from({ length: 12 }, (_, index) =>
+        message(
+          index % 2 === 0 ? "user" : "assistant",
+          String(index).repeat(8_000),
+        ),
+      ),
       {
         sendMemory: true,
-        historyMessageCount: 1,
+        historyMessageCount: 12,
         contextWindowTokens: 1_024,
         max_tokens: 128,
       },
@@ -731,131 +730,39 @@ describe("chat store derived state", () => {
       useChatStore
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([
-      expect.objectContaining({ role: "assistant" }),
-    ]);
+    ).resolves.toEqual([]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
-  test("replans after an existing summary job without forcing an extra request", async () => {
-    const session = setSession(
-      [message("user", "question"), message("assistant", "answer")],
-      {
-        sendMemory: true,
-        historyMessageCount: 0,
-        compressMessageLengthThreshold: 0,
-      },
-    );
-    let finishSummary: (() => void) | undefined;
-    apiMocks.chat.mockImplementation((options) => {
-      finishSummary = () =>
-        options.onFinish("summary", new Response(null, { status: 200 }));
-    });
-
-    const background = useChatStore
-      .getState()
-      .maintainSummaries(session.id, false);
-    const waitingForce = useChatStore
-      .getState()
-      .maintainSummaries(session.id, true);
-    finishSummary?.();
-    await Promise.all([background, waitingForce]);
-
-    expect(apiMocks.chat).toHaveBeenCalledTimes(1);
-  });
-
-  test("excludes reasoning from title and history compression requests", async () => {
-    const session = setSession(
-      [
-        message(
-          "user",
-          "A sufficiently long user question for automatic title generation. ".repeat(
-            8,
-          ),
-        ),
-        message("assistant", "concise final answer", "private reasoning"),
-      ],
-      {
-        sendMemory: true,
-        compressMessageLengthThreshold: 0,
-        historyMessageCount: 0,
-        max_tokens: 4000,
-      },
-    );
-    useAppConfig.setState({ enableAutoGenerateTitle: true });
-
-    useChatStore.getState().generateSessionTitle(session);
-    const maintenance = useChatStore
-      .getState()
-      .maintainSummaries(session.id, false);
-
-    expect(apiMocks.chat).toHaveBeenCalledTimes(2);
-    for (const [options] of apiMocks.chat.mock.calls) {
-      const requestText = options.messages
-        .map(getMessageTextContent)
-        .join("\n");
-      expect(requestText).not.toContain("private reasoning");
-      options.onFinish("generated result", new Response(null, { status: 200 }));
-    }
-    await maintenance;
-  });
-
-  test("does not let reasoning length affect the compression threshold", async () => {
-    const session = setSession(
-      [
-        message("user", "short question"),
-        message("assistant", "short answer", "x".repeat(20_000)),
-      ],
-      {
-        sendMemory: true,
-        historyMessageCount: 0,
-        compressMessageLengthThreshold: 100,
-        max_tokens: 4000,
-      },
-    );
-
-    await useChatStore.getState().maintainSummaries(session.id, false);
-
-    expect(apiMocks.chat).not.toHaveBeenCalled();
-  });
-
-  test("creates a checkpoint without superseding its segment inputs", async () => {
-    const messages = Array.from({ length: 8 }, (_, index) =>
-      message(index % 2 === 0 ? "user" : "assistant", `message-${index + 1}`),
-    );
+  test("does not assemble a stale summary with sources outside the projection", async () => {
+    const messages = [
+      message("user", "visible question".repeat(400)),
+      message("assistant", "visible answer".repeat(400)),
+    ];
     const session = setSession(messages, {
       sendMemory: true,
       historyMessageCount: 0,
-      compressMessageLengthThreshold: 0,
+      contextWindowTokens: 1_024,
+      max_tokens: 128,
     });
-    session.summaries = Array.from({ length: 4 }, (_, index) => {
-      const sourceMessages = messages.slice(index * 2, index * 2 + 2);
-      return {
-        id: `segment-${index + 1}`,
+    session.summaries = [
+      {
+        id: "stale-summary",
         kind: "segment",
-        content: `segment ${index + 1}`,
-        sourceEntryIds: sourceMessages.map((item) => item.id),
-        sourceDigest: createSummarySourceDigest(sourceMessages),
+        content: "excluded branch secret",
+        sourceEntryIds: ["excluded-m1", messages[0].id],
+        sourceDigest: "",
         inputSummaryIds: [],
-      } satisfies ConversationSummary;
-    });
-    apiMocks.chat.mockImplementation((options) => {
-      options.onFinish(
-        "global checkpoint",
-        new Response(null, { status: 200 }),
-      );
-    });
+        stable: true,
+      },
+    ];
 
-    await useChatStore.getState().maintainSummaries(session.id, true);
+    const requestHistory = await useChatStore
+      .getState()
+      .getMessagesWithMemory(message("user", "current question"));
 
-    const summaries = useChatStore.getState().currentSession().summaries;
-    expect(summaries.slice(0, 4)).toHaveLength(4);
-    expect(summaries.at(-1)).toEqual(
-      expect.objectContaining({
-        kind: "checkpoint",
-        content: "global checkpoint",
-        inputSummaryIds: summaries.slice(0, 4).map((item) => item.id),
-      }),
+    expect(requestHistory.map(getMessageTextContent).join("\n")).not.toContain(
+      "excluded branch secret",
     );
   });
 

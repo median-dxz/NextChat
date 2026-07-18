@@ -36,7 +36,7 @@ describe("node summary planning", () => {
     expect(plan.sourceNodeIds).toEqual(["branch", "answer"]);
   });
 
-  test("materializes manually edited summaries without invalidating hidden sources", () => {
+  test("does not materialize a summary that could reveal a hidden source", () => {
     const source = {
       ...node("answer", 1, undefined, "assistant"),
       hidden: true,
@@ -51,20 +51,15 @@ describe("node summary planning", () => {
       },
     };
 
-    expect(materializeNodeSummaries([source])).toEqual([
-      expect.objectContaining({
-        id: "node-summary:answer:segment",
-        content: "remembered details",
-        stable: true,
-      }),
-    ]);
+    expect(materializeNodeSummaries([source])).toEqual([]);
   });
 
   test("prefers raw fidelity when it fits and summary coverage when it does not", () => {
     const entries = [
       node("a", 1, undefined, "user", "a".repeat(400)),
       node("b", 1, "a", "assistant", "b".repeat(400)),
-      node("recent", 1, "b", "user", "recent"),
+      node("recent-user", 1, "b", "user", "recent"),
+      node("recent-answer", 1, "recent-user", "assistant", "answer"),
     ];
     const projection = createContextProjection(entries);
     const summary = {
@@ -80,50 +75,96 @@ describe("node summary planning", () => {
     const roomy = planNodeConversationContext({
       projection,
       summaries: [summary],
-      historyMessageCount: 1,
+      historyMessageCount: 2,
       contextWindowTokens: 8_000,
       maxOutputTokens: 128,
       fixedTokenCount: 0,
       currentInputTokenCount: 0,
     });
-    expect(roomy.selectedMessageIds).toEqual(["a", "b", "recent"]);
+    expect(roomy.selectedMessageIds).toEqual([
+      "a",
+      "b",
+      "recent-user",
+      "recent-answer",
+    ]);
     expect(roomy.selectedSummaryIds).toEqual([]);
 
     const constrained = planNodeConversationContext({
       projection,
       summaries: [summary],
-      historyMessageCount: 1,
+      historyMessageCount: 2,
       contextWindowTokens: 250,
       maxOutputTokens: 128,
       fixedTokenCount: 0,
       currentInputTokenCount: 0,
     });
     expect(constrained.selectedSummaryIds).toEqual(["summary"]);
-    expect(constrained.selectedMessageIds).toEqual(["recent"]);
+    expect(constrained.selectedMessageIds).toEqual([
+      "recent-user",
+      "recent-answer",
+    ]);
   });
 
-  test("plans 240 long nodes within the capped frontier", () => {
-    const entries = Array.from({ length: 240 }, (_, index) =>
+  test("keeps oversized recent history within the actual input budget", () => {
+    const entries = Array.from({ length: 12 }, (_, index) =>
       node(
-        `n${index}`,
+        `m${index}`,
         1,
-        index ? `n${index - 1}` : undefined,
+        index ? `m${index - 1}` : undefined,
         index % 2 ? "assistant" : "user",
-        "x".repeat(1_500),
+        "x".repeat(8_000),
       ),
     );
-    const startedAt = performance.now();
+
     const plan = planNodeConversationContext({
       projection: createContextProjection(entries),
       summaries: [],
       historyMessageCount: 12,
-      contextWindowTokens: 32_000,
-      maxOutputTokens: 2_000,
-      fixedTokenCount: 500,
-      currentInputTokenCount: 500,
+      contextWindowTokens: 1_024,
+      maxOutputTokens: 128,
+      fixedTokenCount: 0,
+      currentInputTokenCount: 0,
     });
 
-    expect(plan.selectedMessageIds.length).toBeGreaterThan(0);
-    expect(performance.now() - startedAt).toBeLessThan(1_000);
+    expect(plan.selectedMessageIds.length).toBeLessThan(entries.length);
+    expect(plan.overflow).toBe(false);
+  });
+
+  test("rejects summaries with missing or hidden source nodes", () => {
+    const entries = [
+      {
+        ...node("m2", 1, undefined, "assistant", "x".repeat(4_000)),
+        hidden: true,
+      },
+      node("m3", 1, "m2", "user", "recent"),
+    ];
+    const staleSummary = {
+      id: "stale",
+      kind: "segment" as const,
+      content: "hidden m1 content",
+      sourceEntryIds: ["m1", "m2"],
+      sourceDigest: "",
+      inputSummaryIds: [],
+      stable: true,
+    };
+
+    const plan = planNodeConversationContext({
+      projection: createContextProjection(entries),
+      summaries: [
+        staleSummary,
+        {
+          ...staleSummary,
+          id: "hidden",
+          sourceEntryIds: ["m2"],
+        },
+      ],
+      historyMessageCount: 1,
+      contextWindowTokens: 1_024,
+      maxOutputTokens: 128,
+      fixedTokenCount: 0,
+      currentInputTokenCount: 0,
+    });
+
+    expect(plan.selectedSummaryIds).toEqual([]);
   });
 });

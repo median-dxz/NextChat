@@ -39,7 +39,6 @@ import {
   estimateRequestMessageTokens,
   getEffectiveMaxOutputTokens,
   getContextInputBudget,
-  planSummaryMaintenance,
 } from "../utils/context-compression";
 import {
   materializeNodeSummaries,
@@ -71,7 +70,6 @@ import {
 } from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
-const summaryJobs = new Map<string, Promise<void>>();
 const nodeSummaryJobs = new Map<string, Promise<void>>();
 const globalMemoryJobs = new Map<string, Promise<void>>();
 
@@ -790,12 +788,8 @@ export const useChatStore = createPersistStore(
         };
 
         // get recent messages
-        const recentMessages = await get().getMessagesWithMemory(
-          retry?.reuseUser ? undefined : userMessage,
-        );
-        const sendMessages = retry?.reuseUser
-          ? recentMessages
-          : recentMessages.concat(userMessage);
+        const recentMessages = await get().getMessagesWithMemory(userMessage);
+        const sendMessages = recentMessages.concat(userMessage);
         const effectiveMaxOutputTokens = getEffectiveMaxOutputTokens(
           modelConfig.contextWindowTokens,
           modelConfig.max_tokens,
@@ -1152,56 +1146,6 @@ export const useChatStore = createPersistStore(
             },
           });
         }
-      },
-
-      async maintainSummaries(sessionId: string, force = false): Promise<void> {
-        const pending = summaryJobs.get(sessionId);
-        if (pending) {
-          return force
-            ? pending
-            : pending.catch((error) => console.error("[Summarize]", error));
-        }
-
-        const runMaintenance = async () => {
-          const session = get().sessions.find((item) => item.id === sessionId);
-          if (!session || !session.mask.modelConfig.sendMemory) return;
-          const modelConfig = session.mask.modelConfig;
-          const projection = createContextProjection(
-            getSessionMessagesToCursor(session),
-            session.contextBoundaryAfterMessageId,
-          );
-          const plan = planSummaryMaintenance({
-            projection,
-            summaries: session.summaries,
-            historyMessageCount: modelConfig.historyMessageCount,
-            inputBudget: getContextInputBudget(
-              modelConfig.contextWindowTokens,
-              modelConfig.max_tokens,
-            ),
-            compressionThreshold: modelConfig.compressMessageLengthThreshold,
-            force,
-          });
-          if (!plan) return;
-          const generated = await generateSummary({ sessionId, ...plan });
-          if (!generated) return;
-          get().updateTargetSession(generated.session, (draft) => {
-            draft.summaries.push({
-              id: nanoid(),
-              kind: plan.kind,
-              content: generated.content,
-              sourceEntryIds: plan.sourceEntryIds,
-              sourceDigest: plan.sourceDigest,
-              inputSummaryIds: generated.inputSummaryIds,
-            });
-          });
-        };
-        const execution = runMaintenance().finally(() =>
-          summaryJobs.delete(sessionId),
-        );
-        summaryJobs.set(sessionId, execution);
-        return force
-          ? execution
-          : execution.catch((error) => console.error("[Summarize]", error));
       },
 
       async generateNodeSummary(

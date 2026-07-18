@@ -51,18 +51,24 @@ export function toLevelOneConversationNodes(
   messages: ChatMessage[],
 ): ConversationNode[] {
   let parentId: string | undefined;
-  return messages
-    .filter((message) => !message.deletedAt)
-    .map((message) => {
-      const node: ConversationNode = {
-        ...message,
-        parentId,
-        outlineLevel: 1,
-        activeBranchRootId: undefined,
-      };
-      parentId = node.id;
-      return node;
-    });
+  let deletedUserBlocksAssistant = false;
+  return messages.flatMap((message) => {
+    if (message.deletedAt) {
+      if (message.role === "user") deletedUserBlocksAssistant = true;
+      return [];
+    }
+    if (message.role === "user") deletedUserBlocksAssistant = false;
+    if (message.role === "assistant" && deletedUserBlocksAssistant) return [];
+
+    const node: ConversationNode = {
+      ...message,
+      parentId,
+      outlineLevel: 1,
+      activeBranchRootId: undefined,
+    };
+    parentId = node.id;
+    return [node];
+  });
 }
 
 export function createConversationGraphIndex(
