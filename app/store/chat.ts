@@ -33,13 +33,10 @@ import { prettyObject } from "../utils/format";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import {
-  ConversationSummary,
-  createContextProjection,
-  createSummarySourceDigest,
   estimateRequestMessageTokens,
   getEffectiveMaxOutputTokens,
   getContextInputBudget,
-} from "../utils/context-compression";
+} from "../utils/context-budget";
 import {
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
@@ -60,6 +57,7 @@ import {
   ConversationGraphState,
   GlobalMemory,
   type NodeSummary,
+  type NodeSummaryKind,
   createConversationGraphIndex,
   createEmptyGlobalMemory,
   deleteConversationNode,
@@ -184,7 +182,6 @@ export type ChatMessage = RequestMessage & {
   tools?: ChatMessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
-  deletedAt?: number;
 };
 
 export function createMessage(override: Partial<ChatMessage>): ChatMessage {
@@ -205,7 +202,6 @@ export function createConversationNode(
     outlineLevel: override.outlineLevel ?? 1,
     parentId: override.parentId,
     activeBranchRootId: override.activeBranchRootId,
-    hidden: override.hidden,
     nodeSummaries: override.nodeSummaries,
   };
 }
@@ -220,7 +216,6 @@ export interface ChatSession {
   id: string;
   topic: string;
 
-  summaries: ConversationSummary[];
   messages: ConversationNode[];
   rootNodeId?: string;
   activeCursorId?: string;
@@ -252,7 +247,6 @@ function createEmptySession(): ChatSession {
   return {
     id: nanoid(),
     topic: DEFAULT_TOPIC,
-    summaries: [],
     messages: [],
     pinnedInputs: [],
     globalMemory: createEmptyGlobalMemory(),
@@ -313,7 +307,6 @@ function migrateSessionToConversationGraph(session: any) {
     : (session.globalMemory ?? createEmptyGlobalMemory());
   session.contextBoundaryAfterMessageId ??=
     oldBoundary > 0 ? nodes[presetOffset + oldBoundary - 1]?.id : undefined;
-  session.summaries = [];
   session.mask.context = [];
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
   session.mask.modelConfig.titleModel ??= "";
@@ -458,113 +451,6 @@ export const useChatStore = createPersistStore(
       };
     }
 
-    async function generateSummary({
-      sessionId,
-      sourceEntryIds,
-      sourceDigest,
-      inputSummaryIds,
-      allowRawFallback = false,
-    }: {
-      sessionId: string;
-      sourceEntryIds: string[];
-      sourceDigest: string;
-      inputSummaryIds: string[];
-      allowRawFallback?: boolean;
-    }) {
-      const session = get().sessions.find((item) => item.id === sessionId);
-      if (!session) return;
-      const projection = createContextProjection(
-        getSessionMessagesToCursor(session),
-        session.contextBoundaryAfterMessageId,
-      );
-      const messagesById = new Map(
-        projection.entries.map((message) => [message.id, message]),
-      );
-      const sourceMessages = sourceEntryIds
-        .map((id) => messagesById.get(id))
-        .filter((message): message is ConversationNode => Boolean(message));
-      if (
-        sourceMessages.length !== sourceEntryIds.length ||
-        createSummarySourceDigest(sourceMessages) !== sourceDigest
-      ) {
-        return;
-      }
-
-      const inputSummaries = inputSummaryIds
-        .map((id) => session.summaries.find((summary) => summary.id === id))
-        .filter((summary): summary is ConversationSummary => Boolean(summary));
-      const useSummaryInputs =
-        inputSummaryIds.length > 0 &&
-        inputSummaries.length === inputSummaryIds.length;
-      if (
-        inputSummaryIds.length > 0 &&
-        !useSummaryInputs &&
-        !allowRawFallback
-      ) {
-        return;
-      }
-      const inputMessages: ChatMessage[] = useSummaryInputs
-        ? inputSummaries.map((summary) =>
-            createMessage({
-              role: "system",
-              content: summary.content,
-              date: "",
-            }),
-          )
-        : sourceMessages;
-      const inputSnapshot = useSummaryInputs
-        ? JSON.stringify(
-            inputSummaries.map((summary) => [summary.id, summary.content]),
-          )
-        : sourceDigest;
-
-      const modelConfig = session.mask.modelConfig;
-      const [model, providerName] = modelConfig.compressModel
-        ? [modelConfig.compressModel, modelConfig.compressProviderName]
-        : getSummarizeModel(modelConfig.model, modelConfig.providerName);
-      const content = await requestSummary(
-        getClientApi(providerName as ServiceProvider),
-        inputMessages,
-        modelConfig,
-        model,
-        providerName,
-      );
-
-      const current = get().sessions.find((item) => item.id === sessionId);
-      if (!current) return;
-      const currentProjection = createContextProjection(
-        getSessionMessagesToCursor(current),
-        current.contextBoundaryAfterMessageId,
-      );
-      const currentMessagesById = new Map(
-        currentProjection.entries.map((message) => [message.id, message]),
-      );
-      const currentSourceMessages = sourceEntryIds
-        .map((id) => currentMessagesById.get(id))
-        .filter((message): message is ConversationNode => Boolean(message));
-      if (
-        currentSourceMessages.length !== sourceEntryIds.length ||
-        createSummarySourceDigest(currentSourceMessages) !== sourceDigest
-      ) {
-        return;
-      }
-      if (useSummaryInputs) {
-        const currentInputSnapshot = JSON.stringify(
-          inputSummaryIds.map((id) => {
-            const summary = current.summaries.find((item) => item.id === id);
-            return summary ? [summary.id, summary.content] : undefined;
-          }),
-        );
-        if (currentInputSnapshot !== inputSnapshot) return;
-      }
-
-      return {
-        session: current,
-        content,
-        inputSummaryIds: useSummaryInputs ? inputSummaryIds : [],
-      };
-    }
-
     const methods = {
       forkSession() {
         // 获取当前会话
@@ -594,7 +480,6 @@ export const useChatStore = createPersistStore(
         );
         newSession.globalMemory = { ...currentSession.globalMemory };
         // Summaries are derived from message IDs, so the fork rebuilds them.
-        newSession.summaries = [];
         newSession.contextBoundaryAfterMessageId =
           currentSession.contextBoundaryAfterMessageId
             ? messageIds.get(currentSession.contextBoundaryAfterMessageId)
@@ -1096,7 +981,6 @@ export const useChatStore = createPersistStore(
       resetSession(session: ChatSession) {
         get().updateTargetSession(session, (session) => {
           session.messages = [];
-          session.summaries = [];
           session.rootNodeId = undefined;
           session.activeCursorId = undefined;
           session.pendingOutlineDelta = undefined;
@@ -1179,6 +1063,7 @@ export const useChatStore = createPersistStore(
         sessionId: string,
         nodeId: string,
         force = false,
+        onlyKind?: NodeSummaryKind,
       ): Promise<void> {
         const initialSession = get().sessions.find(
           (item) => item.id === sessionId,
@@ -1218,14 +1103,17 @@ export const useChatStore = createPersistStore(
             modelConfig.contextWindowTokens,
             modelConfig.max_tokens,
           );
-          const plan = planSegmentMaintenance({
-            projection,
-            targetId: node.id,
-            sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
-            maxSourceNodes: modelConfig.segmentMaxSourceNodes,
-            inputBudget,
-            force,
-          });
+          const plan =
+            onlyKind === "checkpoint"
+              ? undefined
+              : planSegmentMaintenance({
+                  projection,
+                  targetId: node.id,
+                  sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
+                  maxSourceNodes: modelConfig.segmentMaxSourceNodes,
+                  inputBudget,
+                  force,
+                });
           const [model, providerName] = modelConfig.compressModel
             ? [modelConfig.compressModel, modelConfig.compressProviderName]
             : getSummarizeModel(modelConfig.model, modelConfig.providerName);
@@ -1241,13 +1129,9 @@ export const useChatStore = createPersistStore(
                         content: background.content ?? "",
                         date: "",
                       })
-                    : background.node!.hidden
-                      ? { ...background.node!, content: "" }
-                      : background.node!,
+                    : background.node!,
                 ),
-                ...plan.sourceNodes.map((input) =>
-                  input.hidden ? { ...input, content: "" } : input,
-                ),
+                ...plan.sourceNodes.map((input) => input),
               ],
               modelConfig,
               model,
@@ -1336,6 +1220,7 @@ export const useChatStore = createPersistStore(
             });
           }
 
+          if (onlyKind === "segment") return;
           const checkpointSession = get().sessions.find(
             (item) => item.id === sessionId,
           );
@@ -1458,6 +1343,23 @@ export const useChatStore = createPersistStore(
         return execution;
       },
 
+      deleteNodeSummary(
+        sessionId: string,
+        nodeId: string,
+        kind: NodeSummaryKind,
+      ) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) return;
+        get().updateTargetSession(session, (draft) => {
+          const node = draft.messages.find((item) => item.id === nodeId);
+          if (!node?.nodeSummaries) return;
+          delete node.nodeSummaries[kind];
+          if (Object.keys(node.nodeSummaries).length === 0) {
+            delete node.nodeSummaries;
+          }
+        });
+      },
+
       editGlobalMemory(
         sessionId: string,
         update: Partial<Pick<GlobalMemory, "enabled" | "prompt" | "content">>,
@@ -1483,8 +1385,10 @@ export const useChatStore = createPersistStore(
               (item) => item.id === sessionId,
             );
             if (!session || !session.globalMemory.enabled) return;
-            const memoryPrompt = (prompt ?? session.globalMemory.prompt).trim();
-            if (!memoryPrompt) return;
+            const memoryInstruction = (
+              prompt ?? session.globalMemory.prompt
+            ).trim();
+            if (!memoryInstruction) return;
 
             const projection = projectConversationToCursor(session);
             const assistant = projection
@@ -1517,7 +1421,7 @@ export const useChatStore = createPersistStore(
             const messages: ChatMessage[] = [
               createMessage({
                 role: "system",
-                content: memoryPrompt,
+                content: memoryInstruction,
                 date: "",
               }),
               createMessage({
@@ -1525,8 +1429,8 @@ export const useChatStore = createPersistStore(
                 content: session.globalMemory.content,
                 date: "",
               }),
-              user.hidden ? { ...user, content: "" } : user,
-              assistant.hidden ? { ...assistant, content: "" } : assistant,
+              user,
+              assistant,
             ];
             const content = await requestOneShot(
               getClientApi(providerName as ServiceProvider),
@@ -1553,45 +1457,6 @@ export const useChatStore = createPersistStore(
               globalMemoryJobs.delete(sessionId);
             }
           });
-      },
-
-      async recompressSummary(sessionId: string, summaryId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        const summary = session?.summaries.find(
-          (item) => item.id === summaryId,
-        );
-        if (!session || !summary) return;
-        const generated = await generateSummary({
-          sessionId,
-          sourceEntryIds: summary.sourceEntryIds,
-          sourceDigest: summary.sourceDigest,
-          inputSummaryIds: summary.inputSummaryIds,
-          allowRawFallback: true,
-        });
-        if (!generated) return;
-        get().updateTargetSession(generated.session, (draft) => {
-          const previousIndex = draft.summaries.findIndex(
-            (item) => item.id === summaryId,
-          );
-          if (previousIndex < 0) return;
-          const previous = draft.summaries[previousIndex];
-          draft.summaries[previousIndex] = {
-            ...previous,
-            id: nanoid(),
-            content: generated.content,
-            inputSummaryIds: generated.inputSummaryIds,
-          };
-        });
-      },
-
-      deleteSummary(sessionId: string, summaryId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          draft.summaries = draft.summaries.filter(
-            (summary) => summary.id !== summaryId,
-          );
-        });
       },
 
       deleteMessage(sessionId: string, messageId: string) {
@@ -1764,15 +1629,6 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      setMessageHidden(sessionId: string, messageId: string, hidden: boolean) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const message = draft.messages.find((item) => item.id === messageId);
-          if (message) message.hidden = hidden;
-        });
-      },
-
       updateMessageContent(
         sessionId: string,
         messageId: string,
@@ -1782,7 +1638,7 @@ export const useChatStore = createPersistStore(
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
           const message = draft.messages.find((item) => item.id === messageId);
-          if (!message || message.deletedAt) return;
+          if (!message) return;
           message.content = content;
           if (message.role === "assistant") message.reasoning = undefined;
         });

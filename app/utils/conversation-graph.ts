@@ -24,7 +24,6 @@ export interface ConversationNode extends ChatMessage {
   parentId?: string;
   outlineLevel: number;
   activeBranchRootId?: string;
-  hidden?: boolean;
   nodeSummaries?: Partial<Record<NodeSummaryKind, NodeSummary>>;
 }
 
@@ -62,7 +61,7 @@ export function toLevelOneConversationNodes(
   let parentId: string | undefined;
   let deletedUserBlocksAssistant = false;
   return messages.flatMap((message) => {
-    if (message.deletedAt) {
+    if ("deletedAt" in message && message.deletedAt) {
       if (message.role === "user") deletedUserBlocksAssistant = true;
       return [];
     }
@@ -173,6 +172,50 @@ export function validateConversationGraph(
   return index;
 }
 
+export function changeConversationNodeOutlineLevel(
+  graph: ConversationGraphState,
+  nodeId: string,
+  outlineLevel: number,
+): ConversationGraphState {
+  const targetLevel = Math.floor(outlineLevel);
+  if (targetLevel < 1) throw new Error("Outline level must be at least 1");
+  const index = validateConversationGraph(graph);
+  const target = index.nodesById.get(nodeId);
+  if (!target) throw new Error(`Missing conversation node ${nodeId}`);
+  if (!target.parentId && targetLevel !== 1) {
+    throw new Error("The root node must remain at outline level 1");
+  }
+  if (target.parentId) {
+    const parent = index.nodesById.get(target.parentId)!;
+    if (
+      targetLevel !== parent.outlineLevel &&
+      targetLevel !== parent.outlineLevel + 1
+    ) {
+      throw new Error(
+        `Outline level must be ${parent.outlineLevel} or ${parent.outlineLevel + 1}`,
+      );
+    }
+  }
+  const delta = targetLevel - target.outlineLevel;
+  if (delta === 0) return graph;
+  const subtreeIds = new Set<string>();
+  const visit = (id: string) => {
+    subtreeIds.add(id);
+    for (const child of index.childrenByParentId.get(id) ?? []) visit(child.id);
+  };
+  visit(target.id);
+  const candidate = {
+    ...graph,
+    messages: graph.messages.map((node) =>
+      subtreeIds.has(node.id)
+        ? { ...node, outlineLevel: node.outlineLevel + delta }
+        : node,
+    ),
+  };
+  validateConversationGraph(candidate);
+  return candidate;
+}
+
 export function projectActiveConversation(
   graph: ConversationGraphState,
 ): ConversationNode[] {
@@ -221,7 +264,7 @@ export function projectConversationContextToCursor(
   const bounded = projection.slice(boundaryIndex + 1);
   const nodesById = new Map(graph.messages.map((node) => [node.id, node]));
   const isAvailable = (node: ConversationNode | undefined) =>
-    Boolean(node && !node.deletedAt && !node.isError && !node.streaming);
+    Boolean(node && !node.isError && !node.streaming);
 
   return bounded.filter((node) => {
     if (!isAvailable(node)) return false;

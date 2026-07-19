@@ -5,7 +5,7 @@ import {
   type NodeSummaryKind,
 } from "./conversation-graph";
 import type { RequestMessage } from "../client/api";
-import { estimateRequestMessageTokens } from "./context-compression";
+import { estimateRequestMessageTokens } from "./context-budget";
 import { estimateTokenLength } from "./token";
 
 export interface OutlineChain {
@@ -197,7 +197,7 @@ export function materializeContextRepresentations(
           order,
           message: {
             role: node.role,
-            content: node.hidden ? "" : node.content,
+            content: node.content,
           } satisfies RequestMessage,
         };
       }
@@ -331,12 +331,7 @@ export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
   return {
     stats,
     getNodeTokens(node) {
-      const key = JSON.stringify([
-        node.id,
-        node.role,
-        node.content,
-        "hidden" in node ? node.hidden : undefined,
-      ]);
+      const key = JSON.stringify([node.id, node.role, node.content]);
       const cached = nodeTokens.get(key);
       if (cached !== undefined) {
         stats.nodeTokenHits += 1;
@@ -1050,12 +1045,7 @@ function buildChainContextEdges(
       const summary = owner.nodeSummaries?.[kind];
       if (!summary) continue;
       const evaluation = evaluateNodeSummary(owner, kind, summary, allChains);
-      if (
-        !evaluation.structurallyEligible ||
-        !evaluation.freshness ||
-        evaluation.sourceNodes.some((node) => node.hidden)
-      )
-        continue;
+      if (!evaluation.structurallyEligible || !evaluation.freshness) continue;
       const start = positions.get(evaluation.sourceNodes[0].id);
       const end = positions.get(evaluation.sourceNodes.at(-1)!.id);
       if (start === undefined || end === undefined || end >= nodeCount)

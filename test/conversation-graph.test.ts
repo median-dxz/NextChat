@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
+  changeConversationNodeOutlineLevel,
   createNodeSummarySourceDigest,
   deleteConversationNode,
   insertConversationNode,
@@ -33,7 +34,13 @@ describe("conversation graph storage", () => {
   test("migrates a linear message list into a level-one parent chain", () => {
     const nodes = toLevelOneConversationNodes([
       { id: "a", date: "", role: "user", content: "A" },
-      { id: "deleted", date: "", role: "assistant", content: "", deletedAt: 1 },
+      {
+        id: "deleted",
+        date: "",
+        role: "assistant",
+        content: "",
+        deletedAt: 1,
+      } as any,
       { id: "b", date: "", role: "assistant", content: "B" },
     ]);
 
@@ -77,6 +84,30 @@ describe("conversation graph storage", () => {
       "3A",
       "3X",
     ]);
+  });
+
+  test("changes a node level by shifting its whole subtree", () => {
+    const messages = [
+      node("1A", 1),
+      node("2A", 2, "1A"),
+      node("3A", 3, "2A"),
+    ];
+    const changed = changeConversationNodeOutlineLevel(
+      { messages, rootNodeId: "1A", activeCursorId: "3A" },
+      "2A",
+      1,
+    );
+
+    expect(
+      changed.messages.map((item) => [item.id, item.outlineLevel]),
+    ).toEqual([
+      ["1A", 1],
+      ["2A", 1],
+      ["3A", 2],
+    ]);
+    expect(() =>
+      changeConversationNodeOutlineLevel(changed, "1A", 2),
+    ).toThrow("root node");
   });
 
   test("projects the active deeper branch before the same-level continuation", () => {

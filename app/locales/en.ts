@@ -95,8 +95,6 @@ const en: LocaleType = {
     Graph: {
       Node: "Node Details",
       Branch: "Select Branch",
-      Hide: "Hide Content",
-      Show: "Restore Content",
       Continue: "Set Continue Point",
       OutlineLevel: "Outline Level",
       Parent: "Parent Node",

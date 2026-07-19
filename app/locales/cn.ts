@@ -94,8 +94,6 @@ const cn = {
     Graph: {
       Node: "节点详情",
       Branch: "选择分支",
-      Hide: "隐藏内容",
-      Show: "恢复内容",
       Continue: "设为续写位置",
       OutlineLevel: "大纲等级",
       Parent: "父节点",

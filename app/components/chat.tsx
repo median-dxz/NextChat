@@ -36,8 +36,6 @@ import AddIcon from "../icons/add.svg";
 import DragIcon from "../icons/drag.svg";
 import BranchIcon from "../icons/branch.svg";
 import ContinueIcon from "../icons/continue.svg";
-import EyeIcon from "../icons/eye.svg";
-import EyeOffIcon from "../icons/eye-off.svg";
 
 import BottomIcon from "../icons/bottom.svg";
 import StopIcon from "../icons/pause.svg";
@@ -130,9 +128,14 @@ import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
 import {
   createConversationGraphIndex,
+  changeConversationNodeOutlineLevel,
+  projectConversationToCursor,
   type ConversationNode,
 } from "../utils/conversation-graph";
-import { createNodeSummarySourceDigest } from "../utils/node-summary";
+import {
+  createNodeSummarySourceDigest,
+  partitionProjectionIntoOutlineChains,
+} from "../utils/node-summary";
 import {
   DragDropContext,
   Draggable,
@@ -440,16 +443,13 @@ export function isMessageInStreamingTurn(
   messageIndex: number,
 ) {
   const message = messages[messageIndex];
-  if (!message || message.deletedAt) return false;
+  if (!message) return false;
   if (message.streaming) return true;
   if (message.role !== "user") return false;
 
   const response = messages[messageIndex + 1];
   return Boolean(
-    response &&
-    !response.deletedAt &&
-    response.role === "assistant" &&
-    response.streaming,
+    response && response.role === "assistant" && response.streaming,
   );
 }
 
@@ -1075,52 +1075,87 @@ function NodeViewerModal(props: {
   const [role, setRole] = useState<ChatMessage["role"]>(
     () => node?.role ?? "user",
   );
-  const [hidden, setHidden] = useState(() => Boolean(node?.hidden));
+  const [outlineLevel, setOutlineLevel] = useState(
+    () => node?.outlineLevel ?? 1,
+  );
   const [generating, setGenerating] = useState(false);
 
   if (!node) return null;
 
   const save = () => {
-    chatStore.updateTargetSession(session, (draft) => {
-      const target = draft.messages.find((item) => item.id === node.id);
-      if (!target) return;
-      target.role = role;
-      target.hidden = hidden;
-      const images = getMessageImages(target);
-      target.content = images.length
-        ? [
-            { type: "text", text: content },
-            ...images.map((url) => ({
-              type: "image_url" as const,
-              image_url: { url },
-            })),
-          ]
-        : content;
-      const updateSummary = (kind: "segment" | "checkpoint", value: string) => {
-        if (!value.trim()) {
-          if (target.nodeSummaries) delete target.nodeSummaries[kind];
-          return;
-        }
-        target.nodeSummaries ??= {};
-        const sourceNodeIds = target.nodeSummaries[kind]?.sourceNodeIds ?? [
-          target.id,
-        ];
-        const sourcesById = new Map(
-          draft.messages.map((message) => [message.id, message]),
+    try {
+      chatStore.updateTargetSession(session, (draft) => {
+        const graph = changeConversationNodeOutlineLevel(
+          draft,
+          node.id,
+          outlineLevel,
         );
-        const sourceNodes = sourceNodeIds
-          .map((id) => sourcesById.get(id))
-          .filter((message): message is ConversationNode => Boolean(message));
-        target.nodeSummaries[kind] = {
-          content: value,
-          sourceNodeIds,
-          sourceDigest: createNodeSummarySourceDigest(sourceNodes),
-          provenance: "user-edited",
+        draft.messages = graph.messages;
+        draft.rootNodeId = graph.rootNodeId;
+        draft.activeCursorId = graph.activeCursorId;
+        const target = draft.messages.find((item) => item.id === node.id);
+        if (!target) return;
+        target.role = role;
+        const images = getMessageImages(target);
+        target.content = images.length
+          ? [
+              { type: "text", text: content },
+              ...images.map((url) => ({
+                type: "image_url" as const,
+                image_url: { url },
+              })),
+            ]
+          : content;
+        const updateSummary = (
+          kind: "segment" | "checkpoint",
+          value: string,
+        ) => {
+          if (!value.trim()) {
+            if (target.nodeSummaries) delete target.nodeSummaries[kind];
+            return;
+          }
+          target.nodeSummaries ??= {};
+          const targetProjection = projectConversationToCursor({
+            ...draft,
+            activeCursorId: target.id,
+          });
+          const targetChain = partitionProjectionIntoOutlineChains(
+            targetProjection,
+          ).find((chain) => chain.nodes.some((item) => item.id === target.id));
+          const targetIndex =
+            targetChain?.nodes.findIndex((item) => item.id === target.id) ?? -1;
+          const defaultSourceNodeIds =
+            kind === "checkpoint" && targetChain && targetIndex >= 0
+              ? targetChain.nodes
+                  .slice(0, targetIndex + 1)
+                  .map((item) => item.id)
+              : [target.id];
+          const sourceNodeIds =
+            target.nodeSummaries[kind]?.sourceNodeIds ?? defaultSourceNodeIds;
+          const sourcesById = new Map(
+            draft.messages.map((message) => [message.id, message]),
+          );
+          const sourceNodes = sourceNodeIds
+            .map((id) => sourcesById.get(id))
+            .filter((message): message is ConversationNode => Boolean(message));
+          target.nodeSummaries[kind] = {
+            content: value,
+            sourceNodeIds,
+            sourceDigest: createNodeSummarySourceDigest(sourceNodes),
+            provenance: "user-edited",
+          };
         };
-      };
-      updateSummary("segment", segment);
-      updateSummary("checkpoint", checkpoint);
-    });
+        if (role === "assistant") {
+          updateSummary("segment", segment);
+          updateSummary("checkpoint", checkpoint);
+        } else {
+          delete target.nodeSummaries;
+        }
+      });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+      return;
+    }
     props.onClose();
   };
   const generate = async () => {
@@ -1140,6 +1175,33 @@ function NodeViewerModal(props: {
     } finally {
       setGenerating(false);
     }
+  };
+  const generateKind = async (kind: "segment" | "checkpoint") => {
+    setGenerating(true);
+    try {
+      await chatStore.generateNodeSummary(session.id, node.id, true, kind);
+      const current = useChatStore
+        .getState()
+        .currentSession()
+        .messages.find((item) => item.id === node.id);
+      const value = current?.nodeSummaries?.[kind]?.content ?? "";
+      if (kind === "segment") {
+        setSegment(value);
+        setSegmentOpen(Boolean(value));
+      } else {
+        setCheckpoint(value);
+        setCheckpointOpen(Boolean(value));
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    } finally {
+      setGenerating(false);
+    }
+  };
+  const deleteSummary = (kind: "segment" | "checkpoint") => {
+    chatStore.deleteNodeSummary(session.id, node.id, kind);
+    if (kind === "segment") setSegment("");
+    else setCheckpoint("");
   };
 
   return (
@@ -1173,9 +1235,18 @@ function NodeViewerModal(props: {
       >
         <div className={styles["node-viewer"]}>
           <div className={styles["node-viewer-properties"]}>
-            <div className={styles["node-viewer-level"]}>
-              L{node.outlineLevel}
-            </div>
+            <label className={styles["node-viewer-level"]}>
+              <span>L</span>
+              <input
+                type="number"
+                min={1}
+                value={outlineLevel}
+                aria-label="Outline level"
+                onChange={(event) =>
+                  setOutlineLevel(Number(event.currentTarget.value))
+                }
+              />
+            </label>
             <label className={styles["node-viewer-role"]}>
               <span>{Locale.Chat.Graph.Role}</span>
               <Select
@@ -1191,14 +1262,6 @@ function NodeViewerModal(props: {
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className={styles["node-viewer-visibility"]}>
-              <input
-                type="checkbox"
-                checked={hidden}
-                onChange={(event) => setHidden(event.currentTarget.checked)}
-              />
-              <span>{Locale.Chat.Graph.Hide}</span>
             </label>
           </div>
           <label className={styles["node-viewer-content"]}>
@@ -1232,6 +1295,19 @@ function NodeViewerModal(props: {
                   value={segment}
                   onChange={(e) => setSegment(e.target.value)}
                 />
+                <div className={styles["node-summary-actions"]}>
+                  <IconButton
+                    text={Locale.Chat.Graph.GenerateSummary}
+                    icon={<BrainIcon />}
+                    disabled={generating}
+                    onClick={() => void generateKind("segment")}
+                  />
+                  <IconButton
+                    text={Locale.Chat.Actions.Delete}
+                    icon={<DeleteIcon />}
+                    onClick={() => deleteSummary("segment")}
+                  />
+                </div>
               </details>
               <details
                 open={checkpointOpen}
@@ -1248,6 +1324,19 @@ function NodeViewerModal(props: {
                   value={checkpoint}
                   onChange={(e) => setCheckpoint(e.target.value)}
                 />
+                <div className={styles["node-summary-actions"]}>
+                  <IconButton
+                    text={Locale.Chat.Graph.GenerateSummary}
+                    icon={<BrainIcon />}
+                    disabled={generating}
+                    onClick={() => void generateKind("checkpoint")}
+                  />
+                  <IconButton
+                    text={Locale.Chat.Actions.Delete}
+                    icon={<DeleteIcon />}
+                    onClick={() => deleteSummary("checkpoint")}
+                  />
+                </div>
               </details>
             </div>
           )}
@@ -2294,7 +2383,6 @@ function ChatView() {
                             isUser
                               ? styles["chat-message-user"]
                               : styles["chat-message"],
-                            storedNode?.hidden && styles["chat-message-hidden"],
                           )}
                           onPointerEnter={() => setActionMessageId(message.id)}
                           onPointerLeave={() =>
@@ -2378,30 +2466,6 @@ function ChatView() {
                                             onDelete(message.id ?? i)
                                           }
                                         />
-
-                                        {storedNode && (
-                                          <ChatAction
-                                            text={
-                                              storedNode.hidden
-                                                ? Locale.Chat.Graph.Show
-                                                : Locale.Chat.Graph.Hide
-                                            }
-                                            icon={
-                                              storedNode.hidden ? (
-                                                <EyeIcon />
-                                              ) : (
-                                                <EyeOffIcon />
-                                              )
-                                            }
-                                            onClick={() =>
-                                              chatStore.setMessageHidden(
-                                                session.id,
-                                                storedNode.id,
-                                                !storedNode.hidden,
-                                              )
-                                            }
-                                          />
-                                        )}
 
                                         <ChatAction
                                           text={Locale.Chat.Actions.Copy}

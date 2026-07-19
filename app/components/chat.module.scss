@@ -317,11 +317,6 @@
   }
 }
 
-.chat-message-hidden {
-  filter: grayscale(1);
-  opacity: 0.48;
-}
-
 .graph-editor-dialog {
   width: min(92vw, 900px);
   overflow: hidden;
@@ -380,6 +375,20 @@
   line-height: 1.4;
 }
 
+.node-viewer-level {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  input {
+    width: 34px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+}
+
 .node-viewer-role {
   display: flex;
   align-items: center;
@@ -393,7 +402,6 @@
   }
 }
 
-.node-viewer-visibility,
 .global-memory-toggle {
   display: flex;
   align-items: center;
@@ -483,6 +491,14 @@
     border-top: var(--border-in-light);
     border-radius: 0;
   }
+}
+
+.node-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: var(--border-in-light);
 }
 
 .global-memory-toggle {

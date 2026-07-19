@@ -25,7 +25,6 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
-import { createSummarySourceDigest } from "../app/utils/context-compression";
 import {
   createNodeSummarySourceDigest,
   toLevelOneConversationNodes,
@@ -498,6 +497,41 @@ describe("chat store derived state", () => {
     );
   });
 
+  test("regenerates and deletes one node-summary kind independently", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    const assistantId = session.messages[1].id;
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish(
+        "segment only",
+        new Response(null, { status: 200 }),
+      );
+    });
+
+    await useChatStore
+      .getState()
+      .generateNodeSummary(session.id, assistantId, true, "segment");
+
+    const assistant = useChatStore
+      .getState()
+      .currentSession()
+      .messages.find((item) => item.id === assistantId)!;
+    expect(assistant.nodeSummaries?.segment?.content).toBe("segment only");
+    expect(assistant.nodeSummaries?.checkpoint).toBeUndefined();
+
+    useChatStore
+      .getState()
+      .deleteNodeSummary(session.id, assistantId, "segment");
+    expect(
+      useChatStore
+        .getState()
+        .currentSession()
+        .messages.find((item) => item.id === assistantId)?.nodeSummaries,
+    ).toBeUndefined();
+  });
+
   test("does not block sending or overwrite an edit made during generation", async () => {
     const session = setSession([
       message("user", "question"),
@@ -810,28 +844,6 @@ describe("chat store derived state", () => {
         .getState()
         .getMessagesWithMemory(message("user", "current question")),
     ).resolves.toHaveLength(4);
-    expect(session.summaries).toHaveLength(0);
-    expect(apiMocks.chat).not.toHaveBeenCalled();
-  });
-
-  test("does not send an assistant whose user predecessor was deleted", async () => {
-    setSession(
-      [
-        {
-          ...message("user", "deleted question"),
-          content: "",
-          deletedAt: 1,
-        },
-        message("assistant", "orphan answer"),
-      ],
-      { sendMemory: true, recentRawNodeCount: 0 },
-    );
-
-    await expect(
-      useChatStore
-        .getState()
-        .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
@@ -968,17 +980,14 @@ describe("chat store derived state", () => {
       contextWindowTokens: 1_024,
       max_tokens: 128,
     });
-    session.summaries = [
-      {
-        id: "stale-summary",
-        kind: "segment",
+    session.messages[1].nodeSummaries = {
+      segment: {
         content: "excluded branch secret",
-        sourceEntryIds: ["excluded-m1", messages[0].id],
-        sourceDigest: "",
-        inputSummaryIds: [],
-        stable: true,
+        sourceNodeIds: ["excluded-m1", messages[1].id],
+        sourceDigest: "stale",
+        provenance: "generated",
       },
-    ];
+    };
 
     const requestHistory = await useChatStore
       .getState()
@@ -987,41 +996,5 @@ describe("chat store derived state", () => {
     expect(requestHistory.map(getMessageTextContent).join("\n")).not.toContain(
       "excluded branch secret",
     );
-  });
-
-  test("regenerates from raw messages when checkpoint inputs were deleted", async () => {
-    const messages = [
-      message("user", "source question"),
-      message("assistant", "source answer"),
-    ];
-    const session = setSession(messages, { sendMemory: true });
-    session.summaries = [
-      {
-        id: "checkpoint",
-        kind: "checkpoint",
-        content: "old checkpoint",
-        sourceEntryIds: messages.map((item) => item.id),
-        sourceDigest: createSummarySourceDigest(messages),
-        inputSummaryIds: ["deleted-segment"],
-      },
-    ];
-    let requestText = "";
-    apiMocks.chat.mockImplementation((options) => {
-      requestText = options.messages.map(getMessageTextContent).join("\n");
-      options.onFinish(
-        "regenerated checkpoint",
-        new Response(null, { status: 200 }),
-      );
-    });
-
-    await useChatStore.getState().recompressSummary(session.id, "checkpoint");
-
-    const summaries = useChatStore.getState().currentSession().summaries;
-    expect(requestText).toContain("source question");
-    expect(requestText).toContain("source answer");
-    expect(summaries).toHaveLength(1);
-    expect(summaries[0].id).not.toBe("checkpoint");
-    expect(summaries[0].content).toBe("regenerated checkpoint");
-    expect(summaries[0].inputSummaryIds).toEqual([]);
   });
 });
