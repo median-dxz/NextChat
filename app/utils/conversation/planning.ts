@@ -146,7 +146,7 @@ function summaryDigestValue(node: ConversationNode) {
   return [node.id, node.role, node.content];
 }
 
-export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
+function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
   const nodeTokens = new Map<string, number>();
   const summaryTokens = new Map<string, number>();
   const digests = new Map<string, string>();
@@ -337,7 +337,7 @@ function createSegmentPlan(
   };
 }
 
-export function planSegmentMaintenance(
+function planSegmentMaintenance(
   args: PlanSegmentMaintenanceArgs,
 ): SegmentMaintenancePlan | undefined {
   const target = args.projection.find((node) => node.id === args.targetId);
@@ -527,7 +527,7 @@ function createCheckpointPlan(
   };
 }
 
-export function planCheckpointMaintenance(
+function planCheckpointMaintenance(
   args: PlanCheckpointMaintenanceArgs,
 ): CheckpointMaintenancePlan | undefined {
   const target = args.projection.find((node) => node.id === args.targetId);
@@ -642,7 +642,7 @@ function emptyChainContextState(): ChainContextState {
   };
 }
 
-export function compareChainContextStates(
+function compareChainContextStates(
   left: ChainContextState,
   right: ChainContextState,
 ) {
@@ -893,7 +893,7 @@ function buildChainContextEdges(
   return edges;
 }
 
-export function planOutlineChainContext(
+function planOutlineChainContext(
   chain: OutlineChain,
   allChains: OutlineChain[],
   nodeCount: number,
@@ -981,7 +981,7 @@ export function selectRecentRawContext(
   };
 }
 
-export function planChainContextFrontiers(
+function planChainContextFrontiers(
   args: PlanChainContextArgs,
 ): ChainContextPlanningResult {
   const cache = args.cache ?? createNodeSummaryRuntimeCache();
@@ -1058,7 +1058,7 @@ export function planNodeConversationContext(
   };
 }
 
-export function combineChainContextFrontiers(
+function combineChainContextFrontiers(
   chains: OutlineChainContextFrontier[],
   tokenBudget: number,
   options: ContextParetoOptions = {},
@@ -1117,10 +1117,16 @@ export function combineChainContextFrontiers(
 export interface ConversationPlanningApi {
   readonly chainRootId: string | undefined;
   segment(
-    options: Omit<PlanSegmentMaintenanceArgs, "projection" | "targetId">,
+    options: Omit<
+      PlanSegmentMaintenanceArgs,
+      "projection" | "targetId" | "cache"
+    >,
   ): SegmentMaintenancePlan | undefined;
   checkpoint(
-    options: Omit<PlanCheckpointMaintenanceArgs, "projection" | "targetId">,
+    options: Omit<
+      PlanCheckpointMaintenanceArgs,
+      "projection" | "targetId" | "cache"
+    >,
   ): CheckpointMaintenancePlan | undefined;
 }
 
