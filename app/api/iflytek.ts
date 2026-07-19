@@ -35,7 +35,7 @@ export async function handle(
     return response;
   } catch (e) {
     console.error("[Iflytek] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }
 

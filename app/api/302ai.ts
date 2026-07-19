@@ -34,7 +34,7 @@ export async function handle(
     return response;
   } catch (e) {
     console.error("[302.AI] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }
 
