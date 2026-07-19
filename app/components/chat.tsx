@@ -126,14 +126,10 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
+import { Graph } from "../utils/conversation-graph";
+import type { ConversationNode } from "../utils/conversation-node";
 import {
-  createConversationGraphIndex,
-  changeConversationNodeOutlineLevel,
-  projectConversationToCursor,
-  type ConversationNode,
-} from "../utils/conversation-graph";
-import {
-  createNodeSummarySourceDigest,
+  createSourceDigest,
   partitionProjectionIntoOutlineChains,
 } from "../utils/node-summary";
 import {
@@ -1085,11 +1081,13 @@ function NodeViewerModal(props: {
   const save = () => {
     try {
       chatStore.updateTargetSession(session, (draft) => {
-        const graph = changeConversationNodeOutlineLevel(
-          draft,
-          node.id,
-          outlineLevel,
-        );
+        const outlineDelta =
+          outlineLevel === node.outlineLevel
+            ? 0
+            : outlineLevel > node.outlineLevel
+              ? 1
+              : -1;
+        const graph = Graph.shiftLevel(draft, node.id, outlineDelta);
         draft.messages = graph.messages;
         draft.rootNodeId = graph.rootNodeId;
         draft.activeCursorId = graph.activeCursorId;
@@ -1115,7 +1113,7 @@ function NodeViewerModal(props: {
             return;
           }
           target.nodeSummaries ??= {};
-          const targetProjection = projectConversationToCursor({
+          const targetProjection = Graph.projectToCursor({
             ...draft,
             activeCursorId: target.id,
           });
@@ -1141,7 +1139,7 @@ function NodeViewerModal(props: {
           target.nodeSummaries[kind] = {
             content: value,
             sourceNodeIds,
-            sourceDigest: createNodeSummarySourceDigest(sourceNodes),
+            sourceDigest: createSourceDigest(sourceNodes),
             provenance: "user-edited",
           };
         };
@@ -1353,7 +1351,7 @@ function BranchSelectorModal(props: {
 }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const index = createConversationGraphIndex(session.messages);
+  const index = Graph.index(session.messages);
   const parent = index.nodesById.get(props.parentId);
   if (!parent) return null;
   const branches = (index.childrenByParentId.get(parent.id) ?? []).filter(

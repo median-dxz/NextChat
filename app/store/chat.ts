@@ -38,14 +38,17 @@ import {
   getContextInputBudget,
 } from "../utils/context-budget";
 import {
-  createNodeSummarySourceDigest,
+  createSourceDigest,
   evaluateNodeSummary,
   materializeContextRepresentations,
   partitionProjectionIntoOutlineChains,
   planCheckpointMaintenance,
   planNodeConversationContext,
   planSegmentMaintenance,
+  type NodeSummary,
+  type NodeSummaryKind,
 } from "../utils/node-summary";
+import type { ConversationNode } from "../utils/conversation-node";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
@@ -53,24 +56,9 @@ import { createEmptyMask, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "@/app/mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import {
-  ConversationNode,
-  ConversationGraphState,
-  GlobalMemory,
-  type NodeSummary,
-  type NodeSummaryKind,
-  createConversationGraphIndex,
-  createEmptyGlobalMemory,
-  deleteConversationNode,
-  insertConversationNode,
-  insertProjectedConversationNode,
-  projectActiveConversation,
-  projectConversationContextToCursor,
-  projectConversationToCursor,
-  remapConversationNodes,
-  setActiveConversationBranch,
-  swapConversationNodes,
-  toLevelOneConversationNodes,
-  validateConversationGraph,
+  Graph,
+  type ConversationGraphState,
+  type GlobalMemory,
 } from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
@@ -224,17 +212,29 @@ export interface ChatSession {
   globalMemory: GlobalMemory;
   stat: ChatStat;
   lastUpdate: number;
-  contextBoundaryAfterMessageId?: string;
 
   mask: Mask;
 }
 
 export function getSessionActiveMessages(session: ChatSession) {
-  return projectActiveConversation(session);
+  return Graph.projectActive(session);
 }
 
 export function getSessionMessagesToCursor(session: ChatSession) {
-  return projectConversationToCursor(session);
+  return Graph.projectToCursor(session);
+}
+
+function selectAvailableContextNodes(session: ChatSession) {
+  const nodesById = new Map(session.messages.map((node) => [node.id, node]));
+  const isAvailable = (node: ConversationNode | undefined) =>
+    Boolean(node && !node.isError && !node.streaming);
+
+  return Graph.projectToCursor(session).filter((node) => {
+    if (!isAvailable(node)) return false;
+    if (node.role !== "assistant" || !node.parentId) return true;
+    const parent = nodesById.get(node.parentId);
+    return parent?.role !== "user" || isAvailable(parent);
+  });
 }
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
@@ -249,7 +249,7 @@ function createEmptySession(): ChatSession {
     topic: DEFAULT_TOPIC,
     messages: [],
     pinnedInputs: [],
-    globalMemory: createEmptyGlobalMemory(),
+    globalMemory: Graph.createMemory(),
     stat: {
       tokenCount: 0,
       wordCount: 0,
@@ -260,13 +260,29 @@ function createEmptySession(): ChatSession {
   };
 }
 
+function migrateMessagesToConversationNodes(
+  messages: ChatMessage[],
+): ConversationNode[] {
+  let parentId: string | undefined;
+  return messages.map((message) => {
+    const node: ConversationNode = {
+      ...message,
+      parentId,
+      outlineLevel: 1,
+      activeBranchRootId: undefined,
+    };
+    parentId = node.id;
+    return node;
+  });
+}
+
 function materializeMaskContext(session: ChatSession) {
   const context = session.mask.context.slice();
   const pinnedInputs = context.filter((message) => message.role === "system");
   const startingMessages = context.filter(
     (message) => message.role === "user" || message.role === "assistant",
   );
-  const nodes = toLevelOneConversationNodes(startingMessages);
+  const nodes = migrateMessagesToConversationNodes(startingMessages);
   session.pinnedInputs = pinnedInputs.map((message) => ({
     ...message,
     outlineLevel: 0,
@@ -286,27 +302,28 @@ function migrateSessionToConversationGraph(session: any) {
     (message: ChatMessage) =>
       message.role === "user" || message.role === "assistant",
   );
-  const nodes = toLevelOneConversationNodes([...presetNodes, ...oldMessages]);
-  const oldBoundary = Math.max(0, session.clearContextIndex ?? 0);
-  const presetOffset = presetNodes.length;
-
+  const pinnedInputs = Array.isArray(session.pinnedInputs)
+    ? session.pinnedInputs
+    : [];
+  const nodes = migrateMessagesToConversationNodes([
+    ...presetNodes,
+    ...oldMessages,
+  ]);
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
   session.pinnedInputs = [
-    ...(Array.isArray(session.pinnedInputs) ? session.pinnedInputs : []),
+    ...pinnedInputs,
     ...maskContext.filter((message: ChatMessage) => message.role === "system"),
   ].map((message) => ({ ...message, outlineLevel: 0 }));
   const oldMemory = String(session.memoryPrompt ?? "");
   session.globalMemory = oldMemory.trim()
     ? {
-        ...createEmptyGlobalMemory(),
+        ...Graph.createMemory(),
         enabled: true,
         content: oldMemory,
       }
-    : (session.globalMemory ?? createEmptyGlobalMemory());
-  session.contextBoundaryAfterMessageId ??=
-    oldBoundary > 0 ? nodes[presetOffset + oldBoundary - 1]?.id : undefined;
+    : (session.globalMemory ?? Graph.createMemory());
   session.mask.context = [];
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
   session.mask.modelConfig.titleModel ??= "";
@@ -328,7 +345,7 @@ function migrateSessionToConversationGraph(session: any) {
   delete session.clearContextIndex;
   delete session.pendingOutlineDelta;
 
-  validateConversationGraph(session);
+  Graph.validate(session);
 }
 
 function getSummarizeModel(
@@ -461,7 +478,7 @@ export const useChatStore = createPersistStore(
 
         newSession.topic = currentSession.topic;
         // 深拷贝消息
-        const { nodes, ids: messageIds } = remapConversationNodes(
+        const { nodes, ids: messageIds } = Graph.remap(
           currentSession.messages,
           nanoid,
         );
@@ -480,10 +497,6 @@ export const useChatStore = createPersistStore(
         );
         newSession.globalMemory = { ...currentSession.globalMemory };
         // Summaries are derived from message IDs, so the fork rebuilds them.
-        newSession.contextBoundaryAfterMessageId =
-          currentSession.contextBoundaryAfterMessageId
-            ? messageIds.get(currentSession.contextBoundaryAfterMessageId)
-            : undefined;
         newSession.mask = {
           ...currentSession.mask,
           modelConfig: {
@@ -729,23 +742,18 @@ export const useChatStore = createPersistStore(
           let graph = retry?.reuseUser
             ? session
             : retry?.insertBeforeId
-              ? insertProjectedConversationNode(
+              ? Graph.insertProjected(
                   session,
                   savedUserMessage,
                   undefined,
                   retry.insertBeforeId,
                 )
-              : insertConversationNode(
+              : Graph.insert(
                   session,
                   savedUserMessage,
                   session.pendingOutlineDelta ?? 0,
                 );
-          graph = insertConversationNode(
-            graph,
-            botMessage,
-            0,
-            savedUserMessage.id,
-          );
+          graph = Graph.insert(graph, botMessage, 0, savedUserMessage.id);
           const insertedUser = graph.messages.find(
             (message) => message.id === savedUserMessage.id,
           )!;
@@ -918,10 +926,9 @@ export const useChatStore = createPersistStore(
           currentInput && "id" in currentInput
             ? String(currentInput.id)
             : undefined;
-        const projection = projectConversationContextToCursor(
-          current,
-          current.contextBoundaryAfterMessageId,
-        ).filter((node) => node.id !== currentInputId);
+        const projection = selectAvailableContextNodes(current).filter(
+          (node) => node.id !== currentInputId,
+        );
         const inputBudget = getContextInputBudget(
           modelConfig.contextWindowTokens,
           modelConfig.max_tokens,
@@ -984,8 +991,7 @@ export const useChatStore = createPersistStore(
           session.rootNodeId = undefined;
           session.activeCursorId = undefined;
           session.pendingOutlineDelta = undefined;
-          session.globalMemory = createEmptyGlobalMemory();
-          session.contextBoundaryAfterMessageId = undefined;
+          session.globalMemory = Graph.createMemory();
         });
       },
 
@@ -1078,7 +1084,7 @@ export const useChatStore = createPersistStore(
         ) {
           return;
         }
-        const initialProjection = projectConversationToCursor({
+        const initialProjection = Graph.projectToCursor({
           ...initialSession,
           activeCursorId: nodeId,
         });
@@ -1095,7 +1101,7 @@ export const useChatStore = createPersistStore(
           const node = session?.messages.find((item) => item.id === nodeId);
           if (!session || !node || node.role !== "assistant") return;
           const modelConfig = session.mask.modelConfig;
-          const projection = projectConversationToCursor({
+          const projection = Graph.projectToCursor({
             ...session,
             activeCursorId: node.id,
           });
@@ -1143,7 +1149,7 @@ export const useChatStore = createPersistStore(
             );
             if (!current) return;
             get().updateTargetSession(current, (draft) => {
-              const currentProjection = projectConversationToCursor({
+              const currentProjection = Graph.projectToCursor({
                 ...draft,
                 activeCursorId: plan.ownerNodeId,
               });
@@ -1158,7 +1164,7 @@ export const useChatStore = createPersistStore(
                 .map((id) => sourcesById.get(id))
                 .filter((item): item is ConversationNode => Boolean(item));
               if (sourceNodes.length !== plan.sourceNodeIds.length) return;
-              const sourceDigest = createNodeSummarySourceDigest(sourceNodes);
+              const sourceDigest = createSourceDigest(sourceNodes);
               if (sourceDigest !== plan.sourceDigest) return;
               const currentSummary = target.nodeSummaries?.segment;
               if (
@@ -1178,8 +1184,7 @@ export const useChatStore = createPersistStore(
                   if (!currentNode) return false;
                   if (background.kind === "raw") {
                     return (
-                      createNodeSummarySourceDigest([currentNode]) ===
-                      background.snapshot
+                      createSourceDigest([currentNode]) === background.snapshot
                     );
                   }
                   const summary = currentNode.nodeSummaries?.segment;
@@ -1228,7 +1233,7 @@ export const useChatStore = createPersistStore(
             (item) => item.id === nodeId,
           );
           if (!checkpointSession || !checkpointTarget) return;
-          const checkpointProjection = projectConversationToCursor({
+          const checkpointProjection = Graph.projectToCursor({
             ...checkpointSession,
             activeCursorId: checkpointTarget.id,
           });
@@ -1258,7 +1263,7 @@ export const useChatStore = createPersistStore(
           const latest = get().sessions.find((item) => item.id === sessionId);
           if (!latest) return;
           get().updateTargetSession(latest, (draft) => {
-            const currentProjection = projectConversationToCursor({
+            const currentProjection = Graph.projectToCursor({
               ...draft,
               activeCursorId: checkpointPlan.ownerNodeId,
             });
@@ -1275,7 +1280,7 @@ export const useChatStore = createPersistStore(
             if (sourceNodes.length !== checkpointPlan.sourceNodeIds.length) {
               return;
             }
-            const sourceDigest = createNodeSummarySourceDigest(sourceNodes);
+            const sourceDigest = createSourceDigest(sourceNodes);
             if (sourceDigest !== checkpointPlan.sourceDigest) return;
             const currentSummary = target.nodeSummaries?.checkpoint;
             if (
@@ -1390,7 +1395,7 @@ export const useChatStore = createPersistStore(
             ).trim();
             if (!memoryInstruction) return;
 
-            const projection = projectConversationToCursor(session);
+            const projection = Graph.projectToCursor(session);
             const assistant = projection
               .slice()
               .reverse()
@@ -1463,25 +1468,17 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
-          const graph = deleteConversationNode(draft, messageId);
+          const graph = Graph.delete(draft, messageId);
           draft.messages = graph.messages;
           draft.rootNodeId = graph.rootNodeId;
           draft.activeCursorId = graph.activeCursorId;
-          if (
-            draft.contextBoundaryAfterMessageId &&
-            !graph.messages.some(
-              (message) => message.id === draft.contextBoundaryAfterMessageId,
-            )
-          ) {
-            draft.contextBoundaryAfterMessageId = undefined;
-          }
         });
       },
 
       async retryMessage(sessionId: string, messageId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session || get().currentSession().id !== sessionId) return false;
-        const index = createConversationGraphIndex(session.messages);
+        const index = Graph.index(session.messages);
         const target = index.nodesById.get(messageId);
         if (
           !target ||
@@ -1493,7 +1490,6 @@ export const useChatStore = createPersistStore(
         let source: ConversationNode;
         let reuseUser = false;
         let insertBeforeId: string | undefined;
-        const removedIds = new Set<string>([target.id]);
         let graph: ConversationGraphState = session;
 
         if (target.role === "assistant") {
@@ -1505,19 +1501,18 @@ export const useChatStore = createPersistStore(
           }
           source = { ...user };
           reuseUser = true;
-          graph = deleteConversationNode(graph, target.id);
+          graph = Graph.delete(graph, target.id);
           graph = { ...graph, activeCursorId: user.id };
-          validateConversationGraph(graph);
+          Graph.validate(graph);
         } else {
           source = { ...target };
           const response = index.sameLevelChildByParentId.get(target.id);
-          graph = deleteConversationNode(graph, target.id);
+          graph = Graph.delete(graph, target.id);
           if (response?.role === "assistant") {
-            removedIds.add(response.id);
-            graph = deleteConversationNode(graph, response.id);
+            graph = Graph.delete(graph, response.id);
           }
           graph = { ...graph, activeCursorId: target.parentId };
-          validateConversationGraph(graph);
+          Graph.validate(graph);
           if (!target.parentId) insertBeforeId = graph.rootNodeId;
         }
 
@@ -1526,12 +1521,6 @@ export const useChatStore = createPersistStore(
           draft.rootNodeId = graph.rootNodeId;
           draft.activeCursorId = graph.activeCursorId;
           draft.pendingOutlineDelta = undefined;
-          if (
-            draft.contextBoundaryAfterMessageId &&
-            removedIds.has(draft.contextBoundaryAfterMessageId)
-          ) {
-            draft.contextBoundaryAfterMessageId = undefined;
-          }
         });
 
         await get().onUserInput("", undefined, source.isMcpResponse, {
@@ -1575,11 +1564,7 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
-          const graph = setActiveConversationBranch(
-            draft,
-            parentId,
-            branchRootId,
-          );
+          const graph = Graph.setBranch(draft, parentId, branchRootId);
           draft.messages = graph.messages;
           draft.activeCursorId = graph.activeCursorId;
         });
@@ -1607,7 +1592,7 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
-          const graph = insertProjectedConversationNode(
+          const graph = Graph.insertProjected(
             draft,
             message,
             previousId,
@@ -1623,7 +1608,7 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         get().updateTargetSession(session, (draft) => {
-          const graph = swapConversationNodes(draft, firstId, secondId);
+          const graph = Graph.swap(draft, firstId, secondId);
           draft.messages = graph.messages;
           draft.rootNodeId = graph.rootNodeId;
         });
@@ -1720,7 +1705,7 @@ export const useChatStore = createPersistStore(
           ...message,
           outlineLevel: 0,
         }));
-        session.globalMemory ??= createEmptyGlobalMemory();
+        session.globalMemory ??= Graph.createMemory();
         session.mask.modelConfig.memoryModel ??= "";
         session.mask.modelConfig.memoryProviderName ??= "";
         if (session.messages.length > 0) {

@@ -1,12 +1,27 @@
-import {
-  createNodeSummarySourceDigest,
-  type ConversationNode,
-  type NodeSummary,
-  type NodeSummaryKind,
-} from "./conversation-graph";
+import type { ConversationNode } from "./conversation-node";
 import type { RequestMessage } from "../client/api";
 import { estimateRequestMessageTokens } from "./context-budget";
+import { hash } from "./hmac";
 import { estimateTokenLength } from "./token";
+
+export type NodeSummaryKind = "segment" | "checkpoint";
+export type NodeSummaryProvenance = "generated" | "user-edited";
+
+export interface NodeSummary {
+  content: string;
+  sourceNodeIds: string[];
+  sourceDigest: string;
+  provenance: NodeSummaryProvenance;
+}
+
+export function createSourceDigest(nodes: ConversationNode[]) {
+  const summaryDigestValue = (node: ConversationNode) => [
+    node.id,
+    node.role,
+    node.content,
+  ];
+  return hash(JSON.stringify(nodes.map(summaryDigestValue)));
+}
 
 export interface OutlineChain {
   outlineLevel: number;
@@ -256,16 +271,12 @@ function summaryDigestValue(node: ConversationNode) {
   return [node.id, node.role, node.content];
 }
 
-export { createNodeSummarySourceDigest };
-
 export function evaluateNodeSummary(
   owner: ConversationNode,
   kind: NodeSummaryKind,
   summary: NodeSummary,
   chains: OutlineChain[],
-  createDigest: (
-    nodes: ConversationNode[],
-  ) => string = createNodeSummarySourceDigest,
+  createDigest: (nodes: ConversationNode[]) => string = createSourceDigest,
 ): NodeSummaryEvaluation {
   if (owner.role !== "assistant" || summary.sourceNodeIds.length === 0) {
     return { structurallyEligible: false, sourceNodes: [] };
@@ -361,7 +372,7 @@ export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
         return cached;
       }
       stats.digestMisses += 1;
-      const digest = createNodeSummarySourceDigest(nodes);
+      const digest = createSourceDigest(nodes);
       digests.set(key, digest);
       return digest;
     },

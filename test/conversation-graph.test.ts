@@ -1,19 +1,7 @@
 import { describe, expect, test } from "vitest";
-import type { ConversationNode } from "../app/utils/conversation-graph";
-import {
-  changeConversationNodeOutlineLevel,
-  createNodeSummarySourceDigest,
-  deleteConversationNode,
-  insertConversationNode,
-  insertProjectedConversationNode,
-  projectActiveConversation,
-  projectConversationToCursor,
-  remapConversationNodes,
-  setActiveConversationBranch,
-  swapConversationNodes,
-  toLevelOneConversationNodes,
-  validateConversationGraph,
-} from "../app/utils/conversation-graph";
+import type { ConversationNode } from "../app/utils/conversation-node";
+import { Graph } from "../app/utils/conversation-graph";
+import { createSourceDigest } from "../app/utils/node-summary";
 
 function node(
   id: string,
@@ -31,38 +19,6 @@ function node(
 }
 
 describe("conversation graph storage", () => {
-  test("migrates a linear message list into a level-one parent chain", () => {
-    const nodes = toLevelOneConversationNodes([
-      { id: "a", date: "", role: "user", content: "A" },
-      {
-        id: "deleted",
-        date: "",
-        role: "assistant",
-        content: "",
-        deletedAt: 1,
-      } as any,
-      { id: "b", date: "", role: "assistant", content: "B" },
-    ]);
-
-    expect(
-      nodes.map(({ id, parentId, outlineLevel }) => ({
-        id,
-        parentId,
-        outlineLevel,
-      })),
-    ).toEqual([
-      { id: "a", parentId: undefined, outlineLevel: 1 },
-      { id: "b", parentId: "a", outlineLevel: 1 },
-    ]);
-    expect(() =>
-      validateConversationGraph({
-        messages: nodes,
-        rootNodeId: "a",
-        activeCursorId: "b",
-      }),
-    ).not.toThrow();
-  });
-
   test("accepts one same-level continuation plus multiple deeper branches", () => {
     const nodes = [
       { ...node("2A", 2), activeBranchRootId: "3A" },
@@ -72,7 +28,7 @@ describe("conversation graph storage", () => {
       node("3B", 3, "3A"),
     ];
 
-    const index = validateConversationGraph({
+    const index = Graph.validate({
       messages: nodes,
       rootNodeId: "2A",
       activeCursorId: "2B",
@@ -92,10 +48,10 @@ describe("conversation graph storage", () => {
       node("2A", 2, "1A"),
       node("3A", 3, "2A"),
     ];
-    const changed = changeConversationNodeOutlineLevel(
+    const changed = Graph.shiftLevel(
       { messages, rootNodeId: "1A", activeCursorId: "3A" },
       "2A",
-      1,
+      -1,
     );
 
     expect(
@@ -106,7 +62,7 @@ describe("conversation graph storage", () => {
       ["3A", 2],
     ]);
     expect(() =>
-      changeConversationNodeOutlineLevel(changed, "1A", 2),
+      Graph.shiftLevel(changed, "1A", 1),
     ).toThrow("root node");
   });
 
@@ -125,7 +81,7 @@ describe("conversation graph storage", () => {
       activeCursorId: "2B",
     };
 
-    expect(projectActiveConversation(graph).map((item) => item.id)).toEqual([
+    expect(Graph.projectActive(graph).map((item) => item.id)).toEqual([
       "1",
       "2A",
       "3A",
@@ -133,7 +89,7 @@ describe("conversation graph storage", () => {
       "3C",
       "2B",
     ]);
-    expect(projectConversationToCursor(graph).map((item) => item.id)).toEqual([
+    expect(Graph.projectToCursor(graph).map((item) => item.id)).toEqual([
       "1",
       "2A",
       "3A",
@@ -143,7 +99,7 @@ describe("conversation graph storage", () => {
     ]);
 
     graph.activeCursorId = "3B";
-    expect(projectConversationToCursor(graph).map((item) => item.id)).toEqual([
+    expect(Graph.projectToCursor(graph).map((item) => item.id)).toEqual([
       "1",
       "2A",
       "3A",
@@ -159,7 +115,7 @@ describe("conversation graph storage", () => {
     ];
 
     expect(
-      projectConversationToCursor({
+      Graph.projectToCursor({
         messages: nodes,
         rootNodeId: "root",
         activeCursorId: "inactive",
@@ -169,7 +125,7 @@ describe("conversation graph storage", () => {
 
   test("rejects multiple same-level continuations and invalid active branches", () => {
     expect(() =>
-      validateConversationGraph({
+      Graph.validate({
         messages: [node("a", 1), node("b", 1, "a"), node("c", 1, "a")],
         rootNodeId: "a",
         activeCursorId: "c",
@@ -177,7 +133,7 @@ describe("conversation graph storage", () => {
     ).toThrow("Multiple same-level children");
 
     expect(() =>
-      validateConversationGraph({
+      Graph.validate({
         messages: [
           { ...node("a", 1), activeBranchRootId: "b" },
           node("b", 1, "a"),
@@ -205,7 +161,7 @@ describe("conversation graph storage", () => {
       },
     ];
 
-    const { nodes: remapped, ids } = remapConversationNodes(
+    const { nodes: remapped, ids } = Graph.remap(
       nodes,
       () => `new-${nextId++}`,
     );
@@ -217,7 +173,7 @@ describe("conversation graph storage", () => {
       ids.get("branch"),
     ]);
     expect(remapped[1].nodeSummaries?.segment?.sourceDigest).toBe(
-      createNodeSummarySourceDigest(remapped),
+      createSourceDigest(remapped),
     );
   });
 
@@ -228,9 +184,9 @@ describe("conversation graph storage", () => {
       activeCursorId: "a",
     };
 
-    const inserted = insertConversationNode(graph, node("x", 99));
+    const inserted = Graph.insert(graph, node("x", 99));
 
-    expect(projectActiveConversation(inserted).map((item) => item.id)).toEqual([
+    expect(Graph.projectActive(inserted).map((item) => item.id)).toEqual([
       "a",
       "x",
       "b",
@@ -246,15 +202,15 @@ describe("conversation graph storage", () => {
   });
 
   test("uses a one-shot outline delta to enter and leave a branch", () => {
-    let graph = insertConversationNode(
+    let graph = Graph.insert(
       { messages: [], rootNodeId: undefined, activeCursorId: undefined },
       node("root", 99),
     );
-    graph = insertConversationNode(graph, node("branch", 99), 1);
-    graph = insertConversationNode(graph, node("deep", 99));
-    graph = insertConversationNode(graph, node("after", 99), -1);
+    graph = Graph.insert(graph, node("branch", 99), 1);
+    graph = Graph.insert(graph, node("deep", 99));
+    graph = Graph.insert(graph, node("after", 99), -1);
 
-    expect(projectActiveConversation(graph).map((item) => item.id)).toEqual([
+    expect(Graph.projectActive(graph).map((item) => item.id)).toEqual([
       "root",
       "branch",
       "deep",
@@ -280,14 +236,14 @@ describe("conversation graph storage", () => {
       activeCursorId: "branch",
     };
 
-    const inserted = insertProjectedConversationNode(
+    const inserted = Graph.insertProjected(
       graph,
       node("x", 99),
       "a",
       "branch",
     );
 
-    expect(projectActiveConversation(inserted).map((item) => item.id)).toEqual([
+    expect(Graph.projectActive(inserted).map((item) => item.id)).toEqual([
       "a",
       "x",
       "branch",
@@ -318,9 +274,9 @@ describe("conversation graph storage", () => {
       activeCursorId: "h",
     };
 
-    const swapped = swapConversationNodes(graph, "a", "e");
+    const swapped = Graph.swap(graph, "a", "e");
 
-    expect(projectActiveConversation(swapped).map((item) => item.id)).toEqual([
+    expect(Graph.projectActive(swapped).map((item) => item.id)).toEqual([
       "e",
       "f",
       "g",
@@ -333,7 +289,7 @@ describe("conversation graph storage", () => {
     expect(swapped.messages.find((item) => item.id === "b")?.parentId).toBe(
       "a",
     );
-    expect(() => swapConversationNodes(graph, "b", "f")).toThrow(
+    expect(() => Graph.swap(graph, "b", "f")).toThrow(
       "same outline chain",
     );
   });
@@ -350,7 +306,7 @@ describe("conversation graph storage", () => {
       activeCursorId: "b",
     };
 
-    const deleted = deleteConversationNode(graph, "a");
+    const deleted = Graph.delete(graph, "a");
 
     expect(deleted.messages.map((item) => item.id)).toEqual(["b"]);
     expect(deleted.messages[0].parentId).toBeUndefined();
@@ -370,7 +326,7 @@ describe("conversation graph storage", () => {
       activeCursorId: "deep",
     };
 
-    const deleted = deleteConversationNode(graph, "branch");
+    const deleted = Graph.delete(graph, "branch");
 
     expect(deleted.messages.map((item) => item.id)).toEqual(["root", "after"]);
     expect(deleted.messages[0].activeBranchRootId).toBeUndefined();
@@ -388,14 +344,14 @@ describe("conversation graph storage", () => {
     ];
 
     expect(
-      setActiveConversationBranch(
+      Graph.setBranch(
         { messages, rootNodeId: "root", activeCursorId: "after" },
         "root",
         "next",
       ).activeCursorId,
     ).toBe("after");
     expect(
-      setActiveConversationBranch(
+      Graph.setBranch(
         { messages, rootNodeId: "root", activeCursorId: "old" },
         "root",
         "next",

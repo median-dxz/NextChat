@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { ConversationNode } from "../app/utils/conversation-graph";
+import type { ConversationNode } from "../app/utils/conversation-node";
 import {
   type ChainContextState,
   type NodeSummaryRuntimeCache,
@@ -7,7 +7,7 @@ import {
   combineChainContextFrontiers,
   compareChainContextStates,
   createNodeSummaryRuntimeCache,
-  createNodeSummarySourceDigest,
+  createSourceDigest,
   evaluateNodeSummary,
   materializeContextRepresentations,
   partitionProjectionIntoOutlineChains,
@@ -40,7 +40,7 @@ function fixedTokenCache(): NodeSummaryRuntimeCache {
     },
     getNodeTokens: (item) => Number(item.content),
     getSummaryTokens: (content) => Number(content),
-    getSourceDigest: createNodeSummarySourceDigest,
+    getSourceDigest: createSourceDigest,
     clear() {},
   };
 }
@@ -89,7 +89,7 @@ describe("node summary planning", () => {
     const summary = {
       content: "segment",
       sourceNodeIds: sources.map((item) => item.id),
-      sourceDigest: createNodeSummarySourceDigest(sources),
+      sourceDigest: createSourceDigest(sources),
       provenance: "generated" as const,
     };
 
@@ -123,7 +123,7 @@ describe("node summary planning", () => {
       sources[0],
       { ...sources[1], role: "user" as const },
     ];
-    expect(createNodeSummarySourceDigest(roleChangedSources)).not.toBe(
+    expect(createSourceDigest(roleChangedSources)).not.toBe(
       summary.sourceDigest,
     );
     expect(
@@ -151,7 +151,7 @@ describe("node summary planning", () => {
     const summary = {
       content: "checkpoint",
       sourceNodeIds: partialSources.map((item) => item.id),
-      sourceDigest: createNodeSummarySourceDigest(partialSources),
+      sourceDigest: createSourceDigest(partialSources),
       provenance: "generated" as const,
     };
 
@@ -260,7 +260,7 @@ describe("node summary planning", () => {
       node("a", 1, undefined, "user", "old"),
       node("b", 1, "a", "assistant", "answer"),
     ];
-    const digest = createNodeSummarySourceDigest(original);
+    const digest = createSourceDigest(original);
     const edited = [{ ...original[0], content: "new" }, original[1]];
     edited[1].nodeSummaries = {
       segment: {
@@ -327,7 +327,7 @@ describe("node summary planning", () => {
       segment: {
         content: "manual context",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest([
+        sourceDigest: createSourceDigest([
           { ...first, content: "old source" },
           firstOwner,
         ]),
@@ -364,7 +364,7 @@ describe("node summary planning", () => {
       segment: {
         content: "segment one",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        sourceDigest: createSourceDigest(projection.slice(0, 2)),
         provenance: "generated",
       },
     };
@@ -372,7 +372,7 @@ describe("node summary planning", () => {
       segment: {
         content: "segment two",
         sourceNodeIds: ["c", "d"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(2, 4)),
+        sourceDigest: createSourceDigest(projection.slice(2, 4)),
         provenance: "generated",
       },
     };
@@ -415,7 +415,7 @@ describe("node summary planning", () => {
           sourceNodeIds: projection
             .slice(start, end + 1)
             .map((item) => item.id),
-          sourceDigest: createNodeSummarySourceDigest(
+          sourceDigest: createSourceDigest(
             projection.slice(start, end + 1),
           ),
           provenance: "generated",
@@ -425,7 +425,7 @@ describe("node summary planning", () => {
     projection[3].nodeSummaries!.checkpoint = {
       content: "checkpoint through d",
       sourceNodeIds: ["a", "b", "c", "d"],
-      sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 4)),
+      sourceDigest: createSourceDigest(projection.slice(0, 4)),
       provenance: "generated",
     };
 
@@ -455,7 +455,7 @@ describe("node summary planning", () => {
       segment: {
         content: "segment input",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection),
+        sourceDigest: createSourceDigest(projection),
         provenance: "generated",
       },
     };
@@ -507,7 +507,7 @@ describe("node summary planning", () => {
       segment: {
         content: "fresh segment",
         sourceNodeIds: ["c", "d"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(2)),
+        sourceDigest: createSourceDigest(projection.slice(2)),
         provenance: "generated",
       },
     };
@@ -523,7 +523,7 @@ describe("node summary planning", () => {
     projection[1].nodeSummaries!.segment = {
       content: "invalid segment",
       sourceNodeIds: ["a", "d"],
-      sourceDigest: createNodeSummarySourceDigest([
+      sourceDigest: createSourceDigest([
         projection[0],
         projection[3],
       ]),
@@ -534,7 +534,7 @@ describe("node summary planning", () => {
     projection[1].nodeSummaries!.segment = {
       content: "fresh segment",
       sourceNodeIds: ["a", "b"],
-      sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+      sourceDigest: createSourceDigest(projection.slice(0, 2)),
       provenance: "generated",
     };
     expect(
@@ -551,7 +551,7 @@ describe("node summary planning", () => {
       segment: {
         content: "fresh segment",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection),
+        sourceDigest: createSourceDigest(projection),
         provenance: "generated",
       },
       checkpoint: {
@@ -599,7 +599,7 @@ describe("node summary planning", () => {
           sourceNodeIds: projection
             .slice(start, end + 1)
             .map((item) => item.id),
-          sourceDigest: createNodeSummarySourceDigest(
+          sourceDigest: createSourceDigest(
             projection.slice(start, end + 1),
           ),
           provenance: "generated",
@@ -669,7 +669,7 @@ describe("node summary planning", () => {
       segment: {
         content: "2",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        sourceDigest: createSourceDigest(projection.slice(0, 2)),
         provenance: "generated",
       },
     };
@@ -677,7 +677,7 @@ describe("node summary planning", () => {
       checkpoint: {
         content: "3",
         sourceNodeIds: ["a", "b", "c", "d"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 4)),
+        sourceDigest: createSourceDigest(projection.slice(0, 4)),
         provenance: "generated",
       },
     };
@@ -685,7 +685,7 @@ describe("node summary planning", () => {
       segment: {
         content: "2",
         sourceNodeIds: ["e", "f"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(4)),
+        sourceDigest: createSourceDigest(projection.slice(4)),
         provenance: "generated",
       },
     };
@@ -730,7 +730,7 @@ describe("node summary planning", () => {
       segment: {
         content: "1",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection),
+        sourceDigest: createSourceDigest(projection),
         provenance: "generated",
       },
       checkpoint: {
@@ -854,7 +854,7 @@ describe("node summary planning", () => {
       segment: {
         content: "2",
         sourceNodeIds: ["a", "b"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        sourceDigest: createSourceDigest(projection.slice(0, 2)),
         provenance: "generated",
       },
       checkpoint: {
@@ -868,7 +868,7 @@ describe("node summary planning", () => {
       segment: {
         content: "2",
         sourceNodeIds: ["c", "d"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(2)),
+        sourceDigest: createSourceDigest(projection.slice(2)),
         provenance: "generated",
       },
     };
@@ -1023,7 +1023,7 @@ describe("node summary planning", () => {
       segment: {
         content: "1",
         sourceNodeIds: ["b", "c"],
-        sourceDigest: createNodeSummarySourceDigest(projection.slice(1, 3)),
+        sourceDigest: createSourceDigest(projection.slice(1, 3)),
         provenance: "generated",
       },
     };
@@ -1031,7 +1031,7 @@ describe("node summary planning", () => {
       segment: {
         content: "2",
         sourceNodeIds: ["a", "d"],
-        sourceDigest: createNodeSummarySourceDigest([
+        sourceDigest: createSourceDigest([
           projection[0],
           projection[3],
         ]),
@@ -1189,7 +1189,7 @@ describe("node summary planning", () => {
           segment: {
             content: "1",
             sourceNodeIds: sources.map((source) => source.id),
-            sourceDigest: createNodeSummarySourceDigest(sources),
+            sourceDigest: createSourceDigest(sources),
             provenance: "generated",
           },
         };

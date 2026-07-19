@@ -864,7 +864,7 @@ const cn = {
   },
   Exporter: {
     Description: {
-      Title: "只有清除上下文之后的消息会被展示",
+      Title: "选择要导出的消息",
     },
     Model: "模型",
     Messages: "消息",

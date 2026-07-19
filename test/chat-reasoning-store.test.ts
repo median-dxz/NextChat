@@ -25,10 +25,8 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
-import {
-  createNodeSummarySourceDigest,
-  toLevelOneConversationNodes,
-} from "../app/utils/conversation-graph";
+import { Graph } from "../app/utils/conversation-graph";
+import { createSourceDigest } from "../app/utils/node-summary";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -47,12 +45,26 @@ function message(
   };
 }
 
+function linearNodes(messages: ChatMessage[]) {
+  let parentId: string | undefined;
+  return messages.map((item) => {
+    const node = createConversationNode({
+      ...item,
+      parentId,
+      outlineLevel: 1,
+      activeBranchRootId: undefined,
+    });
+    parentId = node.id;
+    return node;
+  });
+}
+
 function setSession(
   messages: ChatMessage[],
   modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {},
 ) {
   const session = structuredClone(initialSession);
-  session.messages = toLevelOneConversationNodes(messages);
+  session.messages = linearNodes(messages);
   session.rootNodeId = session.messages[0]?.id;
   session.activeCursorId = session.messages.at(-1)?.id;
   session.topic = DEFAULT_TOPIC;
@@ -170,20 +182,43 @@ describe("chat store derived state", () => {
     expect(fork.globalMemory).toEqual(original.globalMemory);
   });
 
-  test("migrates the original memory prompt into global memory and a level-one graph", async () => {
-    const persistedSession = structuredClone(initialSession) as any as {
-      messages: ChatMessage[];
-      memoryPrompt: string;
-      lastSummarizeIndex: number;
-      clearContextIndex: number;
-    };
-    persistedSession.messages = [
-      message("user", "old question"),
-      message("assistant", "old answer"),
+  test("migrates the v3.3 persisted session into graph context and global memory", async () => {
+    const legacyMask = structuredClone(initialSession.mask) as any;
+    legacyMask.context = [
+      message("system", "pinned system"),
+      message("user", "preset user"),
+      message("assistant", "preset answer"),
     ];
-    persistedSession.memoryPrompt = "legacy memory";
-    persistedSession.lastSummarizeIndex = 2;
-    persistedSession.clearContextIndex = 0;
+    legacyMask.modelConfig.historyMessageCount = 4;
+    legacyMask.modelConfig.compressMessageLengthThreshold = 1000;
+    for (const key of [
+      "contextWindowTokens",
+      "recentRawNodeCount",
+      "segmentTargetSourceTokens",
+      "segmentMaxSourceNodes",
+      "checkpointTargetSegments",
+      "checkpointMergeTargetTokens",
+      "memoryModel",
+      "memoryProviderName",
+      "titleModel",
+      "titleProviderName",
+    ]) {
+      delete legacyMask.modelConfig[key];
+    }
+    const persistedSession = {
+      id: initialSession.id,
+      topic: initialSession.topic,
+      memoryPrompt: "legacy memory",
+      messages: [
+        message("user", "question"),
+        message("assistant", "answer"),
+      ],
+      stat: structuredClone(initialSession.stat),
+      lastUpdate: initialSession.lastUpdate,
+      lastSummarizeIndex: 2,
+      clearContextIndex: 1,
+      mask: legacyMask,
+    };
     vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
       JSON.stringify({
         state: {
@@ -202,41 +237,6 @@ describe("chat store derived state", () => {
     expect(migrated.globalMemory).toEqual(
       expect.objectContaining({ enabled: true, content: "legacy memory" }),
     );
-    expect(migrated.messages.map((item) => item.outlineLevel)).toEqual([1, 1]);
-    expect(migrated.messages[1].parentId).toBe(migrated.messages[0].id);
-    expect(migrated.rootNodeId).toBe(migrated.messages[0].id);
-    expect(migrated.activeCursorId).toBe(migrated.messages[1].id);
-  });
-
-  test("materializes legacy mask context and preserves its context boundary", async () => {
-    const persistedSession = structuredClone(initialSession) as any;
-    persistedSession.messages = [
-      message("user", "question"),
-      message("assistant", "answer"),
-    ];
-    persistedSession.mask.context = [
-      message("system", "pinned system"),
-      message("user", "preset user"),
-      message("assistant", "preset answer"),
-    ];
-    persistedSession.memoryPrompt = "";
-    persistedSession.lastSummarizeIndex = 0;
-    persistedSession.clearContextIndex = 1;
-    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(
-      JSON.stringify({
-        state: {
-          sessions: [persistedSession],
-          currentSessionIndex: 0,
-          lastInput: "",
-          _hasHydrated: true,
-        },
-        version: 3.3,
-      }),
-    );
-
-    await useChatStore.persist.rehydrate();
-
-    const migrated = useChatStore.getState().currentSession();
     expect(migrated.pinnedInputs.map((item) => item.content)).toEqual([
       "pinned system",
     ]);
@@ -247,10 +247,18 @@ describe("chat store derived state", () => {
       "question",
       "answer",
     ]);
-    expect(migrated.contextBoundaryAfterMessageId).toBe(
-      migrated.messages[2].id,
+    expect(migrated.messages.map((item) => item.outlineLevel)).toEqual([
+      1, 1, 1, 1,
+    ]);
+    expect(migrated.messages.slice(1).map((item) => item.parentId)).toEqual(
+      migrated.messages.slice(0, -1).map((item) => item.id),
     );
+    expect(migrated.rootNodeId).toBe(migrated.messages[0].id);
+    expect(migrated.activeCursorId).toBe(migrated.messages.at(-1)?.id);
     expect(migrated.mask.context).toEqual([]);
+    expect(migrated).not.toHaveProperty("memoryPrompt");
+    expect(migrated).not.toHaveProperty("lastSummarizeIndex");
+    expect(migrated).not.toHaveProperty("clearContextIndex");
   });
 
   test("persists reasoning and restores it during hydration", async () => {
@@ -287,7 +295,7 @@ describe("chat store derived state", () => {
 
   test("preserves an intentionally empty graph cursor during hydration", async () => {
     const persistedSession = structuredClone(initialSession);
-    persistedSession.messages = toLevelOneConversationNodes([
+    persistedSession.messages = linearNodes([
       message("user", "root"),
       message("assistant", "tail"),
     ]);
@@ -560,7 +568,7 @@ describe("chat store derived state", () => {
         segment: {
           content: "manual summary",
           sourceNodeIds: draft.messages.map((item) => item.id),
-          sourceDigest: createNodeSummarySourceDigest(draft.messages),
+          sourceDigest: createSourceDigest(draft.messages),
           provenance: "user-edited",
         },
       };
@@ -609,7 +617,7 @@ describe("chat store derived state", () => {
       assistant.nodeSummaries.checkpoint = {
         content: "manual checkpoint",
         sourceNodeIds: draft.messages.map((item) => item.id),
-        sourceDigest: createNodeSummarySourceDigest(draft.messages),
+        sourceDigest: createSourceDigest(draft.messages),
         provenance: "user-edited",
       };
     });
@@ -893,7 +901,7 @@ describe("chat store derived state", () => {
       segment: {
         content: "compact old history",
         sourceNodeIds: oldSources.map((item) => item.id),
-        sourceDigest: createNodeSummarySourceDigest(oldSources),
+        sourceDigest: createSourceDigest(oldSources),
         provenance: "generated",
       },
     };

@@ -532,7 +532,7 @@ const tw = {
   },
   Exporter: {
     Description: {
-      Title: "只有清除上下文之後的訊息會被顯示",
+      Title: "選擇要匯出的訊息",
     },
     Model: "模型",
     Messages: "訊息",
