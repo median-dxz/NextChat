@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
+  type ChainContextState,
+  type NodeSummaryRuntimeCache,
+  compareChainContextStates,
   createNodeSummaryRuntimeCache,
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
   partitionProjectionIntoOutlineChains,
+  planChainContextFrontiers,
   planCheckpointMaintenance,
+  planOutlineChainContext,
   planSegmentMaintenance,
 } from "../app/utils/node-summary";
 
@@ -17,6 +22,36 @@ function node(
   content = id,
 ): ConversationNode {
   return { id, date: "", role, content, outlineLevel, parentId };
+}
+
+function fixedTokenCache(): NodeSummaryRuntimeCache {
+  return {
+    stats: {
+      nodeTokenHits: 0,
+      nodeTokenMisses: 0,
+      summaryTokenHits: 0,
+      summaryTokenMisses: 0,
+      digestHits: 0,
+      digestMisses: 0,
+    },
+    getNodeTokens: (item) => Number(item.content),
+    getSummaryTokens: (content) => Number(content),
+    getSourceDigest: createNodeSummarySourceDigest,
+    clear() {},
+  };
+}
+
+function state(override: Partial<ChainContextState> = {}): ChainContextState {
+  return {
+    tokens: 0,
+    coveredNodeCount: 0,
+    freshCoveredNodeCount: 0,
+    rawCoveredNodeCount: 0,
+    segmentCoveredNodeCount: 0,
+    checkpointCoveredNodeCount: 0,
+    selectedRepresentations: [],
+    ...override,
+  };
 }
 
 describe("node summary planning", () => {
@@ -582,5 +617,391 @@ describe("node summary planning", () => {
     expect(plan.ownerNodeId).toBe("f");
     expect(plan.sourceNodeIds).toEqual(projection.map((item) => item.id));
     expect(plan.inputs.every((input) => input.kind === "segment")).toBe(true);
+  });
+
+  test("keeps a global recent raw suffix and only shortens it from the old end", () => {
+    const projection = [
+      node("1A", 1, undefined, "user", "3"),
+      node("2A", 2, "1A", "user", "4"),
+      node("2B", 2, "2A", "assistant", "5"),
+      node("1B", 1, "1A", "assistant", "6"),
+    ];
+
+    const plan = planChainContextFrontiers({
+      projection,
+      recentRawNodeCount: 3,
+      availableTokens: 11,
+      cache: fixedTokenCache(),
+    });
+
+    expect(plan.recentRaw.nodeIds).toEqual(["2B", "1B"]);
+    expect(plan.optionalNodeIds).toEqual(["1A", "2A"]);
+    const fullChains = partitionProjectionIntoOutlineChains(projection);
+    for (const chain of fullChains) {
+      const recentInChain = chain.nodes
+        .filter((item) => plan.recentRaw.nodeIds.includes(item.id))
+        .map((item) => item.id);
+      expect(recentInChain).toEqual(
+        chain.nodes
+          .slice(chain.nodes.length - recentInChain.length)
+          .map((item) => item.id),
+      );
+    }
+  });
+
+  test("builds only continuous non-overlapping mixed paths to a chain tail", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "4"),
+      node("b", 1, "a", "assistant", "4"),
+      node("c", 1, "b", "user", "4"),
+      node("d", 1, "c", "assistant", "4"),
+      node("e", 1, "d", "user", "4"),
+      node("f", 1, "e", "assistant", "4"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "2",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        provenance: "generated",
+      },
+    };
+    projection[3].nodeSummaries = {
+      checkpoint: {
+        content: "3",
+        sourceNodeIds: ["a", "b", "c", "d"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 4)),
+        provenance: "generated",
+      },
+    };
+    projection[5].nodeSummaries = {
+      segment: {
+        content: "2",
+        sourceNodeIds: ["e", "f"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(4)),
+        provenance: "generated",
+      },
+    };
+    const chains = partitionProjectionIntoOutlineChains(projection);
+    const frontier = planOutlineChainContext(
+      chains[0],
+      chains,
+      projection.length,
+      24,
+      fixedTokenCache(),
+    );
+
+    expect(
+      frontier.states.some(
+        (candidate) =>
+          candidate.selectedRepresentations[0]?.kind === "checkpoint" &&
+          candidate.selectedRepresentations[1]?.kind === "segment",
+      ),
+    ).toBe(true);
+    for (const candidate of frontier.states) {
+      const coveredIds = candidate.selectedRepresentations.flatMap(
+        (representation) =>
+          representation.kind === "raw"
+            ? [representation.nodeId]
+            : representation.sourceNodeIds,
+      );
+      expect(coveredIds).toEqual(
+        projection
+          .slice(projection.length - coveredIds.length)
+          .map((item) => item.id),
+      );
+      expect(new Set(coveredIds).size).toBe(coveredIds.length);
+    }
+  });
+
+  test("excludes invalid summaries and ranks fresh coverage ahead of stale", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "4"),
+      node("b", 1, "a", "assistant", "4"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "1",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection),
+        provenance: "generated",
+      },
+      checkpoint: {
+        content: "1",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: "stale",
+        provenance: "generated",
+      },
+    };
+    const chains = partitionProjectionIntoOutlineChains(projection);
+    const frontier = planOutlineChainContext(
+      chains[0],
+      chains,
+      2,
+      1,
+      fixedTokenCache(),
+    );
+    expect(
+      frontier.states.some((candidate) =>
+        candidate.selectedRepresentations.some(
+          (representation) => representation.kind === "segment",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      frontier.states.some((candidate) =>
+        candidate.selectedRepresentations.some(
+          (representation) => representation.kind === "checkpoint",
+        ),
+      ),
+    ).toBe(false);
+
+    projection[1].nodeSummaries!.segment!.sourceNodeIds = ["b"];
+    const invalidFrontier = planOutlineChainContext(
+      chains[0],
+      partitionProjectionIntoOutlineChains(projection),
+      2,
+      1,
+      fixedTokenCache(),
+    );
+    expect(
+      invalidFrontier.states.every((candidate) =>
+        candidate.selectedRepresentations.every(
+          (representation) => representation.kind !== "segment",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  test("uses all six strict lexicographic comparison layers in order", () => {
+    expect(
+      compareChainContextStates(
+        state({ coveredNodeCount: 2 }),
+        state({ coveredNodeCount: 1, freshCoveredNodeCount: 100 }),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      compareChainContextStates(
+        state({ coveredNodeCount: 2, freshCoveredNodeCount: 2 }),
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 1,
+          rawCoveredNodeCount: 100,
+        }),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      compareChainContextStates(
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+          rawCoveredNodeCount: 2,
+        }),
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+          segmentCoveredNodeCount: 100,
+        }),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      compareChainContextStates(
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+          segmentCoveredNodeCount: 2,
+        }),
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+          checkpointCoveredNodeCount: 100,
+        }),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      compareChainContextStates(
+        state({
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+          checkpointCoveredNodeCount: 2,
+        }),
+        state({ coveredNodeCount: 2, freshCoveredNodeCount: 2 }),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      compareChainContextStates(
+        state({ coveredNodeCount: 2, tokens: 1 }),
+        state({ coveredNodeCount: 2, tokens: 2 }),
+      ),
+    ).toBeGreaterThan(0);
+  });
+
+  test("matches an exhaustive small-chain path oracle", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "3"),
+      node("b", 1, "a", "assistant", "3"),
+      node("c", 1, "b", "user", "3"),
+      node("d", 1, "c", "assistant", "3"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "2",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        provenance: "generated",
+      },
+      checkpoint: {
+        content: "1",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: "stale",
+        provenance: "generated",
+      },
+    };
+    projection[3].nodeSummaries = {
+      segment: {
+        content: "2",
+        sourceNodeIds: ["c", "d"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(2)),
+        provenance: "generated",
+      },
+    };
+    const chains = partitionProjectionIntoOutlineChains(projection);
+    const actual = planOutlineChainContext(
+      chains[0],
+      chains,
+      4,
+      8,
+      fixedTokenCache(),
+    ).states;
+    type OracleEdge = {
+      end: number;
+      tokens: number;
+      covered: number;
+      fresh: number;
+      raw: number;
+      segment: number;
+      checkpoint: number;
+    };
+    const edges: OracleEdge[][] = [
+      [
+        {
+          end: 1,
+          tokens: 3,
+          covered: 1,
+          fresh: 1,
+          raw: 1,
+          segment: 0,
+          checkpoint: 0,
+        },
+        {
+          end: 2,
+          tokens: 2,
+          covered: 2,
+          fresh: 2,
+          raw: 0,
+          segment: 2,
+          checkpoint: 0,
+        },
+        {
+          end: 2,
+          tokens: 1,
+          covered: 2,
+          fresh: 0,
+          raw: 0,
+          segment: 0,
+          checkpoint: 2,
+        },
+      ],
+      [
+        {
+          end: 2,
+          tokens: 3,
+          covered: 1,
+          fresh: 1,
+          raw: 1,
+          segment: 0,
+          checkpoint: 0,
+        },
+      ],
+      [
+        {
+          end: 3,
+          tokens: 3,
+          covered: 1,
+          fresh: 1,
+          raw: 1,
+          segment: 0,
+          checkpoint: 0,
+        },
+        {
+          end: 4,
+          tokens: 2,
+          covered: 2,
+          fresh: 2,
+          raw: 0,
+          segment: 2,
+          checkpoint: 0,
+        },
+      ],
+      [
+        {
+          end: 4,
+          tokens: 3,
+          covered: 1,
+          fresh: 1,
+          raw: 1,
+          segment: 0,
+          checkpoint: 0,
+        },
+      ],
+    ];
+    const enumerated: ChainContextState[] = [];
+    const visit = (position: number, current: ChainContextState) => {
+      if (position === 4) {
+        enumerated.push(current);
+        return;
+      }
+      for (const edge of edges[position]) {
+        const next = state({
+          tokens: current.tokens + edge.tokens,
+          coveredNodeCount: current.coveredNodeCount + edge.covered,
+          freshCoveredNodeCount: current.freshCoveredNodeCount + edge.fresh,
+          rawCoveredNodeCount: current.rawCoveredNodeCount + edge.raw,
+          segmentCoveredNodeCount:
+            current.segmentCoveredNodeCount + edge.segment,
+          checkpointCoveredNodeCount:
+            current.checkpointCoveredNodeCount + edge.checkpoint,
+        });
+        if (next.tokens <= 8) visit(edge.end, next);
+      }
+    };
+    for (let cutoff = 0; cutoff <= 4; cutoff += 1) {
+      visit(cutoff, state());
+    }
+    const signature = (candidate: ChainContextState) =>
+      JSON.stringify([
+        candidate.tokens,
+        candidate.coveredNodeCount,
+        candidate.freshCoveredNodeCount,
+        candidate.rawCoveredNodeCount,
+        candidate.segmentCoveredNodeCount,
+        candidate.checkpointCoveredNodeCount,
+      ]);
+    const unique = [
+      ...new Map(enumerated.map((item) => [signature(item), item])).values(),
+    ];
+    const oracle = unique.filter(
+      (candidate, index) =>
+        !unique.some(
+          (other, otherIndex) =>
+            otherIndex !== index &&
+            other.tokens <= candidate.tokens &&
+            compareChainContextStates(other, candidate) > 0,
+        ),
+    );
+
+    expect(new Set(actual.map(signature))).toEqual(
+      new Set(oracle.map(signature)),
+    );
   });
 });
