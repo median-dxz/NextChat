@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
+  createNodeSummarySourceDigest,
   deleteConversationNode,
   insertConversationNode,
   insertProjectedConversationNode,
@@ -36,7 +37,13 @@ describe("conversation graph storage", () => {
       { id: "b", date: "", role: "assistant", content: "B" },
     ]);
 
-    expect(nodes.map(({ id, parentId, outlineLevel }) => ({ id, parentId, outlineLevel }))).toEqual([
+    expect(
+      nodes.map(({ id, parentId, outlineLevel }) => ({
+        id,
+        parentId,
+        outlineLevel,
+      })),
+    ).toEqual([
       { id: "a", parentId: undefined, outlineLevel: 1 },
       { id: "b", parentId: "a", outlineLevel: 1 },
     ]);
@@ -160,9 +167,8 @@ describe("conversation graph storage", () => {
           segment: {
             content: "summary",
             sourceNodeIds: ["a", "branch"],
-            tokenCount: 2,
-            createdAt: 1,
-            updatedAt: 1,
+            sourceDigest: "digest",
+            provenance: "generated",
           },
         },
       },
@@ -179,6 +185,9 @@ describe("conversation graph storage", () => {
       ids.get("a"),
       ids.get("branch"),
     ]);
+    expect(remapped[1].nodeSummaries?.segment?.sourceDigest).toBe(
+      createNodeSummarySourceDigest(remapped),
+    );
   });
 
   test("inserts a same-level node into the continuation chain", () => {
@@ -332,10 +341,7 @@ describe("conversation graph storage", () => {
 
     const deleted = deleteConversationNode(graph, "branch");
 
-    expect(deleted.messages.map((item) => item.id)).toEqual([
-      "root",
-      "after",
-    ]);
+    expect(deleted.messages.map((item) => item.id)).toEqual(["root", "after"]);
     expect(deleted.messages[0].activeBranchRootId).toBeUndefined();
     expect(deleted.activeCursorId).toBeUndefined();
   });

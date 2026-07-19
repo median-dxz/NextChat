@@ -276,12 +276,12 @@ const tw = {
       },
     },
     HistoryCount: {
-      Title: "附帶歷史訊息數",
-      SubTitle: "每次請求附帶的歷史訊息數",
+      Title: "近期原文節點數",
+      SubTitle: "每次請求優先保留的近期原始對話節點數",
     },
     CompressThreshold: {
-      Title: "歷史訊息長度壓縮閾值",
-      SubTitle: "當未壓縮的歷史訊息超過該值時，將進行壓縮",
+      Title: "Segment 來源 Token 目標",
+      SubTitle: "同級鏈未分段原文達到該目標時建立局部摘要",
     },
 
     Usage: {

@@ -349,13 +349,13 @@ const en: LocaleType = {
       },
     },
     HistoryCount: {
-      Title: "Attached Messages Count",
-      SubTitle: "Number of sent messages attached per request",
+      Title: "Recent Raw Node Count",
+      SubTitle: "Recent original conversation nodes prioritized per request",
     },
     CompressThreshold: {
-      Title: "History Compression Threshold",
+      Title: "Segment Source Token Target",
       SubTitle:
-        "Compress when uncompressed history outside the recent window exceeds this value",
+        "Create a local summary when unsegmented chain history reaches this target",
     },
 
     Usage: {

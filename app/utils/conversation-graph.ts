@@ -1,13 +1,22 @@
 import type { ChatMessage } from "../store/chat";
+import { hash } from "./hmac";
 
 export type NodeSummaryKind = "segment" | "checkpoint";
+export type NodeSummaryProvenance = "generated" | "user-edited";
 
 export interface NodeSummary {
   content: string;
   sourceNodeIds: string[];
-  tokenCount: number;
-  createdAt: number;
-  updatedAt: number;
+  sourceDigest: string;
+  provenance: NodeSummaryProvenance;
+}
+
+function nodeSummaryDigestValue(node: ConversationNode) {
+  return [node.id, node.role, node.content];
+}
+
+export function createNodeSummarySourceDigest(nodes: ConversationNode[]) {
+  return hash(JSON.stringify(nodes.map(nodeSummaryDigestValue)));
 }
 
 export interface ConversationNode extends ChatMessage {
@@ -16,7 +25,6 @@ export interface ConversationNode extends ChatMessage {
   activeBranchRootId?: string;
   hidden?: boolean;
   nodeSummaries?: Partial<Record<NodeSummaryKind, NodeSummary>>;
-  summaryAttemptedAt?: number;
 }
 
 export interface GlobalMemory {
@@ -574,5 +582,29 @@ export function remapConversationNodes(
         )
       : undefined,
   })) as ConversationNode[];
-  return { nodes: remapped, ids };
+  const remappedById = new Map(remapped.map((node) => [node.id, node]));
+  const rebound = remapped.map((node) => ({
+    ...node,
+    nodeSummaries: node.nodeSummaries
+      ? Object.fromEntries(
+          Object.entries(node.nodeSummaries).map(([kind, summary]) => {
+            if (!summary) return [kind, undefined];
+            const sources = summary.sourceNodeIds
+              .map((id) => remappedById.get(id))
+              .filter((source): source is ConversationNode => Boolean(source));
+            return [
+              kind,
+              {
+                ...summary,
+                sourceDigest:
+                  sources.length === summary.sourceNodeIds.length
+                    ? createNodeSummarySourceDigest(sources)
+                    : summary.sourceDigest,
+              },
+            ];
+          }),
+        )
+      : undefined,
+  })) as ConversationNode[];
+  return { nodes: rebound, ids };
 }

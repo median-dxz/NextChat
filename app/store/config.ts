@@ -74,8 +74,11 @@ export const DEFAULT_CONFIG = {
     presence_penalty: 0,
     frequency_penalty: 0,
     sendMemory: true,
-    historyMessageCount: 4,
-    compressMessageLengthThreshold: 1000,
+    recentRawNodeCount: 4,
+    segmentTargetSourceTokens: 1000,
+    segmentMaxSourceNodes: 16,
+    checkpointTargetSegments: 4,
+    checkpointMergeTargetTokens: 1000,
     compressModel: "",
     compressProviderName: "",
     memoryModel: "",
@@ -218,8 +221,8 @@ export const useAppConfig = createPersistStore(
 
       if (version < 3.4) {
         state.modelConfig.sendMemory = true;
-        state.modelConfig.historyMessageCount = 4;
-        state.modelConfig.compressMessageLengthThreshold = 1000;
+        state.modelConfig.recentRawNodeCount = 4;
+        state.modelConfig.segmentTargetSourceTokens = 1000;
         state.modelConfig.frequency_penalty = 0;
         state.modelConfig.top_p = 1;
         state.modelConfig.template = DEFAULT_INPUT_TEMPLATE;
@@ -272,6 +275,21 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
         state.modelConfig.memoryProviderName =
           DEFAULT_CONFIG.modelConfig.memoryProviderName;
+        const legacyModelConfig = state.modelConfig as any;
+        state.modelConfig.recentRawNodeCount =
+          legacyModelConfig.historyMessageCount ??
+          DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
+        state.modelConfig.segmentTargetSourceTokens =
+          legacyModelConfig.compressMessageLengthThreshold ??
+          DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
+        state.modelConfig.segmentMaxSourceNodes = 16;
+        state.modelConfig.checkpointTargetSegments = 4;
+        state.modelConfig.checkpointMergeTargetTokens = Math.max(
+          1000,
+          state.modelConfig.segmentTargetSourceTokens,
+        );
+        delete legacyModelConfig.historyMessageCount;
+        delete legacyModelConfig.compressMessageLengthThreshold;
       }
 
       return state as any;

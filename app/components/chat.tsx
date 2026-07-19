@@ -128,7 +128,11 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { createConversationGraphIndex } from "../utils/conversation-graph";
+import {
+  createConversationGraphIndex,
+  type ConversationNode,
+} from "../utils/conversation-graph";
+import { createNodeSummarySourceDigest } from "../utils/node-summary";
 import {
   DragDropContext,
   Draggable,
@@ -1092,20 +1096,26 @@ function NodeViewerModal(props: {
             })),
           ]
         : content;
-      const now = Date.now();
       const updateSummary = (kind: "segment" | "checkpoint", value: string) => {
         if (!value.trim()) {
           if (target.nodeSummaries) delete target.nodeSummaries[kind];
           return;
         }
-        const previous = target.nodeSummaries?.[kind];
         target.nodeSummaries ??= {};
+        const sourceNodeIds = target.nodeSummaries[kind]?.sourceNodeIds ?? [
+          target.id,
+        ];
+        const sourcesById = new Map(
+          draft.messages.map((message) => [message.id, message]),
+        );
+        const sourceNodes = sourceNodeIds
+          .map((id) => sourcesById.get(id))
+          .filter((message): message is ConversationNode => Boolean(message));
         target.nodeSummaries[kind] = {
           content: value,
-          sourceNodeIds: previous?.sourceNodeIds ?? [target.id],
-          tokenCount: Math.ceil(value.length / 4),
-          createdAt: previous?.createdAt ?? now,
-          updatedAt: now,
+          sourceNodeIds,
+          sourceDigest: createNodeSummarySourceDigest(sourceNodes),
+          provenance: "user-edited",
         };
       };
       updateSummary("segment", segment);
@@ -1124,9 +1134,7 @@ function NodeViewerModal(props: {
       setSegment(current?.nodeSummaries?.segment?.content ?? "");
       setCheckpoint(current?.nodeSummaries?.checkpoint?.content ?? "");
       setSegmentOpen(Boolean(current?.nodeSummaries?.segment?.content));
-      setCheckpointOpen(
-        Boolean(current?.nodeSummaries?.checkpoint?.content),
-      );
+      setCheckpointOpen(Boolean(current?.nodeSummaries?.checkpoint?.content));
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1213,9 +1221,7 @@ function NodeViewerModal(props: {
             <div className={styles["node-summary-editor"]}>
               <details
                 open={segmentOpen}
-                onToggle={(event) =>
-                  setSegmentOpen(event.currentTarget.open)
-                }
+                onToggle={(event) => setSegmentOpen(event.currentTarget.open)}
               >
                 <summary>
                   <span>{Locale.Chat.Graph.Segment}</span>

@@ -41,8 +41,7 @@ import {
   getContextInputBudget,
 } from "../utils/context-compression";
 import {
-  materializeNodeSummaries,
-  planNodeConversationContext,
+  createNodeSummarySourceDigest,
   planNodeSummarySource,
 } from "../utils/node-summary";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
@@ -294,11 +293,23 @@ function migrateSessionToConversationGraph(session: any) {
     : (session.globalMemory ?? createEmptyGlobalMemory());
   session.contextBoundaryAfterMessageId ??=
     oldBoundary > 0 ? nodes[presetOffset + oldBoundary - 1]?.id : undefined;
-  session.summaries ??= [];
+  session.summaries = [];
   session.mask.context = [];
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
   session.mask.modelConfig.titleModel ??= "";
   session.mask.modelConfig.titleProviderName ??= "";
+  session.mask.modelConfig.recentRawNodeCount =
+    session.mask.modelConfig.historyMessageCount ?? 4;
+  session.mask.modelConfig.segmentTargetSourceTokens =
+    session.mask.modelConfig.compressMessageLengthThreshold ?? 1000;
+  session.mask.modelConfig.segmentMaxSourceNodes = 16;
+  session.mask.modelConfig.checkpointTargetSegments = 4;
+  session.mask.modelConfig.checkpointMergeTargetTokens = Math.max(
+    1000,
+    session.mask.modelConfig.segmentTargetSourceTokens,
+  );
+  delete session.mask.modelConfig.historyMessageCount;
+  delete session.mask.modelConfig.compressMessageLengthThreshold;
   delete session.memoryPrompt;
   delete session.lastSummarizeIndex;
   delete session.clearContextIndex;
@@ -718,9 +729,6 @@ export const useChatStore = createPersistStore(
         get().checkMcpJson(message);
 
         get().generateSessionTitle(targetSession);
-        if (targetSession.mask.modelConfig.sendMemory) {
-          void get().generateNodeSummary(targetSession.id, message.id);
-        }
         if (targetSession.globalMemory.enabled) {
           void get().updateGlobalMemory(targetSession.id);
         }
@@ -991,66 +999,53 @@ export const useChatStore = createPersistStore(
           ...globalMemoryPrompts,
           ...contextPrompts,
         ];
-        const createPlan = () => {
-          const current = get().sessions.find((item) => item.id === session.id);
-          if (!current) throw new Error("Chat session no longer exists");
-          const projection = createContextProjection(
-            getSessionMessagesToCursor(current),
-            current.contextBoundaryAfterMessageId,
-          );
-          const summaries = modelConfig.sendMemory
-            ? [
-                ...current.summaries,
-                ...materializeNodeSummaries(projection.entries),
-              ]
-            : [];
-          return {
-            current,
-            summaries,
-            plan: planNodeConversationContext({
-              projection,
-              summaries,
-              historyMessageCount: modelConfig.historyMessageCount,
-              contextWindowTokens: modelConfig.contextWindowTokens,
-              maxOutputTokens: modelConfig.max_tokens,
-              fixedTokenCount: fixedMessages.reduce(
-                (sum, message) => sum + estimateRequestMessageTokens(message),
-                0,
-              ),
-              currentInputTokenCount: currentInput
-                ? estimateRequestMessageTokens(currentInput)
-                : 0,
-            }),
-          };
-        };
-
-        const planned = createPlan();
-        if (planned.plan.overflow) {
+        const current = get().sessions.find((item) => item.id === session.id);
+        if (!current) throw new Error("Chat session no longer exists");
+        const projection = createContextProjection(
+          getSessionMessagesToCursor(current),
+          current.contextBoundaryAfterMessageId,
+        );
+        const inputBudget = getContextInputBudget(
+          modelConfig.contextWindowTokens,
+          modelConfig.max_tokens,
+        );
+        const fixedTokenCount = fixedMessages.reduce(
+          (sum, message) => sum + estimateRequestMessageTokens(message),
+          0,
+        );
+        const currentInputTokenCount = currentInput
+          ? estimateRequestMessageTokens(currentInput)
+          : 0;
+        if (fixedTokenCount + currentInputTokenCount > inputBudget) {
           throw new Error(
             "System prompts and current input exceed the context window",
           );
         }
-        const selectedSummaries = planned.plan.selectedSummaryIds
-          .map((id) => planned.summaries.find((item) => item.id === id))
-          .filter((item): item is ConversationSummary => Boolean(item))
-          .map((item) =>
-            createMessage({
-              role: "system",
-              content: Locale.Store.Prompt.History(item.content),
-              date: "",
-            }),
-          );
-        const selectedMessages = planned.plan.selectedMessageIds
-          .map((id) => planned.current.messages.find((item) => item.id === id))
-          .filter((item): item is ConversationNode => Boolean(item))
-          .map((item) => (item.hidden ? { ...item, content: "" } : item));
+        const availableHistoryTokens = Math.max(
+          0,
+          inputBudget - fixedTokenCount - currentInputTokenCount,
+        );
+        const selectedMessages: ConversationNode[] = [];
+        let selectedTokens = 0;
+        for (
+          let index = projection.entries.length - 1;
+          index >= 0;
+          index -= 1
+        ) {
+          const item = projection.entries[index];
+          const itemTokens = estimateRequestMessageTokens(item);
+          if (selectedTokens + itemTokens > availableHistoryTokens) break;
+          selectedMessages.unshift(item);
+          selectedTokens += itemTokens;
+        }
 
         return [
           ...systemPrompts,
           ...globalMemoryPrompts,
-          ...selectedSummaries,
           ...contextPrompts,
-          ...selectedMessages,
+          ...selectedMessages.map((item) =>
+            item.hidden ? { ...item, content: "" } : item,
+          ),
         ];
       },
 
@@ -1113,7 +1108,7 @@ export const useChatStore = createPersistStore(
         ) {
           const startIndex = Math.max(
             0,
-            messages.length - modelConfig.historyMessageCount,
+            messages.length - modelConfig.recentRawNodeCount,
           );
           const topicMessages: ChatMessage[] = [
             ...messages.slice(
@@ -1161,8 +1156,6 @@ export const useChatStore = createPersistStore(
           const session = get().sessions.find((item) => item.id === sessionId);
           const node = session?.messages.find((item) => item.id === nodeId);
           if (!session || !node || node.role !== "assistant") return;
-          if (!force && node.summaryAttemptedAt) return;
-
           const modelConfig = session.mask.modelConfig;
           const projection = projectConversationToCursor({
             ...session,
@@ -1175,15 +1168,10 @@ export const useChatStore = createPersistStore(
               modelConfig.contextWindowTokens,
               modelConfig.max_tokens,
             ),
-            modelConfig.compressMessageLengthThreshold,
+            modelConfig.segmentTargetSourceTokens,
           );
           if (!plan) return;
 
-          const attemptedAt = Date.now();
-          get().updateTargetSession(session, (draft) => {
-            const target = draft.messages.find((item) => item.id === node.id);
-            if (target) target.summaryAttemptedAt = attemptedAt;
-          });
           if (!force && node.nodeSummaries?.[plan.kind]) return;
 
           const [model, providerName] = modelConfig.compressModel
@@ -1205,15 +1193,19 @@ export const useChatStore = createPersistStore(
             const target = draft.messages.find((item) => item.id === node.id);
             if (!target || target.role !== "assistant") return;
             if (!force && target.nodeSummaries?.[plan.kind]) return;
-            const previous = target.nodeSummaries?.[plan.kind];
-            const now = Date.now();
+            const sourcesById = new Map(
+              draft.messages.map((item) => [item.id, item]),
+            );
+            const sourceNodes = plan.sourceNodeIds
+              .map((id) => sourcesById.get(id))
+              .filter((item): item is ConversationNode => Boolean(item));
+            if (sourceNodes.length !== plan.sourceNodeIds.length) return;
             target.nodeSummaries ??= {};
             target.nodeSummaries[plan.kind] = {
               content,
               sourceNodeIds: plan.sourceNodeIds,
-              tokenCount: estimateTokenLength(content),
-              createdAt: previous?.createdAt ?? now,
-              updatedAt: now,
+              sourceDigest: createNodeSummarySourceDigest(sourceNodes),
+              provenance: "generated",
             };
           });
         };
@@ -1664,8 +1656,8 @@ export const useChatStore = createPersistStore(
           newSession.topic = oldSession.topic;
           newSession.messages = [...oldSession.messages];
           newSession.mask.modelConfig.sendMemory = true;
-          newSession.mask.modelConfig.historyMessageCount = 4;
-          newSession.mask.modelConfig.compressMessageLengthThreshold = 1000;
+          newSession.mask.modelConfig.recentRawNodeCount = 4;
+          newSession.mask.modelConfig.segmentTargetSourceTokens = 1000;
           newState.sessions.push(newSession);
         }
       }

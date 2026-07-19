@@ -346,12 +346,12 @@ const cn = {
       },
     },
     HistoryCount: {
-      Title: "附带历史消息数",
-      SubTitle: "每次请求携带的历史消息数",
+      Title: "近期原文节点数",
+      SubTitle: "每次请求优先保留的近期原始对话节点数",
     },
     CompressThreshold: {
-      Title: "历史消息长度压缩阈值",
-      SubTitle: "当近期消息窗口之外的未压缩历史超过该值时进行压缩",
+      Title: "Segment 来源 Token 目标",
+      SubTitle: "同级链未分段原文达到该目标时生成局部摘要",
     },
 
     Usage: {

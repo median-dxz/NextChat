@@ -226,14 +226,14 @@ export function ModelConfigList(props: {
       >
         <InputRange
           aria={Locale.Settings.HistoryCount.Title}
-          title={props.modelConfig.historyMessageCount.toString()}
-          value={props.modelConfig.historyMessageCount}
+          title={props.modelConfig.recentRawNodeCount.toString()}
+          value={props.modelConfig.recentRawNodeCount}
           min="0"
           max="64"
           step="1"
           onChange={(e) =>
             props.updateConfig(
-              (config) => (config.historyMessageCount = e.target.valueAsNumber),
+              (config) => (config.recentRawNodeCount = e.target.valueAsNumber),
             )
           }
         ></InputRange>
@@ -248,11 +248,11 @@ export function ModelConfigList(props: {
           type="number"
           min={500}
           max={4000}
-          value={props.modelConfig.compressMessageLengthThreshold}
+          value={props.modelConfig.segmentTargetSourceTokens}
           onChange={(e) =>
             props.updateConfig(
               (config) =>
-                (config.compressMessageLengthThreshold =
+                (config.segmentTargetSourceTokens =
                   e.currentTarget.valueAsNumber),
             )
           }

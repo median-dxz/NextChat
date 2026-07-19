@@ -89,7 +89,7 @@ describe("chat store derived state", () => {
   test("builds provider history from the active graph branch and fixed inputs", async () => {
     const session = setSession([], {
       sendMemory: false,
-      historyMessageCount: 20,
+      recentRawNodeCount: 20,
       contextWindowTokens: 32_000,
     });
     const root = createConversationNode({
@@ -476,11 +476,13 @@ describe("chat store derived state", () => {
       .getState()
       .currentSession()
       .messages.find((item) => item.id === assistantId)!;
-    expect(assistant.summaryAttemptedAt).toBeTypeOf("number");
+    expect((assistant as any).summaryAttemptedAt).toBeUndefined();
     expect(assistant.nodeSummaries?.segment).toEqual(
       expect.objectContaining({
         content: "compact answer",
         sourceNodeIds: session.messages.map((item) => item.id),
+        sourceDigest: expect.any(String),
+        provenance: "generated",
       }),
     );
   });
@@ -507,10 +509,12 @@ describe("chat store derived state", () => {
     requests[1].onFinish("memory two", new Response(null, { status: 200 }));
     await Promise.all([first, second]);
 
-    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject({
-      content: "memory two",
-      revision: 2,
-    });
+    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject(
+      {
+        content: "memory two",
+        revision: 2,
+      },
+    );
   });
 
   test("uses the configured conversation memory model", async () => {
@@ -561,11 +565,10 @@ describe("chat store derived state", () => {
       options.onFinish("new memory", new Response(null, { status: 200 }));
     });
 
-    await useChatStore.getState().updateGlobalMemory(
-      session.id,
-      undefined,
-      { model: "temporary-model", providerName: "Google" },
-    );
+    await useChatStore.getState().updateGlobalMemory(session.id, undefined, {
+      model: "temporary-model",
+      providerName: "Google",
+    });
 
     expect(apiMocks.chat).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -651,8 +654,8 @@ describe("chat store derived state", () => {
       ],
       {
         sendMemory: true,
-        historyMessageCount: 0,
-        compressMessageLengthThreshold: 0,
+        recentRawNodeCount: 0,
+        segmentTargetSourceTokens: 0,
       },
     );
     await expect(
@@ -674,7 +677,7 @@ describe("chat store derived state", () => {
         },
         message("assistant", "orphan answer"),
       ],
-      { sendMemory: true, historyMessageCount: 0 },
+      { sendMemory: true, recentRawNodeCount: 0 },
     );
 
     await expect(
@@ -695,7 +698,7 @@ describe("chat store derived state", () => {
       ],
       {
         sendMemory: true,
-        historyMessageCount: 2,
+        recentRawNodeCount: 2,
         contextWindowTokens: 1_024,
         max_tokens: 128,
       },
@@ -721,7 +724,7 @@ describe("chat store derived state", () => {
       ),
       {
         sendMemory: true,
-        historyMessageCount: 12,
+        recentRawNodeCount: 12,
         contextWindowTokens: 1_024,
         max_tokens: 128,
       },
@@ -741,7 +744,7 @@ describe("chat store derived state", () => {
     ];
     const session = setSession(messages, {
       sendMemory: true,
-      historyMessageCount: 0,
+      recentRawNodeCount: 0,
       contextWindowTokens: 1_024,
       max_tokens: 128,
     });
