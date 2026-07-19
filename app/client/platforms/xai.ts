@@ -70,10 +70,7 @@ export class XAIApi implements LLMApi {
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
+      ...options.config,
     };
 
     const requestPayload: RequestPayload = {

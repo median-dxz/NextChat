@@ -210,6 +210,27 @@ export function projectConversationToCursor(
   return cursorIndex < 0 ? [] : projection.slice(0, cursorIndex + 1);
 }
 
+export function projectConversationContextToCursor(
+  graph: ConversationGraphState,
+  boundaryAfterNodeId?: string,
+): ConversationNode[] {
+  const projection = projectConversationToCursor(graph);
+  const boundaryIndex = boundaryAfterNodeId
+    ? projection.findIndex((node) => node.id === boundaryAfterNodeId)
+    : -1;
+  const bounded = projection.slice(boundaryIndex + 1);
+  const nodesById = new Map(graph.messages.map((node) => [node.id, node]));
+  const isAvailable = (node: ConversationNode | undefined) =>
+    Boolean(node && !node.deletedAt && !node.isError && !node.streaming);
+
+  return bounded.filter((node) => {
+    if (!isAvailable(node)) return false;
+    if (node.role !== "assistant" || !node.parentId) return true;
+    const parent = nodesById.get(node.parentId);
+    return parent?.role !== "user" || isAvailable(parent);
+  });
+}
+
 function completeGraphMutation(
   _graph: ConversationGraphState,
   messages: ConversationNode[],

@@ -97,9 +97,7 @@ export class QwenApi implements LLMApi {
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
+      ...options.config,
     };
 
     const visionModel = isVisionModel(options.config.model);
@@ -110,8 +108,8 @@ export class QwenApi implements LLMApi {
         visionModel
           ? await preProcessImageContentForAlibabaDashScope(v.content)
           : v.role === "assistant"
-          ? getMessageTextContentWithoutThinking(v)
-          : getMessageTextContent(v)
+            ? getMessageTextContentWithoutThinking(v)
+            : getMessageTextContent(v)
       ) as any;
 
       messages.push({ role: v.role, content });

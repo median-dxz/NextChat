@@ -4,6 +4,7 @@ import {
   type NodeSummary,
   type NodeSummaryKind,
 } from "./conversation-graph";
+import type { RequestMessage } from "../client/api";
 import { estimateRequestMessageTokens } from "./context-compression";
 import { estimateTokenLength } from "./token";
 
@@ -172,6 +173,53 @@ export interface NodeConversationContextPlan {
 }
 
 export interface PlanNodeConversationContextArgs extends PlanChainContextArgs {}
+
+export function materializeContextRepresentations(
+  projection: ConversationNode[],
+  representations: ContextRepresentation[],
+): RequestMessage[] {
+  const nodesById = new Map(projection.map((node) => [node.id, node]));
+  const projectionOrder = new Map(
+    projection.map((node, index) => [node.id, index]),
+  );
+  return representations
+    .map((representation) => {
+      const endpointId =
+        representation.kind === "raw"
+          ? representation.nodeId
+          : representation.sourceNodeIds.at(-1);
+      const order = endpointId ? projectionOrder.get(endpointId) : undefined;
+      if (order === undefined) return;
+      if (representation.kind === "raw") {
+        const node = nodesById.get(representation.nodeId);
+        if (!node) return;
+        return {
+          order,
+          message: {
+            role: node.role,
+            content: node.hidden ? "" : node.content,
+          } satisfies RequestMessage,
+        };
+      }
+      return {
+        order,
+        message: {
+          role: "assistant" as const,
+          content: representation.content,
+        } satisfies RequestMessage,
+      };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        order: number;
+        message: RequestMessage;
+      } => Boolean(item),
+    )
+    .sort((left, right) => left.order - right.order)
+    .map((item) => item.message);
+}
 
 export function partitionProjectionIntoOutlineChains(
   projection: ConversationNode[],
@@ -1002,7 +1050,12 @@ function buildChainContextEdges(
       const summary = owner.nodeSummaries?.[kind];
       if (!summary) continue;
       const evaluation = evaluateNodeSummary(owner, kind, summary, allChains);
-      if (!evaluation.structurallyEligible || !evaluation.freshness) continue;
+      if (
+        !evaluation.structurallyEligible ||
+        !evaluation.freshness ||
+        evaluation.sourceNodes.some((node) => node.hidden)
+      )
+        continue;
       const start = positions.get(evaluation.sourceNodes[0].id);
       const end = positions.get(evaluation.sourceNodes.at(-1)!.id);
       if (start === undefined || end === undefined || end >= nodeCount)

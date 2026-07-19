@@ -43,8 +43,10 @@ import {
 import {
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
+  materializeContextRepresentations,
   partitionProjectionIntoOutlineChains,
   planCheckpointMaintenance,
+  planNodeConversationContext,
   planSegmentMaintenance,
 } from "../utils/node-summary";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
@@ -64,6 +66,7 @@ import {
   insertConversationNode,
   insertProjectedConversationNode,
   projectActiveConversation,
+  projectConversationContextToCursor,
   projectConversationToCursor,
   remapConversationNodes,
   setActiveConversationBranch,
@@ -1026,10 +1029,14 @@ export const useChatStore = createPersistStore(
         ];
         const current = get().sessions.find((item) => item.id === session.id);
         if (!current) throw new Error("Chat session no longer exists");
-        const projection = createContextProjection(
-          getSessionMessagesToCursor(current),
+        const currentInputId =
+          currentInput && "id" in currentInput
+            ? String(currentInput.id)
+            : undefined;
+        const projection = projectConversationContextToCursor(
+          current,
           current.contextBoundaryAfterMessageId,
-        );
+        ).filter((node) => node.id !== currentInputId);
         const inputBudget = getContextInputBudget(
           modelConfig.contextWindowTokens,
           modelConfig.max_tokens,
@@ -1050,27 +1057,27 @@ export const useChatStore = createPersistStore(
           0,
           inputBudget - fixedTokenCount - currentInputTokenCount,
         );
-        const selectedMessages: ConversationNode[] = [];
-        let selectedTokens = 0;
-        for (
-          let index = projection.entries.length - 1;
-          index >= 0;
-          index -= 1
-        ) {
-          const item = projection.entries[index];
-          const itemTokens = estimateRequestMessageTokens(item);
-          if (selectedTokens + itemTokens > availableHistoryTokens) break;
-          selectedMessages.unshift(item);
-          selectedTokens += itemTokens;
-        }
+        const planningProjection = modelConfig.sendMemory
+          ? projection
+          : projection.map((node) => ({
+              ...node,
+              nodeSummaries: undefined,
+            }));
+        const plan = planNodeConversationContext({
+          projection: planningProjection,
+          recentRawNodeCount: modelConfig.recentRawNodeCount,
+          availableTokens: availableHistoryTokens,
+        });
+        const selectedMessages = materializeContextRepresentations(
+          planningProjection,
+          plan.representations,
+        );
 
         return [
           ...systemPrompts,
           ...globalMemoryPrompts,
           ...contextPrompts,
-          ...selectedMessages.map((item) =>
-            item.hidden ? { ...item, content: "" } : item,
-          ),
+          ...selectedMessages,
         ];
       },
 

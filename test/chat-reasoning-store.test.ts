@@ -25,10 +25,7 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
-import {
-  ConversationSummary,
-  createSummarySourceDigest,
-} from "../app/utils/context-compression";
+import { createSummarySourceDigest } from "../app/utils/context-compression";
 import {
   createNodeSummarySourceDigest,
   toLevelOneConversationNodes,
@@ -143,6 +140,7 @@ describe("chat store derived state", () => {
       "pinned",
       "root",
       "active branch",
+      "continuation",
     ]);
   });
 
@@ -859,6 +857,79 @@ describe("chat store derived state", () => {
     ).resolves.toEqual([
       expect.objectContaining({ content: "recent question" }),
       expect.objectContaining({ content: "recent answer" }),
+    ]);
+    expect(apiMocks.chat).not.toHaveBeenCalled();
+  });
+
+  test("sends a compound segment plus the forced recent raw suffix", async () => {
+    const session = setSession(
+      [
+        message("user", "old question ".repeat(400)),
+        message("assistant", "old answer ".repeat(400)),
+        message("user", "recent question"),
+        message("assistant", "recent answer"),
+      ],
+      {
+        sendMemory: true,
+        recentRawNodeCount: 2,
+        contextWindowTokens: 1_024,
+        max_tokens: 128,
+      },
+    );
+    const oldSources = session.messages.slice(0, 2);
+    oldSources[1].nodeSummaries = {
+      segment: {
+        content: "compact old history",
+        sourceNodeIds: oldSources.map((item) => item.id),
+        sourceDigest: createNodeSummarySourceDigest(oldSources),
+        provenance: "generated",
+      },
+    };
+
+    const history = await useChatStore
+      .getState()
+      .getMessagesWithMemory(message("user", "current question"));
+
+    expect(history.map(getMessageTextContent)).toEqual([
+      "compact old history",
+      "recent question",
+      "recent answer",
+    ]);
+    expect(history.map((item) => item.role)).toEqual([
+      "assistant",
+      "user",
+      "assistant",
+    ]);
+  });
+
+  test("can use a structurally valid stale node summary without waiting", async () => {
+    const session = setSession(
+      [
+        message("user", "old question ".repeat(400)),
+        message("assistant", "old answer ".repeat(400)),
+      ],
+      {
+        sendMemory: true,
+        recentRawNodeCount: 0,
+        contextWindowTokens: 1_024,
+        max_tokens: 128,
+      },
+    );
+    session.messages[1].nodeSummaries = {
+      segment: {
+        content: "stale but available",
+        sourceNodeIds: session.messages.map((item) => item.id),
+        sourceDigest: "stale",
+        provenance: "generated",
+      },
+    };
+
+    await expect(
+      useChatStore
+        .getState()
+        .getMessagesWithMemory(message("user", "current question")),
+    ).resolves.toEqual([
+      { role: "assistant", content: "stale but available" },
     ]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });

@@ -9,6 +9,7 @@ import {
   createNodeSummaryRuntimeCache,
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
+  materializeContextRepresentations,
   partitionProjectionIntoOutlineChains,
   planChainContextFrontiers,
   planCheckpointMaintenance,
@@ -1050,6 +1051,33 @@ describe("node summary planning", () => {
     expect(
       plan.representations.map((representation) => representation.kind),
     ).toEqual(["segment", "segment"]);
+  });
+
+  test("materializes summaries as historical assistant output in projection order", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "raw a"),
+      node("b", 2, "a", "user", "raw b"),
+      node("c", 2, "b", "assistant", "raw c"),
+      node("d", 1, "a", "assistant", "raw d"),
+    ];
+
+    expect(
+      materializeContextRepresentations(projection, [
+        { kind: "raw", nodeId: "d" },
+        {
+          kind: "segment",
+          ownerNodeId: "c",
+          sourceNodeIds: ["b", "c"],
+          content: "segment b-c",
+          freshness: "fresh",
+        },
+        { kind: "raw", nodeId: "a" },
+      ]),
+    ).toEqual([
+      { role: "user", content: "raw a" },
+      { role: "assistant", content: "segment b-c" },
+      { role: "assistant", content: "raw d" },
+    ]);
   });
 
   test("matches an exhaustive small multi-chain combination oracle", () => {

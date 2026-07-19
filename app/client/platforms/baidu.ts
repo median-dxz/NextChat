@@ -101,9 +101,7 @@ export class ErnieApi implements LLMApi {
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
+      ...options.config,
     };
 
     const shouldStream = !!options.config.stream;
