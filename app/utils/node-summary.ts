@@ -67,6 +67,35 @@ export interface PlanSegmentMaintenanceArgs {
   cache?: NodeSummaryRuntimeCache;
 }
 
+export interface CheckpointGenerationInput {
+  kind: "segment" | "checkpoint";
+  ownerNodeId: string;
+  content: string;
+  tokens: number;
+  snapshot: string;
+}
+
+export interface CheckpointMaintenancePlan {
+  action: "create" | "refresh";
+  chainRootId: string;
+  ownerNodeId: string;
+  sourceNodeIds: string[];
+  sourceDigest: string;
+  sourceNodes: ConversationNode[];
+  inputs: CheckpointGenerationInput[];
+  expectedSummary?: NodeSummary;
+}
+
+export interface PlanCheckpointMaintenanceArgs {
+  projection: ConversationNode[];
+  targetId: string;
+  targetSegments: number;
+  mergeTokenTarget: number;
+  inputBudget: number;
+  force?: boolean;
+  cache?: NodeSummaryRuntimeCache;
+}
+
 export function partitionProjectionIntoOutlineChains(
   projection: ConversationNode[],
 ): OutlineChain[] {
@@ -436,6 +465,222 @@ export function planSegmentMaintenance(
     targetChain,
     sourceNodes,
     target,
+    args.inputBudget,
+    cache,
+  );
+}
+
+interface CheckpointCandidate {
+  end: number;
+  owner: ConversationNode;
+  summary: NodeSummary;
+  evaluation: NodeSummaryEvaluation;
+}
+
+function summaryInputSnapshot(summary: NodeSummary) {
+  return JSON.stringify([
+    summary.content,
+    summary.sourceNodeIds,
+    summary.sourceDigest,
+    summary.provenance,
+  ]);
+}
+
+function collectCheckpointCandidates(
+  chain: OutlineChain,
+  chains: OutlineChain[],
+) {
+  const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
+  return chain.nodes.flatMap((owner): CheckpointCandidate[] => {
+    const summary = owner.nodeSummaries?.checkpoint;
+    if (!summary) return [];
+    const evaluation = evaluateNodeSummary(
+      owner,
+      "checkpoint",
+      summary,
+      chains,
+    );
+    if (!evaluation.structurallyEligible) return [];
+    return [
+      {
+        end: positions.get(owner.id)!,
+        owner,
+        summary,
+        evaluation,
+      },
+    ];
+  });
+}
+
+function collectFreshSegmentsForRange(
+  intervals: SegmentInterval[],
+  start: number,
+  end: number,
+) {
+  const selected: SegmentInterval[] = [];
+  let cursor = start;
+  for (const interval of intervals) {
+    if (interval.end < start) continue;
+    if (interval.start !== cursor || interval.end > end) return;
+    if (interval.evaluation.freshness !== "fresh") return;
+    selected.push(interval);
+    cursor = interval.end + 1;
+    if (cursor === end + 1) break;
+  }
+  return cursor === end + 1 ? selected : undefined;
+}
+
+function createCheckpointPlan(
+  action: CheckpointMaintenancePlan["action"],
+  targetChain: OutlineChain,
+  ownerIndex: number,
+  base: CheckpointCandidate | undefined,
+  segments: SegmentInterval[],
+  inputBudget: number,
+  cache: NodeSummaryRuntimeCache,
+  expectedSummary?: NodeSummary,
+): CheckpointMaintenancePlan | undefined {
+  const inputs: CheckpointGenerationInput[] = [];
+  if (base) {
+    inputs.push({
+      kind: "checkpoint",
+      ownerNodeId: base.owner.id,
+      content: base.summary.content,
+      tokens: cache.getSummaryTokens(base.summary.content),
+      snapshot: summaryInputSnapshot(base.summary),
+    });
+  }
+  for (const segment of segments) {
+    inputs.push({
+      kind: "segment",
+      ownerNodeId: segment.owner.id,
+      content: segment.summary.content,
+      tokens: cache.getSummaryTokens(segment.summary.content),
+      snapshot: summaryInputSnapshot(segment.summary),
+    });
+  }
+  if (
+    inputs.length === 0 ||
+    inputs.reduce((tokens, input) => tokens + input.tokens, 0) > inputBudget
+  ) {
+    return;
+  }
+  const sourceNodes = targetChain.nodes.slice(0, ownerIndex + 1);
+  return {
+    action,
+    chainRootId: targetChain.nodes[0].id,
+    ownerNodeId: targetChain.nodes[ownerIndex].id,
+    sourceNodeIds: sourceNodes.map((node) => node.id),
+    sourceDigest: cache.getSourceDigest(sourceNodes),
+    sourceNodes,
+    inputs,
+    expectedSummary: expectedSummary
+      ? {
+          ...expectedSummary,
+          sourceNodeIds: expectedSummary.sourceNodeIds.slice(),
+        }
+      : undefined,
+  };
+}
+
+export function planCheckpointMaintenance(
+  args: PlanCheckpointMaintenanceArgs,
+): CheckpointMaintenancePlan | undefined {
+  const target = args.projection.find((node) => node.id === args.targetId);
+  if (!target || target.role !== "assistant") return;
+  const chains = partitionProjectionIntoOutlineChains(args.projection);
+  const targetChain = chains.find((chain) =>
+    chain.nodes.some((node) => node.id === target.id),
+  );
+  if (!targetChain) return;
+  const targetIndex = targetChain.nodes.findIndex(
+    (node) => node.id === target.id,
+  );
+  const cache = args.cache ?? createNodeSummaryRuntimeCache();
+  const segments = collectSegmentIntervals(targetChain, chains)
+    .filter((interval) => interval.end <= targetIndex)
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+  const checkpoints = collectCheckpointCandidates(targetChain, chains)
+    .filter((checkpoint) => checkpoint.end <= targetIndex)
+    .sort((left, right) => left.end - right.end);
+
+  const forcedSummary = args.force
+    ? target.nodeSummaries?.checkpoint
+    : undefined;
+  const staleGenerated = checkpoints.find(
+    (checkpoint) =>
+      checkpoint.summary.provenance === "generated" &&
+      checkpoint.evaluation.freshness === "stale",
+  );
+  const forcedCheckpoint = forcedSummary
+    ? {
+        end: targetIndex,
+        owner: target,
+        summary: forcedSummary,
+      }
+    : undefined;
+  const refresh = forcedCheckpoint ?? staleGenerated;
+  if (refresh) {
+    const base = checkpoints
+      .filter(
+        (checkpoint) =>
+          checkpoint.end < refresh.end &&
+          checkpoint.evaluation.freshness === "fresh",
+      )
+      .at(-1);
+    const rangeSegments = collectFreshSegmentsForRange(
+      segments,
+      (base?.end ?? -1) + 1,
+      refresh.end,
+    );
+    if (!rangeSegments) return;
+    return createCheckpointPlan(
+      "refresh",
+      targetChain,
+      refresh.end,
+      base,
+      rangeSegments,
+      args.inputBudget,
+      cache,
+      refresh.summary,
+    );
+  }
+
+  const base = checkpoints
+    .filter((checkpoint) => checkpoint.evaluation.freshness === "fresh")
+    .at(-1);
+  const start = (base?.end ?? -1) + 1;
+  const availableSegments = segments.filter((segment) => segment.end >= start);
+  if (availableSegments.length === 0) return;
+  let cursor = start;
+  const continuous: SegmentInterval[] = [];
+  for (const segment of availableSegments) {
+    if (segment.start !== cursor || segment.evaluation.freshness !== "fresh") {
+      return;
+    }
+    continuous.push(segment);
+    cursor = segment.end + 1;
+  }
+  const ownerIndex = continuous.at(-1)!.end;
+  const owner = targetChain.nodes[ownerIndex];
+  if (owner.nodeSummaries?.checkpoint) return;
+  const inputTokens =
+    (base ? cache.getSummaryTokens(base.summary.content) : 0) +
+    continuous.reduce(
+      (tokens, segment) =>
+        tokens + cache.getSummaryTokens(segment.summary.content),
+      0,
+    );
+  const thresholdReached =
+    continuous.length >= Math.max(1, args.targetSegments) ||
+    inputTokens >= Math.max(0, args.mergeTokenTarget);
+  if (!args.force && !thresholdReached) return;
+  return createCheckpointPlan(
+    "create",
+    targetChain,
+    ownerIndex,
+    base,
+    continuous,
     args.inputBudget,
     cache,
   );

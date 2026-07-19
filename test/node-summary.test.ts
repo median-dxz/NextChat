@@ -5,6 +5,7 @@ import {
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
   partitionProjectionIntoOutlineChains,
+  planCheckpointMaintenance,
   planSegmentMaintenance,
 } from "../app/utils/node-summary";
 
@@ -308,5 +309,278 @@ describe("node summary planning", () => {
     expect(plan.background.filter((item) => item.kind === "segment")).toEqual(
       [],
     );
+  });
+
+  test("creates the first checkpoint from fresh segments with full-prefix coverage", () => {
+    const projection = [
+      node("a", 1, undefined, "user"),
+      node("b", 1, "a", "assistant"),
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "segment one",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+        provenance: "generated",
+      },
+    };
+    projection[3].nodeSummaries = {
+      segment: {
+        content: "segment two",
+        sourceNodeIds: ["c", "d"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(2, 4)),
+        provenance: "generated",
+      },
+    };
+
+    const plan = planCheckpointMaintenance({
+      projection,
+      targetId: "d",
+      targetSegments: 2,
+      mergeTokenTarget: 100_000,
+      inputBudget: 10_000,
+    })!;
+
+    expect(plan.ownerNodeId).toBe("d");
+    expect(plan.sourceNodeIds).toEqual(["a", "b", "c", "d"]);
+    expect(plan.inputs.map((input) => [input.kind, input.ownerNodeId])).toEqual(
+      [
+        ["segment", "b"],
+        ["segment", "d"],
+      ],
+    );
+  });
+
+  test("extends the latest fresh checkpoint with only later fresh segments", () => {
+    const projection = [
+      node("a", 1, undefined, "user"),
+      node("b", 1, "a", "assistant"),
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
+      node("e", 1, "d", "user"),
+      node("f", 1, "e", "assistant"),
+    ];
+    for (const [start, end] of [
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ]) {
+      projection[end].nodeSummaries = {
+        segment: {
+          content: `segment ${end}`,
+          sourceNodeIds: projection
+            .slice(start, end + 1)
+            .map((item) => item.id),
+          sourceDigest: createNodeSummarySourceDigest(
+            projection.slice(start, end + 1),
+          ),
+          provenance: "generated",
+        },
+      };
+    }
+    projection[3].nodeSummaries!.checkpoint = {
+      content: "checkpoint through d",
+      sourceNodeIds: ["a", "b", "c", "d"],
+      sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 4)),
+      provenance: "generated",
+    };
+
+    const plan = planCheckpointMaintenance({
+      projection,
+      targetId: "f",
+      targetSegments: 1,
+      mergeTokenTarget: 100_000,
+      inputBudget: 10_000,
+    })!;
+
+    expect(plan.sourceNodeIds).toEqual(projection.map((item) => item.id));
+    expect(plan.inputs.map((input) => [input.kind, input.ownerNodeId])).toEqual(
+      [
+        ["checkpoint", "d"],
+        ["segment", "f"],
+      ],
+    );
+  });
+
+  test("triggers checkpoint maintenance on either merge threshold", () => {
+    const projection = [
+      node("a", 1, undefined, "user"),
+      node("b", 1, "a", "assistant"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "segment input",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection),
+        provenance: "generated",
+      },
+    };
+    const base = {
+      projection,
+      targetId: "b",
+      inputBudget: 10_000,
+    };
+
+    expect(
+      planCheckpointMaintenance({
+        ...base,
+        targetSegments: 1,
+        mergeTokenTarget: 100_000,
+      }),
+    ).toBeDefined();
+    expect(
+      planCheckpointMaintenance({
+        ...base,
+        targetSegments: 100,
+        mergeTokenTarget: 0,
+      }),
+    ).toBeDefined();
+    expect(
+      planCheckpointMaintenance({
+        ...base,
+        targetSegments: 100,
+        mergeTokenTarget: 100_000,
+      }),
+    ).toBeUndefined();
+  });
+
+  test("rejects stale, structurally invalid, gapped, and oversized checkpoint inputs", () => {
+    const projection = [
+      node("a", 1, undefined, "user"),
+      node("b", 1, "a", "assistant"),
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "stale segment",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: "stale",
+        provenance: "generated",
+      },
+    };
+    projection[3].nodeSummaries = {
+      segment: {
+        content: "fresh segment",
+        sourceNodeIds: ["c", "d"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(2)),
+        provenance: "generated",
+      },
+    };
+    const args = {
+      projection,
+      targetId: "d",
+      targetSegments: 1,
+      mergeTokenTarget: 0,
+      inputBudget: 10_000,
+    };
+    expect(planCheckpointMaintenance(args)).toBeUndefined();
+
+    projection[1].nodeSummaries!.segment = {
+      content: "invalid segment",
+      sourceNodeIds: ["a", "d"],
+      sourceDigest: createNodeSummarySourceDigest([
+        projection[0],
+        projection[3],
+      ]),
+      provenance: "generated",
+    };
+    expect(planCheckpointMaintenance(args)).toBeUndefined();
+
+    projection[1].nodeSummaries!.segment = {
+      content: "fresh segment",
+      sourceNodeIds: ["a", "b"],
+      sourceDigest: createNodeSummarySourceDigest(projection.slice(0, 2)),
+      provenance: "generated",
+    };
+    expect(
+      planCheckpointMaintenance({ ...args, inputBudget: 1 }),
+    ).toBeUndefined();
+  });
+
+  test("refreshes stale generated checkpoints and protects user edits", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "new source"),
+      node("b", 1, "a", "assistant"),
+    ];
+    projection[1].nodeSummaries = {
+      segment: {
+        content: "fresh segment",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest(projection),
+        provenance: "generated",
+      },
+      checkpoint: {
+        content: "old checkpoint",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: "stale",
+        provenance: "generated",
+      },
+    };
+    const args = {
+      projection,
+      targetId: "b",
+      targetSegments: 100,
+      mergeTokenTarget: 100_000,
+      inputBudget: 10_000,
+    };
+    expect(planCheckpointMaintenance(args)).toEqual(
+      expect.objectContaining({ action: "refresh", ownerNodeId: "b" }),
+    );
+
+    projection[1].nodeSummaries!.checkpoint!.provenance = "user-edited";
+    expect(planCheckpointMaintenance(args)).toBeUndefined();
+    expect(planCheckpointMaintenance({ ...args, force: true })).toEqual(
+      expect.objectContaining({ action: "refresh", ownerNodeId: "b" }),
+    );
+  });
+
+  test("ignores an older stale checkpoint when building a new automatic one", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "edited root"),
+      node("b", 1, "a", "assistant"),
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
+      node("e", 1, "d", "user"),
+      node("f", 1, "e", "assistant"),
+    ];
+    for (const [start, end] of [
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ]) {
+      projection[end].nodeSummaries = {
+        segment: {
+          content: `fresh segment ${end}`,
+          sourceNodeIds: projection
+            .slice(start, end + 1)
+            .map((item) => item.id),
+          sourceDigest: createNodeSummarySourceDigest(
+            projection.slice(start, end + 1),
+          ),
+          provenance: "generated",
+        },
+      };
+    }
+    projection[1].nodeSummaries!.checkpoint = {
+      content: "stale manual checkpoint",
+      sourceNodeIds: ["a", "b"],
+      sourceDigest: "stale",
+      provenance: "user-edited",
+    };
+
+    const plan = planCheckpointMaintenance({
+      projection,
+      targetId: "f",
+      targetSegments: 2,
+      mergeTokenTarget: 100_000,
+      inputBudget: 10_000,
+    })!;
+
+    expect(plan.ownerNodeId).toBe("f");
+    expect(plan.sourceNodeIds).toEqual(projection.map((item) => item.id));
+    expect(plan.inputs.every((input) => input.kind === "segment")).toBe(true);
   });
 });

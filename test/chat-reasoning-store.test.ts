@@ -454,15 +454,15 @@ describe("chat store derived state", () => {
     expect(retried.rootNodeId).toBe(replacementUser.id);
   });
 
-  test("generates a node summary once and binds it to the assistant", async () => {
+  test("coalesces summary maintenance and stores segment and checkpoint together", async () => {
     const session = setSession([
       message("user", "question"),
       message("assistant", "answer"),
     ]);
     const assistantId = session.messages[1].id;
-    let finish: ((message: string, response: Response) => void) | undefined;
+    const finishes: Array<(message: string, response: Response) => void> = [];
     apiMocks.chat.mockImplementation((options) => {
-      finish = options.onFinish;
+      finishes.push(options.onFinish);
     });
 
     const first = useChatStore
@@ -472,7 +472,9 @@ describe("chat store derived state", () => {
       .getState()
       .generateNodeSummary(session.id, assistantId, true);
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
-    finish?.("compact answer", new Response(null, { status: 200 }));
+    finishes[0]("compact answer", new Response(null, { status: 200 }));
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(2));
+    finishes[1]("compact history", new Response(null, { status: 200 }));
     await Promise.all([first, second]);
 
     const assistant = useChatStore
@@ -488,6 +490,14 @@ describe("chat store derived state", () => {
         provenance: "generated",
       }),
     );
+    expect(assistant.nodeSummaries?.checkpoint).toEqual(
+      expect.objectContaining({
+        content: "compact history",
+        sourceNodeIds: session.messages.map((item) => item.id),
+        sourceDigest: expect.any(String),
+        provenance: "generated",
+      }),
+    );
   });
 
   test("does not block sending or overwrite an edit made during generation", async () => {
@@ -496,9 +506,9 @@ describe("chat store derived state", () => {
       message("assistant", "answer"),
     ]);
     const assistantId = session.messages[1].id;
-    let finish: ((message: string, response: Response) => void) | undefined;
+    const finishes: Array<(message: string, response: Response) => void> = [];
     apiMocks.chat.mockImplementation((options) => {
-      finish = options.onFinish;
+      finishes.push(options.onFinish);
     });
 
     const generating = useChatStore
@@ -523,7 +533,9 @@ describe("chat store derived state", () => {
         },
       };
     });
-    finish?.("late generated summary", new Response(null, { status: 200 }));
+    finishes[0]("late generated summary", new Response(null, { status: 200 }));
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(2));
+    finishes[1]("checkpoint", new Response(null, { status: 200 }));
     await generating;
 
     expect(
@@ -535,6 +547,52 @@ describe("chat store derived state", () => {
     ).toEqual(
       expect.objectContaining({
         content: "manual summary",
+        provenance: "user-edited",
+      }),
+    );
+  });
+
+  test("does not overwrite a checkpoint edited during generation", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    const assistantId = session.messages[1].id;
+    const finishes: Array<(message: string, response: Response) => void> = [];
+    apiMocks.chat.mockImplementation((options) => {
+      finishes.push(options.onFinish);
+    });
+
+    const generating = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, assistantId, true);
+    await vi.waitFor(() => expect(finishes).toHaveLength(1));
+    finishes[0]("segment", new Response(null, { status: 200 }));
+    await vi.waitFor(() => expect(finishes).toHaveLength(2));
+
+    const current = useChatStore.getState().currentSession();
+    useChatStore.getState().updateTargetSession(current, (draft) => {
+      const assistant = draft.messages.find((item) => item.id === assistantId)!;
+      assistant.nodeSummaries ??= {};
+      assistant.nodeSummaries.checkpoint = {
+        content: "manual checkpoint",
+        sourceNodeIds: draft.messages.map((item) => item.id),
+        sourceDigest: createNodeSummarySourceDigest(draft.messages),
+        provenance: "user-edited",
+      };
+    });
+    finishes[1]("late checkpoint", new Response(null, { status: 200 }));
+    await generating;
+
+    expect(
+      useChatStore
+        .getState()
+        .currentSession()
+        .messages.find((item) => item.id === assistantId)?.nodeSummaries
+        ?.checkpoint,
+    ).toEqual(
+      expect.objectContaining({
+        content: "manual checkpoint",
         provenance: "user-edited",
       }),
     );

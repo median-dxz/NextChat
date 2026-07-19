@@ -44,6 +44,7 @@ import {
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
   partitionProjectionIntoOutlineChains,
+  planCheckpointMaintenance,
   planSegmentMaintenance,
 } from "../utils/node-summary";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
@@ -1206,122 +1207,234 @@ export const useChatStore = createPersistStore(
             ...session,
             activeCursorId: node.id,
           });
+          const inputBudget = getContextInputBudget(
+            modelConfig.contextWindowTokens,
+            modelConfig.max_tokens,
+          );
           const plan = planSegmentMaintenance({
             projection,
             targetId: node.id,
             sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
             maxSourceNodes: modelConfig.segmentMaxSourceNodes,
-            inputBudget: getContextInputBudget(
-              modelConfig.contextWindowTokens,
-              modelConfig.max_tokens,
-            ),
+            inputBudget,
             force,
           });
-          if (!plan) return;
-
           const [model, providerName] = modelConfig.compressModel
             ? [modelConfig.compressModel, modelConfig.compressProviderName]
             : getSummarizeModel(modelConfig.model, modelConfig.providerName);
-          const content = await requestSummary(
-            getClientApi(providerName as ServiceProvider),
-            [
-              ...plan.background.map((background) =>
-                background.kind === "segment"
-                  ? createMessage({
-                      role: "assistant",
-                      content: background.content ?? "",
-                      date: "",
-                    })
-                  : background.node!.hidden
-                    ? { ...background.node!, content: "" }
-                    : background.node!,
-              ),
-              ...plan.sourceNodes.map((input) =>
-                input.hidden ? { ...input, content: "" } : input,
-              ),
-            ],
+          const api = getClientApi(providerName as ServiceProvider);
+          if (plan) {
+            const content = await requestSummary(
+              api,
+              [
+                ...plan.background.map((background) =>
+                  background.kind === "segment"
+                    ? createMessage({
+                        role: "assistant",
+                        content: background.content ?? "",
+                        date: "",
+                      })
+                    : background.node!.hidden
+                      ? { ...background.node!, content: "" }
+                      : background.node!,
+                ),
+                ...plan.sourceNodes.map((input) =>
+                  input.hidden ? { ...input, content: "" } : input,
+                ),
+              ],
+              modelConfig,
+              model,
+              providerName,
+            );
+
+            const current = get().sessions.find(
+              (item) => item.id === sessionId,
+            );
+            if (!current) return;
+            get().updateTargetSession(current, (draft) => {
+              const currentProjection = projectConversationToCursor({
+                ...draft,
+                activeCursorId: plan.ownerNodeId,
+              });
+              const target = currentProjection.find(
+                (item) => item.id === plan.ownerNodeId,
+              );
+              if (!target || target.role !== "assistant") return;
+              const sourcesById = new Map(
+                currentProjection.map((item) => [item.id, item]),
+              );
+              const sourceNodes = plan.sourceNodeIds
+                .map((id) => sourcesById.get(id))
+                .filter((item): item is ConversationNode => Boolean(item));
+              if (sourceNodes.length !== plan.sourceNodeIds.length) return;
+              const sourceDigest = createNodeSummarySourceDigest(sourceNodes);
+              if (sourceDigest !== plan.sourceDigest) return;
+              const currentSummary = target.nodeSummaries?.segment;
+              if (
+                plan.expectedSummary
+                  ? !isSameNodeSummary(currentSummary, plan.expectedSummary)
+                  : Boolean(currentSummary)
+              ) {
+                return;
+              }
+              const currentChains =
+                partitionProjectionIntoOutlineChains(currentProjection);
+              const backgroundStillCurrent = plan.background.every(
+                (background) => {
+                  const currentNode = currentProjection.find(
+                    (item) => item.id === background.endpointNodeId,
+                  );
+                  if (!currentNode) return false;
+                  if (background.kind === "raw") {
+                    return (
+                      createNodeSummarySourceDigest([currentNode]) ===
+                      background.snapshot
+                    );
+                  }
+                  const summary = currentNode.nodeSummaries?.segment;
+                  if (!summary) return false;
+                  const snapshot = JSON.stringify([
+                    summary.content,
+                    summary.sourceNodeIds,
+                    summary.sourceDigest,
+                    summary.provenance,
+                  ]);
+                  return (
+                    snapshot === background.snapshot &&
+                    evaluateNodeSummary(
+                      currentNode,
+                      "segment",
+                      summary,
+                      currentChains,
+                    ).freshness === "fresh"
+                  );
+                },
+              );
+              if (!backgroundStillCurrent) return;
+              const candidate = {
+                content,
+                sourceNodeIds: plan.sourceNodeIds,
+                sourceDigest,
+                provenance: "generated" as const,
+              };
+              const evaluation = evaluateNodeSummary(
+                target,
+                "segment",
+                candidate,
+                currentChains,
+              );
+              if (!evaluation.structurallyEligible) return;
+              target.nodeSummaries ??= {};
+              target.nodeSummaries.segment = candidate;
+            });
+          }
+
+          const checkpointSession = get().sessions.find(
+            (item) => item.id === sessionId,
+          );
+          const checkpointTarget = checkpointSession?.messages.find(
+            (item) => item.id === nodeId,
+          );
+          if (!checkpointSession || !checkpointTarget) return;
+          const checkpointProjection = projectConversationToCursor({
+            ...checkpointSession,
+            activeCursorId: checkpointTarget.id,
+          });
+          const checkpointPlan = planCheckpointMaintenance({
+            projection: checkpointProjection,
+            targetId: checkpointTarget.id,
+            targetSegments: modelConfig.checkpointTargetSegments,
+            mergeTokenTarget: modelConfig.checkpointMergeTargetTokens,
+            inputBudget,
+            force,
+          });
+          if (!checkpointPlan) return;
+          const checkpointContent = await requestSummary(
+            api,
+            checkpointPlan.inputs.map((input) =>
+              createMessage({
+                role: "assistant",
+                content: input.content,
+                date: "",
+              }),
+            ),
             modelConfig,
             model,
             providerName,
           );
 
-          const current = get().sessions.find((item) => item.id === sessionId);
-          if (!current) return;
-          get().updateTargetSession(current, (draft) => {
+          const latest = get().sessions.find((item) => item.id === sessionId);
+          if (!latest) return;
+          get().updateTargetSession(latest, (draft) => {
             const currentProjection = projectConversationToCursor({
               ...draft,
-              activeCursorId: plan.ownerNodeId,
+              activeCursorId: checkpointPlan.ownerNodeId,
             });
             const target = currentProjection.find(
-              (item) => item.id === plan.ownerNodeId,
+              (item) => item.id === checkpointPlan.ownerNodeId,
             );
             if (!target || target.role !== "assistant") return;
             const sourcesById = new Map(
               currentProjection.map((item) => [item.id, item]),
             );
-            const sourceNodes = plan.sourceNodeIds
+            const sourceNodes = checkpointPlan.sourceNodeIds
               .map((id) => sourcesById.get(id))
               .filter((item): item is ConversationNode => Boolean(item));
-            if (sourceNodes.length !== plan.sourceNodeIds.length) return;
+            if (sourceNodes.length !== checkpointPlan.sourceNodeIds.length) {
+              return;
+            }
             const sourceDigest = createNodeSummarySourceDigest(sourceNodes);
-            if (sourceDigest !== plan.sourceDigest) return;
-            const currentSummary = target.nodeSummaries?.segment;
+            if (sourceDigest !== checkpointPlan.sourceDigest) return;
+            const currentSummary = target.nodeSummaries?.checkpoint;
             if (
-              plan.expectedSummary
-                ? !isSameNodeSummary(currentSummary, plan.expectedSummary)
+              checkpointPlan.expectedSummary
+                ? !isSameNodeSummary(
+                    currentSummary,
+                    checkpointPlan.expectedSummary,
+                  )
                 : Boolean(currentSummary)
             ) {
               return;
             }
             const currentChains =
               partitionProjectionIntoOutlineChains(currentProjection);
-            const backgroundStillCurrent = plan.background.every(
-              (background) => {
-                const currentNode = currentProjection.find(
-                  (item) => item.id === background.endpointNodeId,
-                );
-                if (!currentNode) return false;
-                if (background.kind === "raw") {
-                  return (
-                    createNodeSummarySourceDigest([currentNode]) ===
-                    background.snapshot
-                  );
-                }
-                const summary = currentNode.nodeSummaries?.segment;
-                if (!summary) return false;
-                const snapshot = JSON.stringify([
-                  summary.content,
-                  summary.sourceNodeIds,
-                  summary.sourceDigest,
-                  summary.provenance,
-                ]);
-                return (
-                  snapshot === background.snapshot &&
-                  evaluateNodeSummary(
-                    currentNode,
-                    "segment",
-                    summary,
-                    currentChains,
-                  ).freshness === "fresh"
-                );
-              },
-            );
-            if (!backgroundStillCurrent) return;
+            const inputsStillCurrent = checkpointPlan.inputs.every((input) => {
+              const owner = currentProjection.find(
+                (item) => item.id === input.ownerNodeId,
+              );
+              const summary = owner?.nodeSummaries?.[input.kind];
+              if (!owner || !summary) return false;
+              const snapshot = JSON.stringify([
+                summary.content,
+                summary.sourceNodeIds,
+                summary.sourceDigest,
+                summary.provenance,
+              ]);
+              return (
+                snapshot === input.snapshot &&
+                evaluateNodeSummary(owner, input.kind, summary, currentChains)
+                  .freshness === "fresh"
+              );
+            });
+            if (!inputsStillCurrent) return;
             const candidate = {
-              content,
-              sourceNodeIds: plan.sourceNodeIds,
+              content: checkpointContent,
+              sourceNodeIds: checkpointPlan.sourceNodeIds,
               sourceDigest,
               provenance: "generated" as const,
             };
-            const evaluation = evaluateNodeSummary(
-              target,
-              "segment",
-              candidate,
-              currentChains,
-            );
-            if (!evaluation.structurallyEligible) return;
+            if (
+              !evaluateNodeSummary(
+                target,
+                "checkpoint",
+                candidate,
+                currentChains,
+              ).structurallyEligible
+            ) {
+              return;
+            }
             target.nodeSummaries ??= {};
-            target.nodeSummaries.segment = candidate;
+            target.nodeSummaries.checkpoint = candidate;
           });
         };
         const previous = pending?.promise ?? Promise.resolve();
