@@ -29,7 +29,10 @@ import {
   ConversationSummary,
   createSummarySourceDigest,
 } from "../app/utils/context-compression";
-import { toLevelOneConversationNodes } from "../app/utils/conversation-graph";
+import {
+  createNodeSummarySourceDigest,
+  toLevelOneConversationNodes,
+} from "../app/utils/conversation-graph";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -464,11 +467,11 @@ describe("chat store derived state", () => {
 
     const first = useChatStore
       .getState()
-      .generateNodeSummary(session.id, assistantId);
+      .generateNodeSummary(session.id, assistantId, true);
     const second = useChatStore
       .getState()
-      .generateNodeSummary(session.id, assistantId);
-    expect(apiMocks.chat).toHaveBeenCalledTimes(1);
+      .generateNodeSummary(session.id, assistantId, true);
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
     finish?.("compact answer", new Response(null, { status: 200 }));
     await Promise.all([first, second]);
 
@@ -484,6 +487,94 @@ describe("chat store derived state", () => {
         sourceDigest: expect.any(String),
         provenance: "generated",
       }),
+    );
+  });
+
+  test("does not block sending or overwrite an edit made during generation", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "answer"),
+    ]);
+    const assistantId = session.messages[1].id;
+    let finish: ((message: string, response: Response) => void) | undefined;
+    apiMocks.chat.mockImplementation((options) => {
+      finish = options.onFinish;
+    });
+
+    const generating = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, assistantId, true);
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
+    await expect(
+      useChatStore.getState().getMessagesWithMemory(message("user", "current")),
+    ).resolves.toEqual([
+      expect.objectContaining({ content: "question" }),
+      expect.objectContaining({ content: "answer" }),
+    ]);
+
+    useChatStore.getState().updateTargetSession(session, (draft) => {
+      const assistant = draft.messages.find((item) => item.id === assistantId)!;
+      assistant.nodeSummaries = {
+        segment: {
+          content: "manual summary",
+          sourceNodeIds: draft.messages.map((item) => item.id),
+          sourceDigest: createNodeSummarySourceDigest(draft.messages),
+          provenance: "user-edited",
+        },
+      };
+    });
+    finish?.("late generated summary", new Response(null, { status: 200 }));
+    await generating;
+
+    expect(
+      useChatStore
+        .getState()
+        .currentSession()
+        .messages.find((item) => item.id === assistantId)?.nodeSummaries
+        ?.segment,
+    ).toEqual(
+      expect.objectContaining({
+        content: "manual summary",
+        provenance: "user-edited",
+      }),
+    );
+  });
+
+  test("serializes segment generation within one outline chain", async () => {
+    const session = setSession(
+      [
+        message("user", "question one"),
+        message("assistant", "answer one"),
+        message("user", "question two"),
+        message("assistant", "answer two"),
+      ],
+      { segmentTargetSourceTokens: 0 },
+    );
+    const firstOwnerId = session.messages[1].id;
+    const secondOwnerId = session.messages[3].id;
+    const finishes: Array<(message: string, response: Response) => void> = [];
+    apiMocks.chat.mockImplementation((options) => {
+      finishes.push(options.onFinish);
+    });
+
+    const first = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, firstOwnerId);
+    const second = useChatStore
+      .getState()
+      .generateNodeSummary(session.id, secondOwnerId);
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
+    finishes[0]("first segment", new Response(null, { status: 200 }));
+    await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(2));
+    finishes[1]("second segment", new Response(null, { status: 200 }));
+    await Promise.all([first, second]);
+
+    const current = useChatStore.getState().currentSession();
+    expect(current.messages[1].nodeSummaries?.segment?.sourceNodeIds).toEqual(
+      current.messages.slice(0, 2).map((item) => item.id),
+    );
+    expect(current.messages[3].nodeSummaries?.segment?.sourceNodeIds).toEqual(
+      current.messages.slice(2, 4).map((item) => item.id),
     );
   });
 

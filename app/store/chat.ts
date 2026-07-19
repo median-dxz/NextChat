@@ -42,7 +42,9 @@ import {
 } from "../utils/context-compression";
 import {
   createNodeSummarySourceDigest,
-  planNodeSummarySource,
+  evaluateNodeSummary,
+  partitionProjectionIntoOutlineChains,
+  planSegmentMaintenance,
 } from "../utils/node-summary";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
@@ -54,6 +56,7 @@ import {
   ConversationNode,
   ConversationGraphState,
   GlobalMemory,
+  type NodeSummary,
   createConversationGraphIndex,
   createEmptyGlobalMemory,
   deleteConversationNode,
@@ -69,12 +72,25 @@ import {
 } from "../utils/conversation-graph";
 
 const localStorage = safeLocalStorage();
-const nodeSummaryJobs = new Map<string, Promise<void>>();
+const nodeSummaryJobs = new Map<
+  string,
+  { targetId: string; promise: Promise<void> }
+>();
 const globalMemoryJobs = new Map<string, Promise<void>>();
 
 interface MemoryModelOverride {
   model: string;
   providerName: string;
+}
+
+function isSameNodeSummary(left: NodeSummary | undefined, right: NodeSummary) {
+  return (
+    left?.content === right?.content &&
+    left?.sourceDigest === right?.sourceDigest &&
+    left?.provenance === right?.provenance &&
+    left?.sourceNodeIds.length === right?.sourceNodeIds.length &&
+    left?.sourceNodeIds.every((id, index) => id === right?.sourceNodeIds[index])
+  );
 }
 
 function requestSummary(
@@ -729,6 +745,14 @@ export const useChatStore = createPersistStore(
         get().checkMcpJson(message);
 
         get().generateSessionTitle(targetSession);
+        if (
+          message.role === "assistant" &&
+          targetSession.mask.modelConfig.sendMemory
+        ) {
+          void get()
+            .generateNodeSummary(targetSession.id, message.id)
+            .catch((error) => console.error("[Node Summary]", error));
+        }
         if (targetSession.globalMemory.enabled) {
           void get().updateGlobalMemory(targetSession.id);
         }
@@ -1148,9 +1172,30 @@ export const useChatStore = createPersistStore(
         nodeId: string,
         force = false,
       ): Promise<void> {
-        const jobKey = `${sessionId}:${nodeId}`;
+        const initialSession = get().sessions.find(
+          (item) => item.id === sessionId,
+        );
+        const initialNode = initialSession?.messages.find(
+          (item) => item.id === nodeId,
+        );
+        if (
+          !initialSession ||
+          !initialNode ||
+          initialNode.role !== "assistant"
+        ) {
+          return;
+        }
+        const initialProjection = projectConversationToCursor({
+          ...initialSession,
+          activeCursorId: nodeId,
+        });
+        const initialChain = partitionProjectionIntoOutlineChains(
+          initialProjection,
+        ).find((chain) => chain.nodes.some((node) => node.id === nodeId));
+        if (!initialChain) return;
+        const jobKey = `${sessionId}:${initialChain.nodes[0].id}`;
         const pending = nodeSummaryJobs.get(jobKey);
-        if (pending) return force ? pending : undefined;
+        if (pending?.targetId === nodeId) return pending.promise;
 
         const run = async () => {
           const session = get().sessions.find((item) => item.id === sessionId);
@@ -1161,27 +1206,40 @@ export const useChatStore = createPersistStore(
             ...session,
             activeCursorId: node.id,
           });
-          const plan = planNodeSummarySource(
+          const plan = planSegmentMaintenance({
             projection,
-            node.id,
-            getContextInputBudget(
+            targetId: node.id,
+            sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
+            maxSourceNodes: modelConfig.segmentMaxSourceNodes,
+            inputBudget: getContextInputBudget(
               modelConfig.contextWindowTokens,
               modelConfig.max_tokens,
             ),
-            modelConfig.segmentTargetSourceTokens,
-          );
+            force,
+          });
           if (!plan) return;
-
-          if (!force && node.nodeSummaries?.[plan.kind]) return;
 
           const [model, providerName] = modelConfig.compressModel
             ? [modelConfig.compressModel, modelConfig.compressProviderName]
             : getSummarizeModel(modelConfig.model, modelConfig.providerName);
           const content = await requestSummary(
             getClientApi(providerName as ServiceProvider),
-            plan.inputNodes.map((input) =>
-              input.hidden ? { ...input, content: "" } : input,
-            ),
+            [
+              ...plan.background.map((background) =>
+                background.kind === "segment"
+                  ? createMessage({
+                      role: "assistant",
+                      content: background.content ?? "",
+                      date: "",
+                    })
+                  : background.node!.hidden
+                    ? { ...background.node!, content: "" }
+                    : background.node!,
+              ),
+              ...plan.sourceNodes.map((input) =>
+                input.hidden ? { ...input, content: "" } : input,
+              ),
+            ],
             modelConfig,
             model,
             providerName,
@@ -1190,30 +1248,94 @@ export const useChatStore = createPersistStore(
           const current = get().sessions.find((item) => item.id === sessionId);
           if (!current) return;
           get().updateTargetSession(current, (draft) => {
-            const target = draft.messages.find((item) => item.id === node.id);
+            const currentProjection = projectConversationToCursor({
+              ...draft,
+              activeCursorId: plan.ownerNodeId,
+            });
+            const target = currentProjection.find(
+              (item) => item.id === plan.ownerNodeId,
+            );
             if (!target || target.role !== "assistant") return;
-            if (!force && target.nodeSummaries?.[plan.kind]) return;
             const sourcesById = new Map(
-              draft.messages.map((item) => [item.id, item]),
+              currentProjection.map((item) => [item.id, item]),
             );
             const sourceNodes = plan.sourceNodeIds
               .map((id) => sourcesById.get(id))
               .filter((item): item is ConversationNode => Boolean(item));
             if (sourceNodes.length !== plan.sourceNodeIds.length) return;
-            target.nodeSummaries ??= {};
-            target.nodeSummaries[plan.kind] = {
+            const sourceDigest = createNodeSummarySourceDigest(sourceNodes);
+            if (sourceDigest !== plan.sourceDigest) return;
+            const currentSummary = target.nodeSummaries?.segment;
+            if (
+              plan.expectedSummary
+                ? !isSameNodeSummary(currentSummary, plan.expectedSummary)
+                : Boolean(currentSummary)
+            ) {
+              return;
+            }
+            const currentChains =
+              partitionProjectionIntoOutlineChains(currentProjection);
+            const backgroundStillCurrent = plan.background.every(
+              (background) => {
+                const currentNode = currentProjection.find(
+                  (item) => item.id === background.endpointNodeId,
+                );
+                if (!currentNode) return false;
+                if (background.kind === "raw") {
+                  return (
+                    createNodeSummarySourceDigest([currentNode]) ===
+                    background.snapshot
+                  );
+                }
+                const summary = currentNode.nodeSummaries?.segment;
+                if (!summary) return false;
+                const snapshot = JSON.stringify([
+                  summary.content,
+                  summary.sourceNodeIds,
+                  summary.sourceDigest,
+                  summary.provenance,
+                ]);
+                return (
+                  snapshot === background.snapshot &&
+                  evaluateNodeSummary(
+                    currentNode,
+                    "segment",
+                    summary,
+                    currentChains,
+                  ).freshness === "fresh"
+                );
+              },
+            );
+            if (!backgroundStillCurrent) return;
+            const candidate = {
               content,
               sourceNodeIds: plan.sourceNodeIds,
-              sourceDigest: createNodeSummarySourceDigest(sourceNodes),
-              provenance: "generated",
+              sourceDigest,
+              provenance: "generated" as const,
             };
+            const evaluation = evaluateNodeSummary(
+              target,
+              "segment",
+              candidate,
+              currentChains,
+            );
+            if (!evaluation.structurallyEligible) return;
+            target.nodeSummaries ??= {};
+            target.nodeSummaries.segment = candidate;
           });
         };
-        const execution = run().finally(() => nodeSummaryJobs.delete(jobKey));
-        nodeSummaryJobs.set(jobKey, execution);
-        return force
-          ? execution
-          : execution.catch((error) => console.error("[Node Summary]", error));
+        const previous = pending?.promise ?? Promise.resolve();
+        let execution: Promise<void>;
+        execution = previous
+          .catch(() => undefined)
+          .then(run)
+          .finally(() => {
+            if (nodeSummaryJobs.get(jobKey)?.promise === execution) {
+              nodeSummaryJobs.delete(jobKey);
+            }
+          });
+        nodeSummaryJobs.set(jobKey, { targetId: nodeId, promise: execution });
+        return execution;
       },
 
       editGlobalMemory(

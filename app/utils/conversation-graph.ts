@@ -11,11 +11,12 @@ export interface NodeSummary {
   provenance: NodeSummaryProvenance;
 }
 
-function nodeSummaryDigestValue(node: ConversationNode) {
-  return [node.id, node.role, node.content];
-}
-
 export function createNodeSummarySourceDigest(nodes: ConversationNode[]) {
+  const nodeSummaryDigestValue = (node: ConversationNode) => [
+    node.id,
+    node.role,
+    node.content,
+  ];
   return hash(JSON.stringify(nodes.map(nodeSummaryDigestValue)));
 }
 

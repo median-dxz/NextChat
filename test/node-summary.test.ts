@@ -1,14 +1,11 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationNode } from "../app/utils/conversation-graph";
-import { createContextProjection } from "../app/utils/context-compression";
 import {
   createNodeSummaryRuntimeCache,
   createNodeSummarySourceDigest,
   evaluateNodeSummary,
-  materializeNodeSummaries,
   partitionProjectionIntoOutlineChains,
-  planNodeConversationContext,
-  planNodeSummarySource,
+  planSegmentMaintenance,
 } from "../app/utils/node-summary";
 
 function node(
@@ -153,152 +150,163 @@ describe("node summary planning", () => {
     expect(Object.values(cache.stats).every((value) => value === 0)).toBe(true);
   });
 
-  test("a summary never reads nodes deeper than its assistant", () => {
+  test("creates contiguous segments on either source threshold", () => {
+    const firstBlock = [
+      node("a", 1, undefined, "user", "question"),
+      node("b", 1, "a", "assistant", "answer"),
+    ];
+    const first = planSegmentMaintenance({
+      projection: firstBlock,
+      targetId: "b",
+      sourceTokenTarget: 0.5,
+      maxSourceNodes: 16,
+      inputBudget: 10_000,
+    })!;
+    expect(first.sourceNodeIds).toEqual(["a", "b"]);
+
+    firstBlock[1].nodeSummaries = {
+      segment: {
+        content: "first segment",
+        sourceNodeIds: first.sourceNodeIds,
+        sourceDigest: first.sourceDigest,
+        provenance: "generated",
+      },
+    };
     const projection = [
-      node("root", 1),
-      node("branch", 2, "root"),
-      node("deep", 3, "branch"),
-      node("answer", 2, "branch", "assistant"),
+      ...firstBlock,
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
     ];
-
-    const plan = planNodeSummarySource(projection, "answer", 10_000, 1_000)!;
-
-    expect(plan.inputNodes.map((item) => item.id)).toEqual([
-      "root",
-      "branch",
-      "answer",
-    ]);
-    expect(plan.sourceNodeIds).toEqual(["branch", "answer"]);
+    const second = planSegmentMaintenance({
+      projection,
+      targetId: "d",
+      sourceTokenTarget: 100_000,
+      maxSourceNodes: 2,
+      inputBudget: 10_000,
+    })!;
+    expect(second.sourceNodeIds).toEqual(["c", "d"]);
   });
 
-  test("does not materialize a summary that could reveal a hidden source", () => {
-    const source = {
-      ...node("answer", 1, undefined, "assistant"),
-      hidden: true,
-      nodeSummaries: {
-        segment: {
-          content: "remembered details",
-          sourceNodeIds: ["answer"],
-          sourceDigest: "digest",
-          provenance: "generated" as const,
-        },
+  test("waits for an assistant boundary and refuses incomplete oversized sources", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "x".repeat(10_000)),
+      node("b", 1, "a", "assistant", "answer"),
+    ];
+    expect(
+      planSegmentMaintenance({
+        projection: [projection[0]],
+        targetId: "a",
+        sourceTokenTarget: 1,
+        maxSourceNodes: 1,
+        inputBudget: 10_000,
+      }),
+    ).toBeUndefined();
+    expect(
+      planSegmentMaintenance({
+        projection,
+        targetId: "b",
+        sourceTokenTarget: 1,
+        maxSourceNodes: 16,
+        inputBudget: 1,
+      }),
+    ).toBeUndefined();
+  });
+
+  test("refreshes generated stale segments but never overwrites user-edited ones", () => {
+    const original = [
+      node("a", 1, undefined, "user", "old"),
+      node("b", 1, "a", "assistant", "answer"),
+    ];
+    const digest = createNodeSummarySourceDigest(original);
+    const edited = [{ ...original[0], content: "new" }, original[1]];
+    edited[1].nodeSummaries = {
+      segment: {
+        content: "generated summary",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: digest,
+        provenance: "generated",
       },
     };
+    expect(
+      planSegmentMaintenance({
+        projection: edited,
+        targetId: "b",
+        sourceTokenTarget: 100_000,
+        maxSourceNodes: 16,
+        inputBudget: 10_000,
+      }),
+    ).toEqual(expect.objectContaining({ action: "refresh", ownerNodeId: "b" }));
 
-    expect(materializeNodeSummaries([source])).toEqual([]);
+    edited[1].nodeSummaries!.segment!.provenance = "user-edited";
+    expect(
+      planSegmentMaintenance({
+        projection: edited,
+        targetId: "b",
+        sourceTokenTarget: 100_000,
+        maxSourceNodes: 16,
+        inputBudget: 10_000,
+      }),
+    ).toBeUndefined();
   });
 
-  test("prefers raw fidelity when it fits and summary coverage when it does not", () => {
-    const entries = [
-      node("a", 1, undefined, "user", "a".repeat(400)),
-      node("b", 1, "a", "assistant", "b".repeat(400)),
-      node("recent-user", 1, "b", "user", "recent"),
-      node("recent-answer", 1, "recent-user", "assistant", "answer"),
+  test("allows deep segments to read shallow raw background only", () => {
+    const projection = [
+      node("1A", 1, undefined, "user", "shallow context"),
+      node("2A", 2, "1A", "user", "branch question"),
+      node("2B", 2, "2A", "assistant", "branch answer"),
+      node("1B", 1, "1A", "assistant", "shallow answer"),
     ];
-    const projection = createContextProjection(entries);
-    const summary = {
-      id: "summary",
-      kind: "segment" as const,
-      content: "compact",
-      sourceEntryIds: ["a", "b"],
-      sourceDigest: "",
-      inputSummaryIds: [],
-      stable: true,
-    };
+    const deep = planSegmentMaintenance({
+      projection: projection.slice(0, 3),
+      targetId: "2B",
+      sourceTokenTarget: 1,
+      maxSourceNodes: 16,
+      inputBudget: 10_000,
+    })!;
+    expect(deep.background.map((item) => item.endpointNodeId)).toEqual(["1A"]);
+    expect(deep.sourceNodeIds).toEqual(["2A", "2B"]);
 
-    const roomy = planNodeConversationContext({
+    const shallow = planSegmentMaintenance({
       projection,
-      summaries: [summary],
-      historyMessageCount: 2,
-      contextWindowTokens: 8_000,
-      maxOutputTokens: 128,
-      fixedTokenCount: 0,
-      currentInputTokenCount: 0,
-    });
-    expect(roomy.selectedMessageIds).toEqual([
-      "a",
-      "b",
-      "recent-user",
-      "recent-answer",
-    ]);
-    expect(roomy.selectedSummaryIds).toEqual([]);
-
-    const constrained = planNodeConversationContext({
-      projection,
-      summaries: [summary],
-      historyMessageCount: 2,
-      contextWindowTokens: 250,
-      maxOutputTokens: 128,
-      fixedTokenCount: 0,
-      currentInputTokenCount: 0,
-    });
-    expect(constrained.selectedSummaryIds).toEqual(["summary"]);
-    expect(constrained.selectedMessageIds).toEqual([
-      "recent-user",
-      "recent-answer",
-    ]);
+      targetId: "1B",
+      sourceTokenTarget: 1,
+      maxSourceNodes: 16,
+      inputBudget: 10_000,
+    })!;
+    expect(shallow.background).toEqual([]);
+    expect(shallow.sourceNodeIds).toEqual(["1A", "1B"]);
   });
 
-  test("keeps oversized recent history within the actual input budget", () => {
-    const entries = Array.from({ length: 12 }, (_, index) =>
-      node(
-        `m${index}`,
-        1,
-        index ? `m${index - 1}` : undefined,
-        index % 2 ? "assistant" : "user",
-        "x".repeat(8_000),
-      ),
+  test("excludes stale summaries from generation background", () => {
+    const first = node("a", 1, undefined, "user", "edited source");
+    const firstOwner = node("b", 1, "a", "assistant", "answer");
+    firstOwner.nodeSummaries = {
+      segment: {
+        content: "manual context",
+        sourceNodeIds: ["a", "b"],
+        sourceDigest: createNodeSummarySourceDigest([
+          { ...first, content: "old source" },
+          firstOwner,
+        ]),
+        provenance: "user-edited",
+      },
+    };
+    const projection = [
+      first,
+      firstOwner,
+      node("c", 1, "b", "user"),
+      node("d", 1, "c", "assistant"),
+    ];
+    const plan = planSegmentMaintenance({
+      projection,
+      targetId: "d",
+      sourceTokenTarget: 0.5,
+      maxSourceNodes: 16,
+      inputBudget: 10_000,
+    })!;
+    expect(plan.sourceNodeIds).toEqual(["c", "d"]);
+    expect(plan.background.filter((item) => item.kind === "segment")).toEqual(
+      [],
     );
-
-    const plan = planNodeConversationContext({
-      projection: createContextProjection(entries),
-      summaries: [],
-      historyMessageCount: 12,
-      contextWindowTokens: 1_024,
-      maxOutputTokens: 128,
-      fixedTokenCount: 0,
-      currentInputTokenCount: 0,
-    });
-
-    expect(plan.selectedMessageIds.length).toBeLessThan(entries.length);
-    expect(plan.overflow).toBe(false);
-  });
-
-  test("rejects summaries with missing or hidden source nodes", () => {
-    const entries = [
-      {
-        ...node("m2", 1, undefined, "assistant", "x".repeat(4_000)),
-        hidden: true,
-      },
-      node("m3", 1, "m2", "user", "recent"),
-    ];
-    const staleSummary = {
-      id: "stale",
-      kind: "segment" as const,
-      content: "hidden m1 content",
-      sourceEntryIds: ["m1", "m2"],
-      sourceDigest: "",
-      inputSummaryIds: [],
-      stable: true,
-    };
-
-    const plan = planNodeConversationContext({
-      projection: createContextProjection(entries),
-      summaries: [
-        staleSummary,
-        {
-          ...staleSummary,
-          id: "hidden",
-          sourceEntryIds: ["m2"],
-        },
-      ],
-      historyMessageCount: 1,
-      contextWindowTokens: 1_024,
-      maxOutputTokens: 128,
-      fixedTokenCount: 0,
-      currentInputTokenCount: 0,
-    });
-
-    expect(plan.selectedSummaryIds).toEqual([]);
   });
 });

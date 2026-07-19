@@ -1,19 +1,10 @@
 import {
   createNodeSummarySourceDigest,
   type ConversationNode,
+  type NodeSummary,
   type NodeSummaryKind,
 } from "./conversation-graph";
-import type { NodeSummary } from "./conversation-graph";
-import type {
-  ContextProjection,
-  ConversationSummary,
-} from "./context-compression";
-import {
-  estimateRequestMessageTokens,
-  getCompleteTurns,
-  getContextInputBudget,
-  isSummaryCurrent,
-} from "./context-compression";
+import { estimateRequestMessageTokens } from "./context-compression";
 import { estimateTokenLength } from "./token";
 
 export interface OutlineChain {
@@ -44,6 +35,36 @@ export interface NodeSummaryRuntimeCache {
   getSummaryTokens(content: string): number;
   getSourceDigest(nodes: ConversationNode[]): string;
   clear(): void;
+}
+
+export interface SegmentGenerationBackground {
+  kind: "raw" | "segment";
+  endpointNodeId: string;
+  tokens: number;
+  snapshot: string;
+  node?: ConversationNode;
+  content?: string;
+}
+
+export interface SegmentMaintenancePlan {
+  action: "create" | "refresh";
+  chainRootId: string;
+  ownerNodeId: string;
+  sourceNodeIds: string[];
+  sourceDigest: string;
+  sourceNodes: ConversationNode[];
+  background: SegmentGenerationBackground[];
+  expectedSummary?: NodeSummary;
+}
+
+export interface PlanSegmentMaintenanceArgs {
+  projection: ConversationNode[];
+  targetId: string;
+  sourceTokenTarget: number;
+  maxSourceNodes: number;
+  inputBudget: number;
+  force?: boolean;
+  cache?: NodeSummaryRuntimeCache;
 }
 
 export function partitionProjectionIntoOutlineChains(
@@ -201,265 +222,221 @@ export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
   };
 }
 
-export interface NodeSummarySourcePlan {
-  kind: NodeSummaryKind;
-  sourceNodeIds: string[];
-  inputNodes: ConversationNode[];
+interface SegmentInterval {
+  start: number;
+  end: number;
+  owner: ConversationNode;
+  summary: NodeSummary;
+  evaluation: NodeSummaryEvaluation;
 }
 
-export function planNodeSummarySource(
-  projection: ConversationNode[],
-  targetId: string,
-  inputBudget: number,
-  compressionThreshold: number,
-): NodeSummarySourcePlan | undefined {
-  const targetIndex = projection.findIndex((node) => node.id === targetId);
-  const target = projection[targetIndex];
-  if (targetIndex < 0 || !target || target.role !== "assistant") return;
-
-  const visible = projection
-    .slice(0, targetIndex + 1)
-    .filter((node) => node.outlineLevel <= target.outlineLevel);
-  const inputNodes: ConversationNode[] = [];
-  let tokens = 0;
-  for (let index = visible.length - 1; index >= 0; index -= 1) {
-    const node = visible[index];
-    const nextTokens = estimateRequestMessageTokens(node);
-    if (inputNodes.length > 0 && tokens + nextTokens > inputBudget) break;
-    inputNodes.unshift(node);
-    tokens += nextTokens;
-  }
-  const sourceNodeIds = inputNodes
-    .filter((node) => node.outlineLevel === target.outlineLevel)
-    .map((node) => node.id);
-  if (sourceNodeIds.length === 0) return;
-
-  const assistantCount = visible.filter(
-    (node) =>
-      node.role === "assistant" && node.outlineLevel === target.outlineLevel,
-  ).length;
-  const kind: NodeSummaryKind =
-    assistantCount % 6 === 0 || tokens >= compressionThreshold * 4
-      ? "checkpoint"
-      : "segment";
-  return { kind, sourceNodeIds, inputNodes };
-}
-
-export function materializeNodeSummaries(
-  projection: ConversationNode[],
-): ConversationSummary[] {
-  const chains = partitionProjectionIntoOutlineChains(projection);
-  return projection.flatMap((node) =>
-    Object.entries(node.nodeSummaries ?? {}).flatMap(([kind, summary]) => {
-      if (!summary) return [];
-      const evaluation = evaluateNodeSummary(
-        node,
-        kind as NodeSummaryKind,
+function collectSegmentIntervals(chain: OutlineChain, chains: OutlineChain[]) {
+  const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
+  return chain.nodes.flatMap((owner): SegmentInterval[] => {
+    const summary = owner.nodeSummaries?.segment;
+    if (!summary) return [];
+    const evaluation = evaluateNodeSummary(owner, "segment", summary, chains);
+    if (!evaluation.structurallyEligible) return [];
+    return [
+      {
+        start: positions.get(evaluation.sourceNodes[0].id)!,
+        end: positions.get(evaluation.sourceNodes.at(-1)!.id)!,
+        owner,
         summary,
-        chains,
-      );
-      if (
-        !evaluation.structurallyEligible ||
-        evaluation.sourceNodes.some((source) => source.hidden)
-      )
-        return [];
-      return [
-        {
-          id: `node-summary:${node.id}:${kind}`,
-          kind: kind as NodeSummaryKind,
-          content: summary.content,
-          sourceEntryIds: summary.sourceNodeIds,
-          sourceDigest: summary.sourceDigest,
-          inputSummaryIds: [],
-          stable: true,
-        },
-      ];
-    }),
-  );
+        evaluation,
+      },
+    ];
+  });
 }
 
-interface FrontierState {
-  tokens: number;
-  coverage: number;
-  fidelity: number;
-  selectedSummaryIds: string[];
-  selectedMessageIds: string[];
-  coveredIds: Set<string>;
-}
+function buildSegmentBackground(
+  projection: ConversationNode[],
+  chains: OutlineChain[],
+  targetChain: OutlineChain,
+  sourceStartIndex: number,
+  availableTokens: number,
+  cache: NodeSummaryRuntimeCache,
+): SegmentGenerationBackground[] {
+  if (availableTokens <= 0) return [];
+  const projectionOrder = new Map(
+    projection.map((node, index) => [node.id, index]),
+  );
+  const sourceStart = targetChain.nodes[sourceStartIndex];
+  const sourceProjectionIndex = projectionOrder.get(sourceStart.id)!;
+  const candidates: SegmentGenerationBackground[] = [];
 
-interface Representation {
-  id: string;
-  kind: "raw" | NodeSummaryKind;
-  tokens: number;
-  sourceIds: string[];
-}
-
-const MAX_FRONTIER_STATES = 512;
-
-function dominates(left: FrontierState, right: FrontierState) {
-  return (
-    left.tokens <= right.tokens &&
-    left.coverage >= right.coverage &&
-    left.fidelity >= right.fidelity &&
-    (left.tokens < right.tokens ||
-      left.coverage > right.coverage ||
-      left.fidelity > right.fidelity)
-  );
-}
-
-function rankStates(left: FrontierState, right: FrontierState) {
-  return (
-    right.coverage - left.coverage ||
-    right.fidelity - left.fidelity ||
-    left.tokens - right.tokens
-  );
-}
-
-function pruneFrontier(states: FrontierState[]) {
-  const sorted = states.sort(rankStates);
-  const frontier: FrontierState[] = [];
-  for (const candidate of sorted) {
-    if (frontier.some((state) => dominates(state, candidate))) continue;
-    frontier.push(candidate);
-    if (frontier.length >= MAX_FRONTIER_STATES) break;
-  }
-  return frontier;
-}
-
-export function planNodeConversationContext(args: {
-  projection: ContextProjection<ConversationNode>;
-  summaries: ConversationSummary[];
-  historyMessageCount: number;
-  contextWindowTokens: number;
-  maxOutputTokens: number;
-  fixedTokenCount: number;
-  currentInputTokenCount: number;
-}) {
-  const inputBudget = getContextInputBudget(
-    args.contextWindowTokens,
-    args.maxOutputTokens,
-  );
-  const availableBudget = Math.max(
-    0,
-    inputBudget - args.fixedTokenCount - args.currentInputTokenCount,
-  );
-  const entries = args.projection.entries;
-  const completeTurns = getCompleteTurns(entries, true);
-  const recentTurns: ConversationNode[][] = [];
-  let recentMessageCount = 0;
-  for (let index = completeTurns.length - 1; index >= 0; index -= 1) {
-    if (recentMessageCount >= args.historyMessageCount) break;
-    recentTurns.unshift(completeTurns[index]);
-    recentMessageCount += completeTurns[index].length;
-  }
-  let mandatoryRecent = recentTurns.flat();
-  let mandatoryTokens = mandatoryRecent.reduce(
-    (sum, node) => sum + estimateRequestMessageTokens(node),
-    0,
-  );
-  while (mandatoryRecent.length > 0 && mandatoryTokens > availableBudget) {
-    const removedTurn = recentTurns.shift();
-    if (!removedTurn) break;
-    mandatoryTokens -= removedTurn.reduce(
-      (sum, node) => sum + estimateRequestMessageTokens(node),
-      0,
-    );
-    mandatoryRecent = recentTurns.flat();
-  }
-  const recentStart = mandatoryRecent.length
-    ? entries.findIndex((node) => node.id === mandatoryRecent[0].id)
-    : entries.length;
-  const selectedMessageIds = mandatoryRecent.map((node) => node.id);
-  const mandatoryCovered = new Set(
-    mandatoryRecent.filter((node) => !node.hidden).map((node) => node.id),
-  );
-  const optionalBudget = Math.max(0, availableBudget - mandatoryTokens);
-  const optionalIds = new Set(
-    entries.slice(0, recentStart).map((node) => node.id),
-  );
-  const hiddenIds = new Set(
-    entries.filter((node) => node.hidden).map((node) => node.id),
-  );
-  const optionalTurns = getCompleteTurns(entries.slice(0, recentStart), true);
-  const representations: Representation[] = [
-    ...optionalTurns.map((turn) => ({
-      id: `raw-turn:${turn.map((node) => node.id).join(":")}`,
-      kind: "raw" as const,
-      tokens: turn.reduce(
-        (sum, node) => sum + estimateRequestMessageTokens(node),
-        0,
-      ),
-      sourceIds: turn.map((node) => node.id),
-    })),
-    ...args.summaries
-      .filter((summary) => isSummaryCurrent(summary, args.projection))
-      .filter((summary) =>
-        summary.sourceEntryIds.every(
-          (id) => optionalIds.has(id) && !hiddenIds.has(id),
-        ),
-      )
-      .map((summary) => ({
-        id: summary.id,
-        kind: summary.kind,
-        tokens: estimateTokenLength(summary.content),
-        sourceIds: summary.sourceEntryIds,
-      }))
-      .filter((summary) => summary.sourceIds.length > 0),
-  ];
-
-  let frontier: FrontierState[] = [
-    {
-      tokens: 0,
-      coverage: 0,
-      fidelity: 0,
-      selectedSummaryIds: [],
-      selectedMessageIds: [],
-      coveredIds: new Set(),
-    },
-  ];
-  for (const representation of representations) {
-    const fidelity =
-      representation.kind === "raw"
-        ? 3
-        : representation.kind === "segment"
-          ? 2
-          : 1;
-    const additions: FrontierState[] = [];
-    for (const state of frontier) {
-      if (state.tokens + representation.tokens > optionalBudget) continue;
-      if (representation.sourceIds.some((id) => state.coveredIds.has(id))) {
-        continue;
-      }
-      const coveredIds = new Set(state.coveredIds);
-      representation.sourceIds.forEach((id) => coveredIds.add(id));
-      additions.push({
-        tokens: state.tokens + representation.tokens,
-        coverage: state.coverage + representation.sourceIds.length,
-        fidelity: state.fidelity + fidelity * representation.sourceIds.length,
-        selectedSummaryIds:
-          representation.kind === "raw"
-            ? state.selectedSummaryIds
-            : [...state.selectedSummaryIds, representation.id],
-        selectedMessageIds:
-          representation.kind === "raw"
-            ? [...state.selectedMessageIds, ...representation.sourceIds]
-            : state.selectedMessageIds,
-        coveredIds,
-      });
+  for (const owner of targetChain.nodes.slice(0, sourceStartIndex)) {
+    const summary = owner.nodeSummaries?.segment;
+    if (!summary) continue;
+    const evaluation = evaluateNodeSummary(owner, "segment", summary, chains);
+    if (!evaluation.structurallyEligible || evaluation.freshness !== "fresh") {
+      continue;
     }
-    frontier = pruneFrontier([...frontier, ...additions]);
+    candidates.push({
+      kind: "segment",
+      endpointNodeId: owner.id,
+      content: summary.content,
+      tokens: cache.getSummaryTokens(summary.content),
+      snapshot: JSON.stringify([
+        summary.content,
+        summary.sourceNodeIds,
+        summary.sourceDigest,
+        summary.provenance,
+      ]),
+    });
   }
 
-  const best = frontier.sort(rankStates)[0];
-  const order = new Map(entries.map((node, index) => [node.id, index]));
-  const optionalMessageIds = best.selectedMessageIds.sort(
-    (left, right) => order.get(left)! - order.get(right)!,
+  for (const node of projection.slice(0, sourceProjectionIndex)) {
+    if (node.outlineLevel >= targetChain.outlineLevel) continue;
+    candidates.push({
+      kind: "raw",
+      endpointNodeId: node.id,
+      node,
+      tokens: cache.getNodeTokens(node),
+      snapshot: cache.getSourceDigest([node]),
+    });
+  }
+
+  candidates.sort(
+    (left, right) =>
+      projectionOrder.get(left.endpointNodeId)! -
+      projectionOrder.get(right.endpointNodeId)!,
   );
-  const coveredCount = new Set([...mandatoryCovered, ...best.coveredIds]).size;
+  const selected: SegmentGenerationBackground[] = [];
+  let tokens = 0;
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const candidate = candidates[index];
+    if (tokens + candidate.tokens > availableTokens) continue;
+    selected.unshift(candidate);
+    tokens += candidate.tokens;
+  }
+  return selected;
+}
+
+function createSegmentPlan(
+  action: SegmentMaintenancePlan["action"],
+  projection: ConversationNode[],
+  chains: OutlineChain[],
+  targetChain: OutlineChain,
+  sourceNodes: ConversationNode[],
+  owner: ConversationNode,
+  inputBudget: number,
+  cache: NodeSummaryRuntimeCache,
+  expectedSummary?: NodeSummary,
+): SegmentMaintenancePlan | undefined {
+  const sourceTokens = sourceNodes.reduce(
+    (tokens, node) => tokens + cache.getNodeTokens(node),
+    0,
+  );
+  if (sourceTokens > inputBudget) return;
+  const sourceStartIndex = targetChain.nodes.findIndex(
+    (node) => node.id === sourceNodes[0].id,
+  );
   return {
-    selectedSummaryIds: best.selectedSummaryIds,
-    selectedMessageIds: [...optionalMessageIds, ...selectedMessageIds],
-    requiresCompaction: coveredCount < entries.length,
-    overflow: args.fixedTokenCount + args.currentInputTokenCount > inputBudget,
+    action,
+    chainRootId: targetChain.nodes[0].id,
+    ownerNodeId: owner.id,
+    sourceNodeIds: sourceNodes.map((node) => node.id),
+    sourceDigest: cache.getSourceDigest(sourceNodes),
+    sourceNodes,
+    background: buildSegmentBackground(
+      projection,
+      chains,
+      targetChain,
+      sourceStartIndex,
+      inputBudget - sourceTokens,
+      cache,
+    ),
+    expectedSummary: expectedSummary
+      ? {
+          ...expectedSummary,
+          sourceNodeIds: expectedSummary.sourceNodeIds.slice(),
+        }
+      : undefined,
   };
+}
+
+export function planSegmentMaintenance(
+  args: PlanSegmentMaintenanceArgs,
+): SegmentMaintenancePlan | undefined {
+  const target = args.projection.find((node) => node.id === args.targetId);
+  if (!target || target.role !== "assistant") return;
+  const chains = partitionProjectionIntoOutlineChains(args.projection);
+  const targetChain = chains.find((chain) =>
+    chain.nodes.some((node) => node.id === target.id),
+  );
+  if (!targetChain) return;
+  const targetIndex = targetChain.nodes.findIndex(
+    (node) => node.id === target.id,
+  );
+  const cache = args.cache ?? createNodeSummaryRuntimeCache();
+  const intervals = collectSegmentIntervals(targetChain, chains)
+    .filter((interval) => interval.end <= targetIndex)
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+
+  if (args.force && target.nodeSummaries?.segment) {
+    const current = target.nodeSummaries.segment;
+    const evaluation = evaluateNodeSummary(target, "segment", current, chains);
+    const sourceNodes = evaluation.structurallyEligible
+      ? evaluation.sourceNodes
+      : [target];
+    return createSegmentPlan(
+      "refresh",
+      args.projection,
+      chains,
+      targetChain,
+      sourceNodes,
+      target,
+      args.inputBudget,
+      cache,
+      current,
+    );
+  }
+
+  const staleGenerated = intervals.find(
+    (interval) =>
+      interval.summary.provenance === "generated" &&
+      interval.evaluation.freshness === "stale",
+  );
+  if (staleGenerated) {
+    return createSegmentPlan(
+      "refresh",
+      args.projection,
+      chains,
+      targetChain,
+      staleGenerated.evaluation.sourceNodes,
+      staleGenerated.owner,
+      args.inputBudget,
+      cache,
+      staleGenerated.summary,
+    );
+  }
+
+  let nextSourceIndex = 0;
+  for (const interval of intervals) {
+    if (interval.start !== nextSourceIndex) return;
+    nextSourceIndex = interval.end + 1;
+  }
+  if (nextSourceIndex > targetIndex || target.nodeSummaries?.segment) return;
+
+  const sourceNodes = targetChain.nodes.slice(nextSourceIndex, targetIndex + 1);
+  const sourceTokens = sourceNodes.reduce(
+    (tokens, node) => tokens + cache.getNodeTokens(node),
+    0,
+  );
+  const thresholdReached =
+    sourceTokens >= Math.max(0, args.sourceTokenTarget) ||
+    sourceNodes.length >= Math.max(1, args.maxSourceNodes);
+  if (!args.force && !thresholdReached) return;
+
+  return createSegmentPlan(
+    "create",
+    args.projection,
+    chains,
+    targetChain,
+    sourceNodes,
+    target,
+    args.inputBudget,
+    cache,
+  );
 }
