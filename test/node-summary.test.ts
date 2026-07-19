@@ -16,7 +16,6 @@ import {
   planNodeConversationContext,
   planSegmentMaintenance,
 } from "../app/utils/conversation/planning";
-import { getProviderContextAdapter } from "../app/client/provider-context";
 import {
   evaluateNodeSummary,
   partitionProjectionIntoOutlineChains,
@@ -1055,31 +1054,6 @@ describe("node summary planning", () => {
     expect(
       plan.representations.map((representation) => representation.kind),
     ).toEqual(["segment", "segment"]);
-  });
-
-  test("maps neutral context entries to provider messages", () => {
-    expect(
-      getProviderContextAdapter().materialize([
-        { kind: "raw", nodeId: "a", role: "user", content: "raw a" },
-        {
-          kind: "segment",
-          ownerNodeId: "c",
-          sourceNodeIds: ["b", "c"],
-          content: "segment b-c",
-          freshness: "fresh",
-        },
-        {
-          kind: "raw",
-          nodeId: "d",
-          role: "assistant",
-          content: "raw d",
-        },
-      ]),
-    ).toEqual([
-      { role: "user", content: "raw a" },
-      { role: "assistant", content: "segment b-c" },
-      { role: "assistant", content: "raw d" },
-    ]);
   });
 
   test("matches an exhaustive small multi-chain combination oracle", () => {

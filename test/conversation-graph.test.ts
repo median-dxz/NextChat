@@ -21,20 +21,6 @@ function node(
 }
 
 describe("conversation graph storage", () => {
-  test("exposes graph, summary, context, and target planning from one facade", () => {
-    const state = {
-      messages: [node("root", 1)],
-      rootNodeId: "root",
-      activeCursorId: "root",
-    };
-    const conversation = Conversation(state);
-
-    expect(conversation.state).toEqual(state);
-    expect(conversation.summaries).toBeDefined();
-    expect(conversation.context).toBeDefined();
-    expect(conversation.planning("root").chainRootId).toBe("root");
-  });
-
   test("accepts one same-level continuation plus multiple deeper branches", () => {
     const nodes = [
       { ...node("2A", 2), activeBranchRootId: "3A" },

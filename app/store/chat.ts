@@ -20,7 +20,6 @@ import {
 import Locale from "../locales";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
-import { getContextInputBudget } from "../utils/context-budget";
 import {
   Conversation,
   createMessage,
@@ -42,6 +41,10 @@ import {
   createChatOrchestrator,
   type ChatOrchestrator,
 } from "./chat-orchestrator";
+import {
+  createSummaryMaintenance,
+  type SummaryMaintenance,
+} from "./summary-maintenance";
 
 export { createConversationNode, createMessage } from "../utils/conversation";
 export type {
@@ -51,50 +54,11 @@ export type {
 } from "../utils/conversation";
 
 const localStorage = safeLocalStorage();
-const nodeSummaryJobs = new Map<
-  string,
-  { targetId: string; promise: Promise<void> }
->();
 const globalMemoryJobs = new Map<string, Promise<void>>();
 
 interface MemoryModelOverride {
   model: string;
   providerName: string;
-}
-
-function requestSummary(
-  api: ClientApi,
-  messages: ChatMessage[],
-  modelConfig: ModelConfig,
-  model: string,
-  providerName: string,
-) {
-  return new Promise<string>((resolve, reject) => {
-    const { max_tokens, ...config } = modelConfig;
-    api.llm.chat({
-      messages: messages.concat(
-        createMessage({
-          role: "system",
-          content: Locale.Store.Prompt.Summarize,
-          date: "",
-        }),
-      ),
-      config: { ...config, stream: false, model, providerName },
-      // Reasoning is intentionally ignored; only the final answer is stored.
-      onReasoningUpdate() {},
-      onFinish(message, response) {
-        if (response?.status === 200 && message.trim()) resolve(message.trim());
-        else {
-          reject(
-            new Error(
-              `Summary request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
-            ),
-          );
-        }
-      },
-      onError: reject,
-    });
-  });
 }
 
 function requestOneShot(
@@ -266,7 +230,7 @@ function migrateSessionToConversation(session: any) {
 function getSummarizeModel(
   currentModel: string,
   providerName: string,
-): string[] {
+): [model: string, providerName: string] {
   // if it is using gpt-* models, force to use 4o-mini to summarize
   if (currentModel.startsWith("gpt") || currentModel.startsWith("chatgpt")) {
     const configStore = useAppConfig.getState();
@@ -319,6 +283,7 @@ export const useChatStore = createPersistStore(
     }
 
     let chatOrchestrator: ChatOrchestrator;
+    let summaryMaintenance: SummaryMaintenance;
 
     const methods = {
       forkSession() {
@@ -604,136 +569,12 @@ export const useChatStore = createPersistStore(
         force = false,
         onlyKind?: NodeSummaryKind,
       ): Promise<void> {
-        const initialSession = get().sessions.find(
-          (item) => item.id === sessionId,
-        );
-        const initialNode = initialSession?.messages.find(
-          (item) => item.id === nodeId,
-        );
-        if (
-          !initialSession ||
-          !initialNode ||
-          initialNode.role !== "assistant"
-        ) {
-          return;
-        }
-
-        const initialPlanning = Conversation(initialSession).planning(nodeId);
-        if (!initialPlanning.chainRootId) return;
-
-        const jobKey = `${sessionId}:${initialPlanning.chainRootId}`;
-        const pending = nodeSummaryJobs.get(jobKey);
-        if (pending?.targetId === nodeId) return pending.promise;
-
-        const run = async () => {
-          const session = get().sessions.find((item) => item.id === sessionId);
-          const node = session?.messages.find((item) => item.id === nodeId);
-          if (!session || !node || node.role !== "assistant") return;
-          const modelConfig = session.mask.modelConfig;
-          const conversation = Conversation(session);
-          const inputBudget = getContextInputBudget(
-            modelConfig.contextWindowTokens,
-            modelConfig.max_tokens,
-          );
-          const plan =
-            onlyKind === "checkpoint"
-              ? undefined
-              : conversation.planning(node.id).segment({
-                  sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
-                  maxSourceNodes: modelConfig.segmentMaxSourceNodes,
-                  inputBudget,
-                  force,
-                });
-          const [model, providerName] = modelConfig.compressModel
-            ? [modelConfig.compressModel, modelConfig.compressProviderName]
-            : getSummarizeModel(modelConfig.model, modelConfig.providerName);
-          const api = getClientApi(providerName as ServiceProvider);
-          if (plan) {
-            const content = await requestSummary(
-              api,
-              [
-                ...plan.background.map((background) =>
-                  background.kind === "segment"
-                    ? createMessage({
-                        role: "assistant",
-                        content: background.content ?? "",
-                        date: "",
-                      })
-                    : background.node!,
-                ),
-                ...plan.sourceNodes.map((input) => input),
-              ],
-              modelConfig,
-              model,
-              providerName,
-            );
-
-            const current = get().sessions.find(
-              (item) => item.id === sessionId,
-            );
-            if (!current) return;
-            get().updateTargetSession(current, (draft) => {
-              const next = Conversation(draft).summaries.commitGenerated(
-                plan,
-                content,
-              );
-              if (next) draft.messages = next.messages;
-            });
-          }
-
-          if (onlyKind === "segment") return;
-          const checkpointSession = get().sessions.find(
-            (item) => item.id === sessionId,
-          );
-          const checkpointTarget = checkpointSession?.messages.find(
-            (item) => item.id === nodeId,
-          );
-          if (!checkpointSession || !checkpointTarget) return;
-          const checkpointPlan = Conversation(checkpointSession)
-            .planning(checkpointTarget.id)
-            .checkpoint({
-              targetSegments: modelConfig.checkpointTargetSegments,
-              mergeTokenTarget: modelConfig.checkpointMergeTargetTokens,
-              inputBudget,
-              force,
-            });
-          if (!checkpointPlan) return;
-          const checkpointContent = await requestSummary(
-            api,
-            checkpointPlan.inputs.map((input) =>
-              createMessage({
-                role: "assistant",
-                content: input.content,
-                date: "",
-              }),
-            ),
-            modelConfig,
-            model,
-            providerName,
-          );
-
-          const latest = get().sessions.find((item) => item.id === sessionId);
-          if (!latest) return;
-          get().updateTargetSession(latest, (draft) => {
-            const next = Conversation(draft).summaries.commitGenerated(
-              checkpointPlan,
-              checkpointContent,
-            );
-            if (next) draft.messages = next.messages;
-          });
-        };
-        const previous = pending?.promise ?? Promise.resolve();
-        let execution: Promise<void>;
-        execution = previous
-          .catch(() => undefined)
-          .then(run)
-          .finally(() => {
-            if (nodeSummaryJobs.get(jobKey)?.promise === execution) {
-              nodeSummaryJobs.delete(jobKey);
-            }
-          });
-        nodeSummaryJobs.set(jobKey, { targetId: nodeId, promise: execution });
-        return execution;
+        return summaryMaintenance.maintain({
+          sessionId,
+          targetNodeId: nodeId,
+          force,
+          onlyKind,
+        });
       },
 
       deleteNodeSummary(
@@ -1040,6 +881,19 @@ export const useChatStore = createPersistStore(
         }
       },
     };
+
+    summaryMaintenance = createSummaryMaintenance({
+      getSession(sessionId) {
+        return get().sessions.find((session) => session.id === sessionId);
+      },
+      updateSession(sessionId, updater) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (session) get().updateTargetSession(session, updater);
+      },
+      getClientApi,
+      resolveDefaultModel: getSummarizeModel,
+      summaryPrompt: Locale.Store.Prompt.Summarize,
+    });
 
     chatOrchestrator = createChatOrchestrator({
       getSession(sessionId) {

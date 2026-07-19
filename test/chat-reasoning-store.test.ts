@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { ClientApi } from "../app/client/api";
 
 const apiMocks = vi.hoisted(() => ({
   chat: vi.fn(),
@@ -31,9 +32,14 @@ import {
   createSourceDigest,
 } from "../app/utils/conversation";
 import { getProviderContextAdapter } from "../app/client/provider-context";
+import {
+  createSummaryMaintenance,
+  type SummaryMaintenance,
+} from "../app/store/summary-maintenance";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
+let summaryMaintenance: SummaryMaintenance;
 
 function message(
   role: ChatMessage["role"],
@@ -119,6 +125,21 @@ beforeEach(() => {
   });
   useAppConfig.setState({
     enableAutoGenerateTitle: false,
+  });
+  summaryMaintenance = createSummaryMaintenance({
+    getSession: (sessionId) =>
+      useChatStore
+        .getState()
+        .sessions.find((session) => session.id === sessionId),
+    updateSession(sessionId, updater) {
+      const store = useChatStore.getState();
+      const session = store.sessions.find((item) => item.id === sessionId);
+      if (session) store.updateTargetSession(session, updater);
+    },
+    getClientApi: () =>
+      ({ llm: { chat: apiMocks.chat } }) as unknown as ClientApi,
+    resolveDefaultModel: (model, providerName) => [model, providerName],
+    summaryPrompt: "Summarize the conversation",
   });
 });
 
@@ -384,7 +405,7 @@ describe("chat store derived state", () => {
     );
   });
 
-  test("records reasoning duration when a reasoning-only stream finishes", async () => {
+  test("separates run completion and records reasoning duration", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-16T12:00:00Z"));
     setSession([]);
@@ -393,10 +414,19 @@ describe("chat store derived state", () => {
       chatOptions = options;
     });
 
-    await useChatStore.getState().onUserInput("question");
+    const handle = await useChatStore.getState().onUserInput("question");
+    let completed = false;
+    void handle.completion.then(() => {
+      completed = true;
+    });
     chatOptions.onReasoningUpdate("partial reasoning");
     vi.advanceTimersByTime(65_000);
+    expect(completed).toBe(false);
     await chatOptions.onFinish("", new Response(null, { status: 200 }));
+    await expect(handle.completion).resolves.toMatchObject({
+      status: "completed",
+      assistantNodeId: handle.assistantNodeId,
+    });
 
     expect(useChatStore.getState().currentSession().messages.at(-1)).toEqual(
       expect.objectContaining({
@@ -430,34 +460,6 @@ describe("chat store derived state", () => {
       useChatStore.getState().currentSession().messages.at(-1)
         ?.reasoningDurationMs,
     ).toBe(12_000);
-  });
-
-  test("separates chat run start from terminal completion", async () => {
-    setSession([]);
-    let chatOptions: any;
-    apiMocks.chat.mockImplementation((options) => {
-      chatOptions = options;
-    });
-
-    const handle = await useChatStore.getState().onUserInput("question");
-    let completed = false;
-    void handle.completion.then(() => {
-      completed = true;
-    });
-
-    expect(handle.assistantNodeId).toBe(
-      useChatStore.getState().currentSession().messages.at(-1)?.id,
-    );
-    expect(completed).toBe(false);
-
-    chatOptions.onFinish("answer", new Response(null, { status: 200 }));
-    await expect(handle.completion).resolves.toMatchObject({
-      status: "completed",
-      assistantNodeId: handle.assistantNodeId,
-    });
-    expect(
-      useChatStore.getState().currentSession().messages.at(-1),
-    ).toMatchObject({ content: "answer", streaming: false });
   });
 
   test("cancels explicitly and ignores a late provider finish", async () => {
@@ -601,12 +603,16 @@ describe("chat store derived state", () => {
       finishes.push(options.onFinish);
     });
 
-    const first = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, assistantId, true);
-    const second = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, assistantId, true);
+    const first = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: assistantId,
+      force: true,
+    });
+    const second = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: assistantId,
+      force: true,
+    });
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
     finishes[0]("compact answer", new Response(null, { status: 200 }));
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(2));
@@ -649,9 +655,12 @@ describe("chat store derived state", () => {
       );
     });
 
-    await useChatStore
-      .getState()
-      .generateNodeSummary(session.id, assistantId, true, "segment");
+    await summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: assistantId,
+      force: true,
+      onlyKind: "segment",
+    });
 
     const assistant = useChatStore
       .getState()
@@ -682,9 +691,11 @@ describe("chat store derived state", () => {
       finishes.push(options.onFinish);
     });
 
-    const generating = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, assistantId, true);
+    const generating = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: assistantId,
+      force: true,
+    });
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
     expect(assembleHistory(session, message("user", "current"))).toEqual([
       expect.objectContaining({ content: "question" }),
@@ -732,9 +743,11 @@ describe("chat store derived state", () => {
       finishes.push(options.onFinish);
     });
 
-    const generating = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, assistantId, true);
+    const generating = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: assistantId,
+      force: true,
+    });
     await vi.waitFor(() => expect(finishes).toHaveLength(1));
     finishes[0]("segment", new Response(null, { status: 200 }));
     await vi.waitFor(() => expect(finishes).toHaveLength(2));
@@ -784,12 +797,14 @@ describe("chat store derived state", () => {
       finishes.push(options.onFinish);
     });
 
-    const first = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, firstOwnerId);
-    const second = useChatStore
-      .getState()
-      .generateNodeSummary(session.id, secondOwnerId);
+    const first = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: firstOwnerId,
+    });
+    const second = summaryMaintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: secondOwnerId,
+    });
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
     finishes[0]("first segment", new Response(null, { status: 200 }));
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(2));

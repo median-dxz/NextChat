@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { ChatGPTApi } from "../app/client/platforms/openai";
 import { GeminiProApi } from "../app/client/platforms/google";
+import { getProviderContextAdapter } from "../app/client/provider-context";
 import { ServiceProvider } from "../app/constant";
 
 const originalFetch = window.fetch;
@@ -48,13 +49,32 @@ describe("provider context adaptation", () => {
       );
     });
 
-    await new GeminiProApi().chat({
-      messages: [
-        { role: "system", content: "memory" },
-        { role: "user", content: "pinned" },
-        { role: "assistant", content: "summary" },
-        { role: "user", content: "current" },
+    const messages = getProviderContextAdapter(ServiceProvider.Google).materialize(
+      [
+        {
+          kind: "fixed",
+          message: { role: "system", content: "memory" },
+        },
+        {
+          kind: "fixed",
+          message: { role: "user", content: "pinned" },
+        },
+        {
+          kind: "segment",
+          ownerNodeId: "summary-owner",
+          sourceNodeIds: ["summary-source"],
+          content: "summary",
+          freshness: "fresh",
+        },
+        {
+          kind: "current",
+          message: { role: "user", content: "current" },
+        },
       ],
+    );
+
+    await new GeminiProApi().chat({
+      messages,
       config: {
         model: "gemini-2.0-flash",
         providerName: ServiceProvider.Google,
