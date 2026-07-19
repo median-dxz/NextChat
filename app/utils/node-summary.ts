@@ -121,6 +121,7 @@ export interface OutlineChainContextFrontier {
   outlineLevel: number;
   nodeIds: string[];
   states: ChainContextState[];
+  approximated: boolean;
 }
 
 export interface RecentRawContext {
@@ -141,7 +142,36 @@ export interface PlanChainContextArgs {
   recentRawNodeCount: number;
   availableTokens: number;
   cache?: NodeSummaryRuntimeCache;
+  frontierLimit?: number;
+  tokenBucketSize?: number;
 }
+
+export interface ContextParetoOptions {
+  frontierLimit?: number;
+  tokenBucketSize?: number;
+}
+
+export interface ContextPlanningDiagnostics {
+  approximated: boolean;
+  maxCandidateCount: number;
+  finalFrontierSize: number;
+  chainCount: number;
+}
+
+export interface CombinedContextFrontier {
+  states: ChainContextState[];
+  diagnostics: ContextPlanningDiagnostics;
+}
+
+export interface NodeConversationContextPlan {
+  tokens: number;
+  representations: ContextRepresentation[];
+  recentRaw: RecentRawContext;
+  state: ChainContextState;
+  diagnostics: ContextPlanningDiagnostics;
+}
+
+export interface PlanNodeConversationContextArgs extends PlanChainContextArgs {}
 
 export function partitionProjectionIntoOutlineChains(
   projection: ConversationNode[],
@@ -253,7 +283,12 @@ export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
   return {
     stats,
     getNodeTokens(node) {
-      const key = JSON.stringify(node.content);
+      const key = JSON.stringify([
+        node.id,
+        node.role,
+        node.content,
+        "hidden" in node ? node.hidden : undefined,
+      ]);
       const cached = nodeTokens.get(key);
       if (cached !== undefined) {
         stats.nodeTokenHits += 1;
@@ -789,14 +824,121 @@ function pruneChainContextStates(states: ChainContextState[]) {
     const signature = chainStateSignature(state);
     if (!unique.has(signature)) unique.set(signature, state);
   }
-  const candidates = [...unique.values()];
-  return candidates.filter(
-    (candidate, index) =>
-      !candidates.some(
-        (other, otherIndex) =>
-          otherIndex !== index && chainStateDominates(other, candidate),
-      ),
+  const candidates = [...unique.values()].sort(
+    (left, right) =>
+      left.tokens - right.tokens || compareChainContextStates(right, left),
   );
+  const frontier: ChainContextState[] = [];
+  let best: ChainContextState | undefined;
+  for (const candidate of candidates) {
+    if (best && chainStateDominates(best, candidate)) continue;
+    frontier.push(candidate);
+    if (!best || compareChainContextStates(candidate, best) > 0) {
+      best = candidate;
+    }
+  }
+  return frontier;
+}
+
+const DEFAULT_CONTEXT_FRONTIER_LIMIT = 512;
+const DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE = 128;
+
+function combineContextStates(
+  left: ChainContextState,
+  right: ChainContextState,
+): ChainContextState {
+  return {
+    tokens: left.tokens + right.tokens,
+    coveredNodeCount: left.coveredNodeCount + right.coveredNodeCount,
+    freshCoveredNodeCount:
+      left.freshCoveredNodeCount + right.freshCoveredNodeCount,
+    rawCoveredNodeCount: left.rawCoveredNodeCount + right.rawCoveredNodeCount,
+    segmentCoveredNodeCount:
+      left.segmentCoveredNodeCount + right.segmentCoveredNodeCount,
+    checkpointCoveredNodeCount:
+      left.checkpointCoveredNodeCount + right.checkpointCoveredNodeCount,
+    selectedRepresentations: [
+      ...left.selectedRepresentations,
+      ...right.selectedRepresentations,
+    ],
+  };
+}
+
+function compareFidelityVector(
+  left: ChainContextState,
+  right: ChainContextState,
+) {
+  const keys = [
+    "freshCoveredNodeCount",
+    "rawCoveredNodeCount",
+    "segmentCoveredNodeCount",
+    "checkpointCoveredNodeCount",
+  ] as const;
+  for (const key of keys) {
+    const difference = left[key] - right[key];
+    if (difference !== 0) return difference;
+  }
+  return right.tokens - left.tokens;
+}
+
+function bestState(
+  states: ChainContextState[],
+  compare: (left: ChainContextState, right: ChainContextState) => number,
+) {
+  return states.reduce((best, candidate) =>
+    compare(candidate, best) > 0 ? candidate : best,
+  );
+}
+
+function approximateContextStates(
+  states: ChainContextState[],
+  tokenBudget: number,
+  frontierLimit: number,
+  tokenBucketSize: number,
+) {
+  const limit = Math.max(3, Math.floor(frontierLimit));
+  const exact = pruneChainContextStates(states);
+  if (exact.length <= limit) return { states: exact, approximated: false };
+
+  const extremes = [
+    bestState(exact, (left, right) =>
+      right.tokens !== left.tokens
+        ? right.tokens - left.tokens
+        : compareChainContextStates(left, right),
+    ),
+    bestState(exact, (left, right) =>
+      left.coveredNodeCount !== right.coveredNodeCount
+        ? left.coveredNodeCount - right.coveredNodeCount
+        : compareChainContextStates(left, right),
+    ),
+    bestState(exact, compareFidelityVector),
+  ];
+  const extremeSignatures = new Set(extremes.map(chainStateSignature));
+  const availableBucketSlots = Math.max(1, limit - extremeSignatures.size);
+  const bucketWidth = Math.max(
+    1,
+    Math.floor(tokenBucketSize),
+    Math.ceil((Math.max(0, tokenBudget) + 1) / availableBucketSlots),
+  );
+  const buckets = new Map<number, ChainContextState>();
+  for (const candidate of exact) {
+    const bucket = Math.floor(candidate.tokens / bucketWidth);
+    const current = buckets.get(bucket);
+    if (!current || compareChainContextStates(candidate, current) > 0) {
+      buckets.set(bucket, candidate);
+    }
+  }
+  const retained = new Map<string, ChainContextState>();
+  for (const candidate of extremes) {
+    retained.set(chainStateSignature(candidate), candidate);
+  }
+  for (const candidate of [...buckets.values()].sort((left, right) =>
+    compareChainContextStates(right, left),
+  )) {
+    if (retained.size >= limit) break;
+    retained.set(chainStateSignature(candidate), candidate);
+  }
+  return { states: [...retained.values()], approximated: true };
 }
 
 interface ChainContextEdge {
@@ -895,6 +1037,7 @@ export function planOutlineChainContext(
   nodeCount: number,
   tokenBudget: number,
   cache: NodeSummaryRuntimeCache = createNodeSummaryRuntimeCache(),
+  options: ContextParetoOptions = {},
 ): OutlineChainContextFrontier {
   const limitedNodeCount = Math.max(0, Math.min(nodeCount, chain.nodes.length));
   const budget = Math.max(0, tokenBudget);
@@ -911,8 +1054,16 @@ export function planOutlineChainContext(
   for (let cutoff = 0; cutoff <= limitedNodeCount; cutoff += 1) {
     statesAt[cutoff].push(emptyChainContextState());
   }
+  let approximated = false;
   for (let position = 0; position < limitedNodeCount; position += 1) {
-    statesAt[position] = pruneChainContextStates(statesAt[position]);
+    const pruned = approximateContextStates(
+      statesAt[position],
+      budget,
+      options.frontierLimit ?? DEFAULT_CONTEXT_FRONTIER_LIMIT,
+      options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE,
+    );
+    statesAt[position] = pruned.states;
+    approximated ||= pruned.approximated;
     for (const state of statesAt[position]) {
       for (const edge of edges[position]) {
         const next = extendChainContextState(state, edge);
@@ -920,14 +1071,22 @@ export function planOutlineChainContext(
       }
     }
   }
-  const states = pruneChainContextStates(statesAt[limitedNodeCount]).sort(
-    (left, right) => compareChainContextStates(right, left),
+  const finalPruned = approximateContextStates(
+    statesAt[limitedNodeCount],
+    budget,
+    options.frontierLimit ?? DEFAULT_CONTEXT_FRONTIER_LIMIT,
+    options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE,
+  );
+  approximated ||= finalPruned.approximated;
+  const states = finalPruned.states.sort((left, right) =>
+    compareChainContextStates(right, left),
   );
   return {
     chainRootId: chain.nodes[0]?.id ?? "",
     outlineLevel: chain.outlineLevel,
     nodeIds: chain.nodes.slice(0, limitedNodeCount).map((node) => node.id),
     states,
+    approximated,
   };
 }
 
@@ -987,6 +1146,7 @@ export function planChainContextFrontiers(
             prefixLength,
             optionalBudget,
             cache,
+            args,
           ),
         ]
       : [];
@@ -1000,5 +1160,94 @@ export function planChainContextFrontiers(
     optionalBudget,
     optionalNodeIds: optionalProjection.map((node) => node.id),
     chains,
+  };
+}
+
+export function planNodeConversationContext(
+  args: PlanNodeConversationContextArgs,
+): NodeConversationContextPlan {
+  const planning = planChainContextFrontiers(args);
+  const combined = combineChainContextFrontiers(
+    planning.chains,
+    planning.optionalBudget,
+    args,
+  );
+  const optionalState = bestState(
+    combined.states.length > 0 ? combined.states : [emptyChainContextState()],
+    compareChainContextStates,
+  );
+  const recentState: ChainContextState = {
+    tokens: planning.recentRaw.tokens,
+    coveredNodeCount: planning.recentRaw.nodeIds.length,
+    freshCoveredNodeCount: planning.recentRaw.nodeIds.length,
+    rawCoveredNodeCount: planning.recentRaw.nodeIds.length,
+    segmentCoveredNodeCount: 0,
+    checkpointCoveredNodeCount: 0,
+    selectedRepresentations: planning.recentRaw.representations,
+  };
+  const state = combineContextStates(optionalState, recentState);
+
+  return {
+    tokens: state.tokens,
+    representations: state.selectedRepresentations,
+    recentRaw: planning.recentRaw,
+    state,
+    diagnostics: combined.diagnostics,
+  };
+}
+
+export function combineChainContextFrontiers(
+  chains: OutlineChainContextFrontier[],
+  tokenBudget: number,
+  options: ContextParetoOptions = {},
+): CombinedContextFrontier {
+  const frontierLimit = options.frontierLimit ?? DEFAULT_CONTEXT_FRONTIER_LIMIT;
+  const tokenBucketSize =
+    options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE;
+  let frontier = [emptyChainContextState()];
+  let approximated = chains.some((chain) => chain.approximated);
+  let maxCandidateCount = frontier.length;
+
+  for (const chain of chains) {
+    let candidates: ChainContextState[] = [];
+    let stepApproximated = false;
+    const batchLimit = Math.max(64, Math.max(3, frontierLimit) * 4);
+    for (const accumulated of frontier) {
+      for (const chainState of chain.states) {
+        const combined = combineContextStates(accumulated, chainState);
+        if (combined.tokens <= Math.max(0, tokenBudget)) {
+          candidates.push(combined);
+          if (candidates.length >= batchLimit) {
+            maxCandidateCount = Math.max(maxCandidateCount, candidates.length);
+            const batched = approximateContextStates(
+              candidates,
+              tokenBudget,
+              frontierLimit,
+              tokenBucketSize,
+            );
+            candidates = batched.states;
+            stepApproximated ||= batched.approximated;
+          }
+        }
+      }
+    }
+    maxCandidateCount = Math.max(maxCandidateCount, candidates.length);
+    const pruned = approximateContextStates(
+      candidates,
+      tokenBudget,
+      frontierLimit,
+      tokenBucketSize,
+    );
+    frontier = pruned.states;
+    approximated ||= stepApproximated || pruned.approximated;
+  }
+  return {
+    states: frontier,
+    diagnostics: {
+      approximated,
+      maxCandidateCount,
+      finalFrontierSize: frontier.length,
+      chainCount: chains.length,
+    },
   };
 }

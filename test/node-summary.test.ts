@@ -3,6 +3,8 @@ import type { ConversationNode } from "../app/utils/conversation-graph";
 import {
   type ChainContextState,
   type NodeSummaryRuntimeCache,
+  type OutlineChainContextFrontier,
+  combineChainContextFrontiers,
   compareChainContextStates,
   createNodeSummaryRuntimeCache,
   createNodeSummarySourceDigest,
@@ -11,6 +13,7 @@ import {
   planChainContextFrontiers,
   planCheckpointMaintenance,
   planOutlineChainContext,
+  planNodeConversationContext,
   planSegmentMaintenance,
 } from "../app/utils/node-summary";
 
@@ -166,8 +169,11 @@ describe("node summary planning", () => {
     const first = node("a", 1, undefined, "user", "same content");
     const second = node("b", 1, undefined, "assistant", "same content");
 
-    expect(cache.getNodeTokens(first)).toBe(cache.getNodeTokens(second));
+    cache.getNodeTokens(first);
+    cache.getNodeTokens(first);
+    cache.getNodeTokens(second);
     cache.getNodeTokens({ ...second, content: "changed" });
+    cache.getNodeTokens({ ...second, role: "user" });
     cache.getSummaryTokens("summary");
     cache.getSummaryTokens("summary");
     cache.getSourceDigest([first, second]);
@@ -176,7 +182,7 @@ describe("node summary planning", () => {
 
     expect(cache.stats).toEqual({
       nodeTokenHits: 1,
-      nodeTokenMisses: 2,
+      nodeTokenMisses: 4,
       summaryTokenHits: 1,
       summaryTokenMisses: 1,
       digestHits: 1,
@@ -1003,5 +1009,181 @@ describe("node summary planning", () => {
     expect(new Set(actual.map(signature))).toEqual(
       new Set(oracle.map(signature)),
     );
+  });
+
+  test("combines interleaved chains under one global token budget", () => {
+    const projection = [
+      node("a", 1, undefined, "user", "3"),
+      node("b", 2, "a", "user", "3"),
+      node("c", 2, "b", "assistant", "3"),
+      node("d", 1, "a", "assistant", "3"),
+    ];
+    projection[2].nodeSummaries = {
+      segment: {
+        content: "1",
+        sourceNodeIds: ["b", "c"],
+        sourceDigest: createNodeSummarySourceDigest(projection.slice(1, 3)),
+        provenance: "generated",
+      },
+    };
+    projection[3].nodeSummaries = {
+      segment: {
+        content: "2",
+        sourceNodeIds: ["a", "d"],
+        sourceDigest: createNodeSummarySourceDigest([
+          projection[0],
+          projection[3],
+        ]),
+        provenance: "generated",
+      },
+    };
+
+    const plan = planNodeConversationContext({
+      projection,
+      recentRawNodeCount: 0,
+      availableTokens: 3,
+      cache: fixedTokenCache(),
+    });
+
+    expect(plan.state.coveredNodeCount).toBe(4);
+    expect(plan.tokens).toBe(3);
+    expect(
+      plan.representations.map((representation) => representation.kind),
+    ).toEqual(["segment", "segment"]);
+  });
+
+  test("matches an exhaustive small multi-chain combination oracle", () => {
+    const frontier = (
+      root: string,
+      states: ChainContextState[],
+    ): OutlineChainContextFrontier => ({
+      chainRootId: root,
+      outlineLevel: 1,
+      nodeIds: [root],
+      states,
+      approximated: false,
+    });
+    const chains = [
+      frontier("a", [state(), state({ tokens: 2, coveredNodeCount: 1 })]),
+      frontier("b", [
+        state(),
+        state({
+          tokens: 3,
+          coveredNodeCount: 2,
+          freshCoveredNodeCount: 2,
+        }),
+      ]),
+      frontier("c", [state(), state({ tokens: 4, coveredNodeCount: 3 })]),
+    ];
+    const actual = combineChainContextFrontiers(chains, 6, {
+      frontierLimit: 100,
+    }).states;
+    const enumerated = chains.reduce(
+      (current, chain) =>
+        current.flatMap((left) =>
+          chain.states.flatMap((right) => {
+            const combined = state({
+              tokens: left.tokens + right.tokens,
+              coveredNodeCount:
+                left.coveredNodeCount + right.coveredNodeCount,
+              freshCoveredNodeCount:
+                left.freshCoveredNodeCount + right.freshCoveredNodeCount,
+            });
+            return combined.tokens <= 6 ? [combined] : [];
+          }),
+        ),
+      [state()],
+    );
+    const best = (states: ChainContextState[]) =>
+      states.reduce((winner, candidate) =>
+        compareChainContextStates(candidate, winner) > 0
+          ? candidate
+          : winner,
+      );
+
+    expect(best(actual)).toEqual(best(enumerated));
+  });
+
+  test("bounded approximation retains the required frontier extremes", () => {
+    const empty = state();
+    const highestFidelity = state({
+      tokens: 5,
+      coveredNodeCount: 1,
+      freshCoveredNodeCount: 1,
+    });
+    const highestCoverage = state({ tokens: 8, coveredNodeCount: 4 });
+    const chain: OutlineChainContextFrontier = {
+      chainRootId: "a",
+      outlineLevel: 1,
+      nodeIds: ["a"],
+      states: [
+        empty,
+        highestFidelity,
+        state({ tokens: 6, coveredNodeCount: 2 }),
+        state({ tokens: 7, coveredNodeCount: 3 }),
+        highestCoverage,
+      ],
+      approximated: false,
+    };
+
+    const result = combineChainContextFrontiers([chain], 8, {
+      frontierLimit: 3,
+      tokenBucketSize: 1,
+    });
+
+    expect(result.diagnostics.approximated).toBe(true);
+    expect(result.states).toHaveLength(3);
+    expect(result.states).toContainEqual(empty);
+    expect(result.states).toContainEqual(highestCoverage);
+    expect(result.states).toContainEqual(highestFidelity);
+    expect(result.states.every((candidate) => candidate.tokens <= 8)).toBe(
+      true,
+    );
+  });
+
+  test("keeps a 250-node adversarial plan bounded", () => {
+    const projection = Array.from({ length: 250 }, (_, index) =>
+      node(
+        `n${index}`,
+        index % 10 === 0 ? 2 : 1,
+        index === 0 ? undefined : `n${index - 1}`,
+        index % 2 === 0 ? "user" : "assistant",
+        "2",
+      ),
+    );
+    const chains = partitionProjectionIntoOutlineChains(projection);
+    for (const chain of chains) {
+      for (let index = 1; index < chain.nodes.length; index += 2) {
+        const owner = chain.nodes[index];
+        if (owner.role !== "assistant") continue;
+        const sources = chain.nodes.slice(Math.max(0, index - 1), index + 1);
+        owner.nodeSummaries = {
+          segment: {
+            content: "1",
+            sourceNodeIds: sources.map((source) => source.id),
+            sourceDigest: createNodeSummarySourceDigest(sources),
+            provenance: "generated",
+          },
+        };
+      }
+    }
+
+    const startedAt = performance.now();
+    const plan = planNodeConversationContext({
+      projection,
+      recentRawNodeCount: 8,
+      availableTokens: 300,
+      cache: fixedTokenCache(),
+      frontierLimit: 64,
+      tokenBucketSize: 8,
+    });
+    const duration = performance.now() - startedAt;
+
+    expect(plan.tokens).toBeLessThanOrEqual(300);
+    expect(plan.diagnostics.finalFrontierSize).toBeLessThanOrEqual(64);
+    expect(new Set(plan.recentRaw.nodeIds).size).toBe(
+      plan.recentRaw.nodeIds.length,
+    );
+    expect(duration).toBeLessThan(1_000);
   });
 });
