@@ -91,7 +91,6 @@ export function RealtimeChat({
         setIsConnected(true);
         // TODO
         // try {
-        //   const recentMessages = chatStore.getMessagesWithMemory();
         //   for (const message of recentMessages) {
         //     const { role, content } = message;
         //     if (typeof content === "string") {

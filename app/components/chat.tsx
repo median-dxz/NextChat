@@ -80,7 +80,6 @@ import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
 
 import dynamic from "next/dynamic";
 
-import { ChatControllerPool } from "../client/controller";
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { Prompt, usePromptStore } from "../store/prompt";
 import Locale from "../locales";
@@ -485,8 +484,8 @@ export function ChatActions(props: {
   );
 
   // stop all responses
-  const couldStop = ChatControllerPool.hasPending();
-  const stopAll = () => ChatControllerPool.stopAll();
+  const couldStop = chatStore.hasActiveChatRuns();
+  const stopAll = () => chatStore.cancelAllChatRuns();
 
   // switch model
   const currentModel = session.mask.modelConfig.model;
@@ -1706,7 +1705,7 @@ function ChatView() {
 
   // stop response
   const onUserStop = (messageId: string) => {
-    ChatControllerPool.stop(session.id, messageId);
+    chatStore.cancelChatRun(session.id, messageId);
   };
 
   useEffect(() => {

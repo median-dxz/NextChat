@@ -7,42 +7,24 @@ import {
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import { nanoid } from "nanoid";
-import type {
-  ClientApi,
-  MultimodalContent,
-  RequestMessage,
-} from "../client/api";
+import type { ClientApi } from "../client/api";
 import { getClientApi } from "../client/api";
-import { ChatControllerPool } from "../client/controller";
 import { showToast } from "../components/ui-lib";
 import {
-  DEFAULT_INPUT_TEMPLATE,
-  DEFAULT_MODELS,
-  DEFAULT_SYSTEM_TEMPLATE,
   GEMINI_SUMMARIZE_MODEL,
   DEEPSEEK_SUMMARIZE_MODEL,
-  KnowledgeCutOffDate,
-  MCP_SYSTEM_TEMPLATE,
-  MCP_TOOLS_TEMPLATE,
   ServiceProvider,
   StoreKey,
   SUMMARIZE_MODEL,
 } from "../constant";
-import Locale, { getLang } from "../locales";
-import { prettyObject } from "../utils/format";
+import Locale from "../locales";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
-import {
-  estimateRequestMessageTokens,
-  getEffectiveMaxOutputTokens,
-  getContextInputBudget,
-} from "../utils/context-budget";
+import { getContextInputBudget } from "../utils/context-budget";
 import {
   Conversation,
-  createConversationNode,
   createMessage,
   type ChatMessage,
-  type ChatMessageTool,
   type ConversationNode,
   type NodeSummaryKind,
 } from "../utils/conversation";
@@ -50,12 +32,16 @@ import { ModelConfig, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createEmptyMask, Mask } from "./mask";
-import { executeMcpAction, getAllTools, isMcpEnabled } from "@/app/mcp/actions";
+import { executeMcpAction, isMcpEnabled } from "@/app/mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import type {
   ConversationGraphState,
   GlobalMemory,
 } from "../utils/conversation";
+import {
+  createChatOrchestrator,
+  type ChatOrchestrator,
+} from "./chat-orchestrator";
 
 export { createConversationNode, createMessage } from "../utils/conversation";
 export type {
@@ -316,71 +302,6 @@ function countMessages(msgs: ChatMessage[]) {
   );
 }
 
-function fillTemplateWith(input: string, modelConfig: ModelConfig) {
-  const cutoff =
-    KnowledgeCutOffDate[modelConfig.model] ?? KnowledgeCutOffDate.default;
-  // Find the model in the DEFAULT_MODELS array that matches the modelConfig.model
-  const modelInfo = DEFAULT_MODELS.find((m) => m.name === modelConfig.model);
-
-  var serviceProvider = "OpenAI";
-  if (modelInfo) {
-    // TODO: auto detect the providerName from the modelConfig.model
-
-    // Directly use the providerName from the modelInfo
-    serviceProvider = modelInfo.provider.providerName;
-  }
-
-  const vars = {
-    ServiceProvider: serviceProvider,
-    cutoff,
-    model: modelConfig.model,
-    time: new Date().toString(),
-    lang: getLang(),
-    input: input,
-  };
-
-  let output = modelConfig.template ?? DEFAULT_INPUT_TEMPLATE;
-
-  // remove duplicate
-  if (input.startsWith(output)) {
-    output = "";
-  }
-
-  // must contains {{input}}
-  const inputVar = "{{input}}";
-  if (!output.includes(inputVar)) {
-    output += "\n" + inputVar;
-  }
-
-  Object.entries(vars).forEach(([name, value]) => {
-    const regex = new RegExp(`{{${name}}}`, "g");
-    output = output.replace(regex, value.toString()); // Ensure value is a string
-  });
-
-  return output;
-}
-
-async function getMcpSystemPrompt(): Promise<string> {
-  const tools = await getAllTools();
-
-  let toolsStr = "";
-
-  tools.forEach((i) => {
-    // error client has no tools
-    if (!i.tools) return;
-
-    toolsStr += MCP_TOOLS_TEMPLATE.replace(
-      "{{ clientId }}",
-      i.clientId,
-    ).replace(
-      "{{ tools }}",
-      i.tools.tools.map((p: object) => JSON.stringify(p, null, 2)).join("\n"),
-    );
-  });
-
-  return MCP_SYSTEM_TEMPLATE.replace("{{ MCP_TOOLS }}", toolsStr);
-}
-
 const DEFAULT_CHAT_STATE = {
   sessions: [createEmptySession()],
   currentSessionIndex: 0,
@@ -396,6 +317,8 @@ export const useChatStore = createPersistStore(
         ...methods,
       };
     }
+
+    let chatOrchestrator: ChatOrchestrator;
 
     const methods = {
       forkSession() {
@@ -558,331 +481,29 @@ export const useChatStore = createPersistStore(
         return session;
       },
 
-      onNewMessage(message: ChatMessage, targetSession: ChatSession) {
-        get().updateTargetSession(targetSession, (session) => {
-          session.messages = session.messages.concat();
-          session.lastUpdate = Date.now();
-        });
-
-        get().updateStat(message, targetSession);
-
-        get().checkMcpJson(message);
-
-        get().generateSessionTitle(targetSession);
-        if (
-          message.role === "assistant" &&
-          targetSession.mask.modelConfig.sendMemory
-        ) {
-          void get()
-            .generateNodeSummary(targetSession.id, message.id)
-            .catch((error) => console.error("[Node Summary]", error));
-        }
-        if (targetSession.globalMemory.enabled) {
-          void get().updateGlobalMemory(targetSession.id);
-        }
-      },
-
-      async onUserInput(
+      onUserInput(
         content: string,
         attachImages?: string[],
         isMcpResponse?: boolean,
-        retry?: {
-          source: ConversationNode;
-          reuseUser: boolean;
-          insertBeforeId?: string;
-        },
       ) {
-        const session = get().currentSession();
-        const modelConfig = session.mask.modelConfig;
-
-        // MCP Response no need to fill template
-        let mContent: string | MultimodalContent[] = retry
-          ? retry.source.content
-          : isMcpResponse
-            ? content
-            : fillTemplateWith(content, modelConfig);
-
-        if (
-          !retry &&
-          !isMcpResponse &&
-          attachImages &&
-          attachImages.length > 0
-        ) {
-          mContent = [
-            ...(content ? [{ type: "text" as const, text: content }] : []),
-            ...attachImages.map((url) => ({
-              type: "image_url" as const,
-              image_url: { url },
-            })),
-          ];
-        }
-
-        let userMessage: ConversationNode = retry?.reuseUser
-          ? { ...retry.source }
-          : createConversationNode({
-              role: "user",
-              content: mContent,
-              isMcpResponse: retry?.source.isMcpResponse ?? isMcpResponse,
-            });
-
-        const botMessage: ConversationNode = createConversationNode({
-          role: "assistant",
-          streaming: true,
-          model: modelConfig.model,
-        });
-        let reasoningStartedAt: number | undefined;
-        const finishReasoningTiming = () => {
-          if (
-            reasoningStartedAt !== undefined &&
-            botMessage.reasoningDurationMs === undefined
-          ) {
-            botMessage.reasoningDurationMs = Math.max(
-              0,
-              Date.now() - reasoningStartedAt,
-            );
-          }
-        };
-
-        // get recent messages
-        const recentMessages = await get().getMessagesWithMemory(userMessage);
-        const sendMessages = recentMessages.concat(userMessage);
-        const effectiveMaxOutputTokens = getEffectiveMaxOutputTokens(
-          modelConfig.contextWindowTokens,
-          modelConfig.max_tokens,
-          sendMessages.reduce(
-            (sum, message) => sum + estimateRequestMessageTokens(message),
-            0,
-          ),
-        );
-        const messageIndex = session.messages.length + 1;
-
-        // save user's and bot's message
-        get().updateTargetSession(session, (session) => {
-          const savedUserMessage: ConversationNode = retry?.reuseUser
-            ? userMessage
-            : { ...userMessage, content: mContent };
-          let graph = retry?.reuseUser
-            ? session
-            : retry?.insertBeforeId
-              ? Conversation(session).insertProjected(
-                  savedUserMessage,
-                  undefined,
-                  retry.insertBeforeId,
-                )
-              : Conversation(session).insert(
-                  savedUserMessage,
-                  session.pendingOutlineDelta ?? 0,
-                );
-          graph = Conversation(graph).insert(
-            botMessage,
-            0,
-            savedUserMessage.id,
-          );
-          const insertedUser = graph.messages.find(
-            (message) => message.id === savedUserMessage.id,
-          )!;
-          const insertedBot = graph.messages.find(
-            (message) => message.id === botMessage.id,
-          )!;
-          Object.assign(userMessage, {
-            parentId: insertedUser.parentId,
-            outlineLevel: insertedUser.outlineLevel,
-          });
-          Object.assign(botMessage, {
-            parentId: insertedBot.parentId,
-            outlineLevel: insertedBot.outlineLevel,
-          });
-          session.messages = graph.messages;
-          session.rootNodeId = graph.rootNodeId;
-          session.activeCursorId = graph.activeCursorId;
-          session.pendingOutlineDelta = undefined;
-        });
-
-        const syncMessage = (message: ConversationNode) => {
-          get().updateTargetSession(session, (current) => {
-            const target = current.messages.find(
-              (item) => item.id === message.id,
-            );
-            if (target) Object.assign(target, message);
-          });
-        };
-
-        const api: ClientApi = getClientApi(modelConfig.providerName);
-        // make request
-        api.llm.chat({
-          messages: sendMessages,
-          config: {
-            ...modelConfig,
-            max_tokens: effectiveMaxOutputTokens,
-            stream: true,
-          },
-          onUpdate(message) {
-            botMessage.streaming = true;
-            if (message) {
-              finishReasoningTiming();
-              botMessage.content = message;
-            }
-            syncMessage(botMessage);
-          },
-          onReasoningUpdate(reasoning) {
-            botMessage.streaming = true;
-            reasoningStartedAt ??= Date.now();
-            botMessage.reasoning = reasoning;
-            syncMessage(botMessage);
-          },
-          async onFinish(message) {
-            botMessage.streaming = false;
-            finishReasoningTiming();
-            if (message || botMessage.reasoning) {
-              botMessage.content = message;
-              botMessage.date = new Date().toLocaleString();
-              syncMessage(botMessage);
-              get().onNewMessage(botMessage, session);
-            } else {
-              syncMessage(botMessage);
-            }
-            ChatControllerPool.remove(session.id, botMessage.id);
-          },
-          onBeforeTool(tool: ChatMessageTool) {
-            (botMessage.tools = botMessage?.tools || []).push(tool);
-            syncMessage(botMessage);
-          },
-          onAfterTool(tool: ChatMessageTool) {
-            botMessage?.tools?.forEach((t, i, tools) => {
-              if (tool.id == t.id) {
-                tools[i] = { ...tool };
-              }
-            });
-            syncMessage(botMessage);
-          },
-          onError(error) {
-            const isAborted = error.message?.includes?.("aborted");
-            botMessage.content +=
-              "\n\n" +
-              prettyObject({
-                error: true,
-                message: error.message,
-              });
-            botMessage.streaming = false;
-            finishReasoningTiming();
-            userMessage.isError = !isAborted;
-            botMessage.isError = !isAborted;
-            syncMessage(userMessage);
-            syncMessage(botMessage);
-            ChatControllerPool.remove(
-              session.id,
-              botMessage.id ?? messageIndex,
-            );
-
-            console.error("[Chat] failed ", error);
-          },
-          onController(controller) {
-            // collect controller for stop/retry
-            ChatControllerPool.addController(
-              session.id,
-              botMessage.id ?? messageIndex,
-              controller,
-            );
-          },
+        return chatOrchestrator.start({
+          sessionId: get().currentSession().id,
+          content,
+          attachImages,
+          isMcpResponse,
         });
       },
 
-      async getMessagesWithMemory(currentInput?: RequestMessage) {
-        const session = get().currentSession();
-        const modelConfig = session.mask.modelConfig;
-        const contextPrompts = session.pinnedInputs.slice();
+      hasActiveChatRuns() {
+        return chatOrchestrator.activeRuns().length > 0;
+      },
 
-        // system prompts, to get close to OpenAI Web ChatGPT
-        const shouldInjectSystemPrompts =
-          modelConfig.enableInjectSystemPrompts &&
-          (session.mask.modelConfig.model.startsWith("gpt-") ||
-            session.mask.modelConfig.model.startsWith("chatgpt-"));
+      cancelChatRun(sessionId: string, assistantNodeId: string) {
+        chatOrchestrator.cancel(sessionId, assistantNodeId);
+      },
 
-        const mcpEnabled = await isMcpEnabled();
-        const mcpSystemPrompt = mcpEnabled ? await getMcpSystemPrompt() : "";
-
-        var systemPrompts: ChatMessage[] = [];
-
-        if (shouldInjectSystemPrompts) {
-          systemPrompts = [
-            createMessage({
-              role: "system",
-              content:
-                fillTemplateWith("", {
-                  ...modelConfig,
-                  template: DEFAULT_SYSTEM_TEMPLATE,
-                }) + mcpSystemPrompt,
-            }),
-          ];
-        } else if (mcpEnabled) {
-          systemPrompts = [
-            createMessage({
-              role: "system",
-              content: mcpSystemPrompt,
-            }),
-          ];
-        }
-
-        if (shouldInjectSystemPrompts || mcpEnabled) {
-          console.log(
-            "[Global System Prompt] ",
-            systemPrompts.at(0)?.content ?? "empty",
-          );
-        }
-        const globalMemoryPrompts =
-          session.globalMemory.enabled && session.globalMemory.content.trim()
-            ? [
-                createMessage({
-                  role: "system",
-                  content: session.globalMemory.content,
-                  date: "",
-                }),
-              ]
-            : [];
-        const fixedMessages = [
-          ...systemPrompts,
-          ...globalMemoryPrompts,
-          ...contextPrompts,
-        ];
-        const current = get().sessions.find((item) => item.id === session.id);
-        if (!current) throw new Error("Chat session no longer exists");
-        const currentInputId =
-          currentInput && "id" in currentInput
-            ? String(currentInput.id)
-            : undefined;
-        const inputBudget = getContextInputBudget(
-          modelConfig.contextWindowTokens,
-          modelConfig.max_tokens,
-        );
-        const fixedTokenCount = fixedMessages.reduce(
-          (sum, message) => sum + estimateRequestMessageTokens(message),
-          0,
-        );
-        const currentInputTokenCount = currentInput
-          ? estimateRequestMessageTokens(currentInput)
-          : 0;
-        if (fixedTokenCount + currentInputTokenCount > inputBudget) {
-          throw new Error(
-            "System prompts and current input exceed the context window",
-          );
-        }
-        const availableHistoryTokens = Math.max(
-          0,
-          inputBudget - fixedTokenCount - currentInputTokenCount,
-        );
-        const selectedMessages = Conversation(current).context.build({
-          recentRawNodeCount: modelConfig.recentRawNodeCount,
-          availableTokens: availableHistoryTokens,
-          summaries: modelConfig.sendMemory ? "enabled" : "disabled",
-          excludeNodeId: currentInputId,
-        });
-
-        return [
-          ...systemPrompts,
-          ...globalMemoryPrompts,
-          ...contextPrompts,
-          ...selectedMessages,
-        ];
+      cancelAllChatRuns() {
+        chatOrchestrator.cancelAll();
       },
 
       updateMessage(
@@ -1244,55 +865,18 @@ export const useChatStore = createPersistStore(
       async retryMessage(sessionId: string, messageId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session || get().currentSession().id !== sessionId) return false;
-        const sessionGraph = Conversation(session);
-        const targetNode = sessionGraph.findNode(messageId);
-        const target = targetNode?.value;
+        const target = Conversation(session).findNode(messageId)?.value;
         if (
           !target ||
           (target.role !== "user" && target.role !== "assistant")
         ) {
           return false;
         }
-
-        let source: ConversationNode;
-        let reuseUser = false;
-        let insertBeforeId: string | undefined;
-        let graph: ConversationGraphState = session;
-
-        if (target.role === "assistant") {
-          const user = targetNode.parent;
-          if (!user || user.role !== "user") {
-            throw new Error("An assistant retry requires its direct user node");
-          }
-          source = { ...user };
-          reuseUser = true;
-          graph = targetNode.remove();
-          graph = { ...graph, activeCursorId: user.id };
-          Conversation(graph).validate();
-        } else {
-          source = { ...target };
-          const response = targetNode.sameLevelSuccessor;
-          graph = targetNode.remove();
-          if (response?.role === "assistant") {
-            const responseNode = Conversation(graph).findNode(response.id);
-            if (responseNode) graph = responseNode.remove();
-          }
-          graph = { ...graph, activeCursorId: target.parentId };
-          Conversation(graph).validate();
-          if (!target.parentId) insertBeforeId = graph.rootNodeId;
-        }
-
-        get().updateTargetSession(session, (draft) => {
-          draft.messages = graph.messages;
-          draft.rootNodeId = graph.rootNodeId;
-          draft.activeCursorId = graph.activeCursorId;
-          draft.pendingOutlineDelta = undefined;
-        });
-
-        await get().onUserInput("", undefined, source.isMcpResponse, {
-          source,
-          reuseUser,
-          insertBeforeId,
+        await chatOrchestrator.start({
+          sessionId,
+          content: "",
+          isMcpResponse: target.isMcpResponse,
+          retry: { sourceNodeId: messageId },
         });
         return true;
       },
@@ -1424,8 +1008,8 @@ export const useChatStore = createPersistStore(
       },
 
       /** check if the message contains MCP JSON and execute the MCP action */
-      checkMcpJson(message: ChatMessage) {
-        const mcpEnabled = isMcpEnabled();
+      async checkMcpJson(message: ChatMessage, sessionId?: string) {
+        const mcpEnabled = await isMcpEnabled();
         if (!mcpEnabled) return;
         const content = getMessageTextContent(message);
         if (isMcpJson(content)) {
@@ -1441,11 +1025,12 @@ export const useChatStore = createPersistStore(
                     typeof result === "object"
                       ? JSON.stringify(result)
                       : String(result);
-                  return get().onUserInput(
-                    `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
-                    [],
-                    true,
-                  );
+                  return chatOrchestrator.start({
+                    sessionId: sessionId ?? get().currentSession().id,
+                    content: `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
+                    attachImages: [],
+                    isMcpResponse: true,
+                  });
                 })
                 .catch((error) => showToast("MCP execution failed", error));
             }
@@ -1455,6 +1040,44 @@ export const useChatStore = createPersistStore(
         }
       },
     };
+
+    chatOrchestrator = createChatOrchestrator({
+      getSession(sessionId) {
+        return get().sessions.find((session) => session.id === sessionId);
+      },
+      updateSession(sessionId, updater) {
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (session) get().updateTargetSession(session, updater);
+      },
+      getClientApi,
+      completionEffects: {
+        dispatch(event) {
+          const session = get().sessions.find(
+            (item) => item.id === event.sessionId,
+          );
+          const message = session?.messages.find(
+            (item) => item.id === event.assistantNodeId,
+          );
+          if (!session || !message) return;
+
+          get().updateTargetSession(session, (draft) => {
+            draft.messages = draft.messages.concat();
+            draft.lastUpdate = Date.now();
+          });
+          get().updateStat(message, session);
+          get().checkMcpJson(message, session.id);
+          get().generateSessionTitle(session);
+          if (session.mask.modelConfig.sendMemory) {
+            void get()
+              .generateNodeSummary(session.id, message.id)
+              .catch((error) => console.error("[Node Summary]", error));
+          }
+          if (session.globalMemory.enabled) {
+            void get().updateGlobalMemory(session.id);
+          }
+        },
+      },
+    });
 
     return methods;
   },

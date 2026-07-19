@@ -16,7 +16,7 @@ import {
   planNodeConversationContext,
   planSegmentMaintenance,
 } from "../app/utils/conversation/planning";
-import { materializeContextRepresentations } from "../app/utils/conversation/context";
+import { getProviderContextAdapter } from "../app/client/provider-context";
 import {
   evaluateNodeSummary,
   partitionProjectionIntoOutlineChains,
@@ -1057,17 +1057,10 @@ describe("node summary planning", () => {
     ).toEqual(["segment", "segment"]);
   });
 
-  test("materializes summaries as historical assistant output in projection order", () => {
-    const projection = [
-      node("a", 1, undefined, "user", "raw a"),
-      node("b", 2, "a", "user", "raw b"),
-      node("c", 2, "b", "assistant", "raw c"),
-      node("d", 1, "a", "assistant", "raw d"),
-    ];
-
+  test("maps neutral context entries to provider messages", () => {
     expect(
-      materializeContextRepresentations(projection, [
-        { kind: "raw", nodeId: "d" },
+      getProviderContextAdapter().materialize([
+        { kind: "raw", nodeId: "a", role: "user", content: "raw a" },
         {
           kind: "segment",
           ownerNodeId: "c",
@@ -1075,7 +1068,12 @@ describe("node summary planning", () => {
           content: "segment b-c",
           freshness: "fresh",
         },
-        { kind: "raw", nodeId: "a" },
+        {
+          kind: "raw",
+          nodeId: "d",
+          role: "assistant",
+          content: "raw d",
+        },
       ]),
     ).toEqual([
       { role: "user", content: "raw a" },

@@ -19,6 +19,11 @@ export {
   createSourceDigest,
 } from "./node";
 export type { ConversationGraphState, GlobalMemory } from "./graph";
+export type {
+  ConversationContextAssembly,
+  ConversationContextAssemblyOptions,
+  ConversationContextEntry,
+} from "./context";
 
 export interface ConversationApi extends ConversationGraphApi {
   readonly summaries: ConversationSummaryApi;

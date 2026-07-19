@@ -25,7 +25,12 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
-import { createSourceDigest } from "../app/utils/conversation";
+import {
+  Conversation,
+  createMessage,
+  createSourceDigest,
+} from "../app/utils/conversation";
+import { getProviderContextAdapter } from "../app/client/provider-context";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -74,6 +79,34 @@ function setSession(
   };
   useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
   return session;
+}
+
+function assembleHistory(
+  session: ChatSession,
+  currentInput: ChatMessage,
+) {
+  const assembly = Conversation(session).context.assemble({
+    systemInputs: [],
+    pinnedInputs: session.pinnedInputs,
+    globalMemoryInput:
+      session.globalMemory.enabled && session.globalMemory.content.trim()
+        ? createMessage({
+            role: "system",
+            content: session.globalMemory.content,
+            date: "",
+          })
+        : undefined,
+    currentInput,
+    budget: {
+      contextWindowTokens: session.mask.modelConfig.contextWindowTokens,
+      requestedOutputTokens: session.mask.modelConfig.max_tokens,
+    },
+    recentRawNodeCount: session.mask.modelConfig.recentRawNodeCount,
+    summaries: session.mask.modelConfig.sendMemory ? "enabled" : "disabled",
+  });
+  return getProviderContextAdapter(
+    session.mask.modelConfig.providerName,
+  ).materialize(assembly.entries.slice(0, -1));
 }
 
 beforeEach(() => {
@@ -141,9 +174,7 @@ describe("chat store derived state", () => {
       revision: 0,
     };
 
-    const history = await useChatStore
-      .getState()
-      .getMessagesWithMemory(message("user", "current"));
+    const history = assembleHistory(session, message("user", "current"));
 
     expect(history.map((item) => item.content)).toEqual([
       "global memory",
@@ -401,6 +432,84 @@ describe("chat store derived state", () => {
     ).toBe(12_000);
   });
 
+  test("separates chat run start from terminal completion", async () => {
+    setSession([]);
+    let chatOptions: any;
+    apiMocks.chat.mockImplementation((options) => {
+      chatOptions = options;
+    });
+
+    const handle = await useChatStore.getState().onUserInput("question");
+    let completed = false;
+    void handle.completion.then(() => {
+      completed = true;
+    });
+
+    expect(handle.assistantNodeId).toBe(
+      useChatStore.getState().currentSession().messages.at(-1)?.id,
+    );
+    expect(completed).toBe(false);
+
+    chatOptions.onFinish("answer", new Response(null, { status: 200 }));
+    await expect(handle.completion).resolves.toMatchObject({
+      status: "completed",
+      assistantNodeId: handle.assistantNodeId,
+    });
+    expect(
+      useChatStore.getState().currentSession().messages.at(-1),
+    ).toMatchObject({ content: "answer", streaming: false });
+  });
+
+  test("cancels explicitly and ignores a late provider finish", async () => {
+    const session = setSession([]);
+    let chatOptions: any;
+    const controller = new AbortController();
+    apiMocks.chat.mockImplementation((options) => {
+      chatOptions = options;
+      options.onController(controller);
+    });
+
+    const handle = await useChatStore.getState().onUserInput("question");
+    chatOptions.onUpdate("partial answer");
+    handle.cancel();
+    await expect(handle.completion).resolves.toMatchObject({
+      status: "cancelled",
+    });
+    chatOptions.onFinish("late answer", new Response(null, { status: 200 }));
+
+    expect(controller.signal.aborted).toBe(true);
+    expect(session.stat.tokenCount).toBe(0);
+    const cancelledMessage = useChatStore
+      .getState()
+      .currentSession()
+      .messages.at(-1);
+    expect(cancelledMessage).toMatchObject({
+      content: "partial answer",
+      streaming: false,
+    });
+    expect(cancelledMessage?.isError).toBeFalsy();
+  });
+
+  test("settles provider errors as failed without completion effects", async () => {
+    const session = setSession([]);
+    let chatOptions: any;
+    apiMocks.chat.mockImplementation((options) => {
+      chatOptions = options;
+    });
+
+    const handle = await useChatStore.getState().onUserInput("question");
+    chatOptions.onError(new Error("provider failed"));
+
+    await expect(handle.completion).resolves.toMatchObject({
+      status: "failed",
+      error: expect.objectContaining({ message: "provider failed" }),
+    });
+    expect(session.stat.tokenCount).toBe(0);
+    expect(
+      useChatStore.getState().currentSession().messages.at(-1),
+    ).toMatchObject({ streaming: false, isError: true });
+  });
+
   test("retries an assistant by preserving its user node", async () => {
     const session = setSession([
       message("user", "question"),
@@ -456,6 +565,29 @@ describe("chat store derived state", () => {
     );
     expect(replacementAssistant.parentId).toBe(replacementUser.id);
     expect(retried.rootNodeId).toBe(replacementUser.id);
+  });
+
+  test("keeps the original retry graph when context validation fails", async () => {
+    const session = setSession(
+      [message("user", "question"), message("assistant", "old answer")],
+      { contextWindowTokens: 128, max_tokens: 128 },
+    );
+    const originalGraph = structuredClone({
+      messages: session.messages,
+      rootNodeId: session.rootNodeId,
+      activeCursorId: session.activeCursorId,
+    });
+
+    await expect(
+      useChatStore
+        .getState()
+        .retryMessage(session.id, session.messages[1].id),
+    ).rejects.toThrow("exceed the context window");
+
+    expect(useChatStore.getState().currentSession()).toMatchObject(
+      originalGraph,
+    );
+    expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
   test("coalesces summary maintenance and stores segment and checkpoint together", async () => {
@@ -554,9 +686,7 @@ describe("chat store derived state", () => {
       .getState()
       .generateNodeSummary(session.id, assistantId, true);
     await vi.waitFor(() => expect(apiMocks.chat).toHaveBeenCalledTimes(1));
-    await expect(
-      useChatStore.getState().getMessagesWithMemory(message("user", "current")),
-    ).resolves.toEqual([
+    expect(assembleHistory(session, message("user", "current"))).toEqual([
       expect.objectContaining({ content: "question" }),
       expect.objectContaining({ content: "answer" }),
     ]);
@@ -846,16 +976,14 @@ describe("chat store derived state", () => {
         segmentTargetSourceTokens: 0,
       },
     );
-    await expect(
-      useChatStore
-        .getState()
-        .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toHaveLength(4);
+    expect(
+      assembleHistory(session, message("user", "current question")),
+    ).toHaveLength(4);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
   test("context planning does not block on emergency compaction", async () => {
-    setSession(
+    const session = setSession(
       [
         message("user", "a".repeat(4_000)),
         message("assistant", "b".repeat(4_000)),
@@ -869,11 +997,9 @@ describe("chat store derived state", () => {
         max_tokens: 128,
       },
     );
-    await expect(
-      useChatStore
-        .getState()
-        .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([
+    expect(
+      assembleHistory(session, message("user", "current question")),
+    ).toEqual([
       expect.objectContaining({ content: "recent question" }),
       expect.objectContaining({ content: "recent answer" }),
     ]);
@@ -905,9 +1031,10 @@ describe("chat store derived state", () => {
       },
     };
 
-    const history = await useChatStore
-      .getState()
-      .getMessagesWithMemory(message("user", "current question"));
+    const history = assembleHistory(
+      session,
+      message("user", "current question"),
+    );
 
     expect(history.map(getMessageTextContent)).toEqual([
       "compact old history",
@@ -943,18 +1070,16 @@ describe("chat store derived state", () => {
       },
     };
 
-    await expect(
-      useChatStore
-        .getState()
-        .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([
+    expect(
+      assembleHistory(session, message("user", "current question")),
+    ).toEqual([
       { role: "assistant", content: "stale but available" },
     ]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
   test("never sends an oversized recent window when no summary is available", async () => {
-    setSession(
+    const session = setSession(
       Array.from({ length: 12 }, (_, index) =>
         message(
           index % 2 === 0 ? "user" : "assistant",
@@ -968,11 +1093,9 @@ describe("chat store derived state", () => {
         max_tokens: 128,
       },
     );
-    await expect(
-      useChatStore
-        .getState()
-        .getMessagesWithMemory(message("user", "current question")),
-    ).resolves.toEqual([]);
+    expect(
+      assembleHistory(session, message("user", "current question")),
+    ).toEqual([]);
     expect(apiMocks.chat).not.toHaveBeenCalled();
   });
 
@@ -996,9 +1119,10 @@ describe("chat store derived state", () => {
       },
     };
 
-    const requestHistory = await useChatStore
-      .getState()
-      .getMessagesWithMemory(message("user", "current question"));
+    const requestHistory = assembleHistory(
+      session,
+      message("user", "current question"),
+    );
 
     expect(requestHistory.map(getMessageTextContent).join("\n")).not.toContain(
       "excluded branch secret",
