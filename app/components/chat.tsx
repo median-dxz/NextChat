@@ -126,12 +126,10 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { Graph } from "../utils/conversation-graph";
-import type { ConversationNode } from "../utils/conversation-node";
 import {
-  createSourceDigest,
-  partitionProjectionIntoOutlineChains,
-} from "../utils/node-summary";
+  Conversation,
+  type ConversationGraphState,
+} from "../utils/conversation";
 import {
   DragDropContext,
   Draggable,
@@ -1087,7 +1085,9 @@ function NodeViewerModal(props: {
             : outlineLevel > node.outlineLevel
               ? 1
               : -1;
-        const graph = Graph.shiftLevel(draft, node.id, outlineDelta);
+        const graph = Conversation(draft)
+          .node(node.id)
+          .shiftLevel(outlineDelta);
         draft.messages = graph.messages;
         draft.rootNodeId = graph.rootNodeId;
         draft.activeCursorId = graph.activeCursorId;
@@ -1104,51 +1104,18 @@ function NodeViewerModal(props: {
               })),
             ]
           : content;
-        const updateSummary = (
-          kind: "segment" | "checkpoint",
-          value: string,
-        ) => {
-          if (!value.trim()) {
-            if (target.nodeSummaries) delete target.nodeSummaries[kind];
-            return;
-          }
-          target.nodeSummaries ??= {};
-          const targetProjection = Graph.projectToCursor({
-            ...draft,
-            activeCursorId: target.id,
-          });
-          const targetChain = partitionProjectionIntoOutlineChains(
-            targetProjection,
-          ).find((chain) => chain.nodes.some((item) => item.id === target.id));
-          const targetIndex =
-            targetChain?.nodes.findIndex((item) => item.id === target.id) ?? -1;
-          const defaultSourceNodeIds =
-            kind === "checkpoint" && targetChain && targetIndex >= 0
-              ? targetChain.nodes
-                  .slice(0, targetIndex + 1)
-                  .map((item) => item.id)
-              : [target.id];
-          const sourceNodeIds =
-            target.nodeSummaries[kind]?.sourceNodeIds ?? defaultSourceNodeIds;
-          const sourcesById = new Map(
-            draft.messages.map((message) => [message.id, message]),
-          );
-          const sourceNodes = sourceNodeIds
-            .map((id) => sourcesById.get(id))
-            .filter((message): message is ConversationNode => Boolean(message));
-          target.nodeSummaries[kind] = {
-            content: value,
-            sourceNodeIds,
-            sourceDigest: createSourceDigest(sourceNodes),
-            provenance: "user-edited",
-          };
-        };
-        if (role === "assistant") {
-          updateSummary("segment", segment);
-          updateSummary("checkpoint", checkpoint);
-        } else {
-          delete target.nodeSummaries;
+        let summaryState: ConversationGraphState = draft;
+        for (const [kind, value] of [
+          ["segment", segment],
+          ["checkpoint", checkpoint],
+        ] as const) {
+          const summary = Conversation(summaryState).summaries.node(target.id);
+          summaryState =
+            role === "assistant"
+              ? summary.edit(kind, value)
+              : summary.remove(kind);
         }
+        draft.messages = summaryState.messages;
       });
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
@@ -1351,12 +1318,10 @@ function BranchSelectorModal(props: {
 }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const index = Graph.index(session.messages);
-  const parent = index.nodesById.get(props.parentId);
-  if (!parent) return null;
-  const branches = (index.childrenByParentId.get(parent.id) ?? []).filter(
-    (node) => node.outlineLevel === parent.outlineLevel + 1,
-  );
+  const parentNode = Conversation(session).findNode(props.parentId);
+  if (!parentNode) return null;
+  const parent = parentNode.value;
+  const branches = parentNode.branches;
   const select = (branchRootId?: string) => {
     chatStore.selectConversationBranch(session.id, parent.id, branchRootId);
     props.onClose();

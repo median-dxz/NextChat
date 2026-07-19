@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
-import type { ConversationNode } from "../app/utils/conversation-node";
-import { Graph } from "../app/utils/conversation-graph";
-import { createSourceDigest } from "../app/utils/node-summary";
+import {
+  Conversation,
+  createSourceDigest,
+  type ConversationNode,
+} from "../app/utils/conversation";
 
 function node(
   id: string,
@@ -19,6 +21,20 @@ function node(
 }
 
 describe("conversation graph storage", () => {
+  test("exposes graph, summary, context, and target planning from one facade", () => {
+    const state = {
+      messages: [node("root", 1)],
+      rootNodeId: "root",
+      activeCursorId: "root",
+    };
+    const conversation = Conversation(state);
+
+    expect(conversation.state).toEqual(state);
+    expect(conversation.summaries).toBeDefined();
+    expect(conversation.context).toBeDefined();
+    expect(conversation.planning("root").chainRootId).toBe("root");
+  });
+
   test("accepts one same-level continuation plus multiple deeper branches", () => {
     const nodes = [
       { ...node("2A", 2), activeBranchRootId: "3A" },
@@ -28,11 +44,11 @@ describe("conversation graph storage", () => {
       node("3B", 3, "3A"),
     ];
 
-    const index = Graph.validate({
+    const index = Conversation({
       messages: nodes,
       rootNodeId: "2A",
       activeCursorId: "2B",
-    });
+    }).validate();
 
     expect(index.sameLevelChildByParentId.get("2A")?.id).toBe("2B");
     expect(index.childrenByParentId.get("2A")?.map((item) => item.id)).toEqual([
@@ -43,16 +59,14 @@ describe("conversation graph storage", () => {
   });
 
   test("changes a node level by shifting its whole subtree", () => {
-    const messages = [
-      node("1A", 1),
-      node("2A", 2, "1A"),
-      node("3A", 3, "2A"),
-    ];
-    const changed = Graph.shiftLevel(
-      { messages, rootNodeId: "1A", activeCursorId: "3A" },
-      "2A",
-      -1,
-    );
+    const messages = [node("1A", 1), node("2A", 2, "1A"), node("3A", 3, "2A")];
+    const changed = Conversation({
+      messages,
+      rootNodeId: "1A",
+      activeCursorId: "3A",
+    })
+      .node("2A")
+      .shiftLevel(-1);
 
     expect(
       changed.messages.map((item) => [item.id, item.outlineLevel]),
@@ -61,9 +75,9 @@ describe("conversation graph storage", () => {
       ["2A", 1],
       ["3A", 2],
     ]);
-    expect(() =>
-      Graph.shiftLevel(changed, "1A", 1),
-    ).toThrow("root node");
+    expect(() => Conversation(changed).node("1A").shiftLevel(1)).toThrow(
+      "root node",
+    );
   });
 
   test("projects the active deeper branch before the same-level continuation", () => {
@@ -81,30 +95,23 @@ describe("conversation graph storage", () => {
       activeCursorId: "2B",
     };
 
-    expect(Graph.projectActive(graph).map((item) => item.id)).toEqual([
-      "1",
-      "2A",
-      "3A",
-      "3B",
-      "3C",
-      "2B",
-    ]);
-    expect(Graph.projectToCursor(graph).map((item) => item.id)).toEqual([
-      "1",
-      "2A",
-      "3A",
-      "3B",
-      "3C",
-      "2B",
-    ]);
+    expect(
+      Conversation(graph)
+        .projectActive()
+        .map((item) => item.id),
+    ).toEqual(["1", "2A", "3A", "3B", "3C", "2B"]);
+    expect(
+      Conversation(graph)
+        .projectToCursor()
+        .map((item) => item.id),
+    ).toEqual(["1", "2A", "3A", "3B", "3C", "2B"]);
 
     graph.activeCursorId = "3B";
-    expect(Graph.projectToCursor(graph).map((item) => item.id)).toEqual([
-      "1",
-      "2A",
-      "3A",
-      "3B",
-    ]);
+    expect(
+      Conversation(graph)
+        .projectToCursor()
+        .map((item) => item.id),
+    ).toEqual(["1", "2A", "3A", "3B"]);
   });
 
   test("returns no provider history when the cursor is outside the active branch", () => {
@@ -115,32 +122,32 @@ describe("conversation graph storage", () => {
     ];
 
     expect(
-      Graph.projectToCursor({
+      Conversation({
         messages: nodes,
         rootNodeId: "root",
         activeCursorId: "inactive",
-      }),
+      }).projectToCursor(),
     ).toEqual([]);
   });
 
   test("rejects multiple same-level continuations and invalid active branches", () => {
     expect(() =>
-      Graph.validate({
+      Conversation({
         messages: [node("a", 1), node("b", 1, "a"), node("c", 1, "a")],
         rootNodeId: "a",
         activeCursorId: "c",
-      }),
+      }).validate(),
     ).toThrow("Multiple same-level children");
 
     expect(() =>
-      Graph.validate({
+      Conversation({
         messages: [
           { ...node("a", 1), activeBranchRootId: "b" },
           node("b", 1, "a"),
         ],
         rootNodeId: "a",
         activeCursorId: "b",
-      }),
+      }).validate(),
     ).toThrow("Invalid active branch");
   });
 
@@ -161,11 +168,15 @@ describe("conversation graph storage", () => {
       },
     ];
 
-    const { nodes: remapped, ids } = Graph.remap(
-      nodes,
-      () => `new-${nextId++}`,
-    );
+    const { graph, ids } = Conversation({
+      messages: nodes,
+      rootNodeId: "a",
+      activeCursorId: "branch",
+    }).clone(() => `new-${nextId++}`);
+    const remapped = graph.messages;
 
+    expect(graph.rootNodeId).toBe(ids.get("a"));
+    expect(graph.activeCursorId).toBe(ids.get("branch"));
     expect(remapped[0].activeBranchRootId).toBe(ids.get("branch"));
     expect(remapped[1].parentId).toBe(ids.get("a"));
     expect(remapped[1].nodeSummaries?.segment?.sourceNodeIds).toEqual([
@@ -184,13 +195,13 @@ describe("conversation graph storage", () => {
       activeCursorId: "a",
     };
 
-    const inserted = Graph.insert(graph, node("x", 99));
+    const inserted = Conversation(graph).insert(node("x", 99));
 
-    expect(Graph.projectActive(inserted).map((item) => item.id)).toEqual([
-      "a",
-      "x",
-      "b",
-    ]);
+    expect(
+      Conversation(inserted)
+        .projectActive()
+        .map((item) => item.id),
+    ).toEqual(["a", "x", "b"]);
     expect(inserted.messages.find((item) => item.id === "x")).toMatchObject({
       parentId: "a",
       outlineLevel: 1,
@@ -202,20 +213,20 @@ describe("conversation graph storage", () => {
   });
 
   test("uses a one-shot outline delta to enter and leave a branch", () => {
-    let graph = Graph.insert(
-      { messages: [], rootNodeId: undefined, activeCursorId: undefined },
-      node("root", 99),
-    );
-    graph = Graph.insert(graph, node("branch", 99), 1);
-    graph = Graph.insert(graph, node("deep", 99));
-    graph = Graph.insert(graph, node("after", 99), -1);
+    let graph = Conversation({
+      messages: [],
+      rootNodeId: undefined,
+      activeCursorId: undefined,
+    }).insert(node("root", 99));
+    graph = Conversation(graph).insert(node("branch", 99), 1);
+    graph = Conversation(graph).insert(node("deep", 99));
+    graph = Conversation(graph).insert(node("after", 99), -1);
 
-    expect(Graph.projectActive(graph).map((item) => item.id)).toEqual([
-      "root",
-      "branch",
-      "deep",
-      "after",
-    ]);
+    expect(
+      Conversation(graph)
+        .projectActive()
+        .map((item) => item.id),
+    ).toEqual(["root", "branch", "deep", "after"]);
     expect(graph.messages.find((item) => item.id === "branch")).toMatchObject({
       parentId: "root",
       outlineLevel: 2,
@@ -236,18 +247,17 @@ describe("conversation graph storage", () => {
       activeCursorId: "branch",
     };
 
-    const inserted = Graph.insertProjected(
-      graph,
+    const inserted = Conversation(graph).insertProjected(
       node("x", 99),
       "a",
       "branch",
     );
 
-    expect(Graph.projectActive(inserted).map((item) => item.id)).toEqual([
-      "a",
-      "x",
-      "branch",
-    ]);
+    expect(
+      Conversation(inserted)
+        .projectActive()
+        .map((item) => item.id),
+    ).toEqual(["a", "x", "branch"]);
     expect(inserted.messages.find((item) => item.id === "x")).toMatchObject({
       parentId: "a",
       outlineLevel: 2,
@@ -274,22 +284,17 @@ describe("conversation graph storage", () => {
       activeCursorId: "h",
     };
 
-    const swapped = Graph.swap(graph, "a", "e");
+    const swapped = Conversation(graph).swap("a", "e");
 
-    expect(Graph.projectActive(swapped).map((item) => item.id)).toEqual([
-      "e",
-      "f",
-      "g",
-      "d",
-      "a",
-      "b",
-      "c",
-      "h",
-    ]);
+    expect(
+      Conversation(swapped)
+        .projectActive()
+        .map((item) => item.id),
+    ).toEqual(["e", "f", "g", "d", "a", "b", "c", "h"]);
     expect(swapped.messages.find((item) => item.id === "b")?.parentId).toBe(
       "a",
     );
-    expect(() => Graph.swap(graph, "b", "f")).toThrow(
+    expect(() => Conversation(graph).swap("b", "f")).toThrow(
       "same outline chain",
     );
   });
@@ -306,7 +311,7 @@ describe("conversation graph storage", () => {
       activeCursorId: "b",
     };
 
-    const deleted = Graph.delete(graph, "a");
+    const deleted = Conversation(graph).node("a").remove();
 
     expect(deleted.messages.map((item) => item.id)).toEqual(["b"]);
     expect(deleted.messages[0].parentId).toBeUndefined();
@@ -326,7 +331,7 @@ describe("conversation graph storage", () => {
       activeCursorId: "deep",
     };
 
-    const deleted = Graph.delete(graph, "branch");
+    const deleted = Conversation(graph).node("branch").remove();
 
     expect(deleted.messages.map((item) => item.id)).toEqual(["root", "after"]);
     expect(deleted.messages[0].activeBranchRootId).toBeUndefined();
@@ -344,18 +349,22 @@ describe("conversation graph storage", () => {
     ];
 
     expect(
-      Graph.setBranch(
-        { messages, rootNodeId: "root", activeCursorId: "after" },
-        "root",
-        "next",
-      ).activeCursorId,
+      Conversation({
+        messages,
+        rootNodeId: "root",
+        activeCursorId: "after",
+      })
+        .node("root")
+        .selectBranch("next").activeCursorId,
     ).toBe("after");
     expect(
-      Graph.setBranch(
-        { messages, rootNodeId: "root", activeCursorId: "old" },
-        "root",
-        "next",
-      ).activeCursorId,
+      Conversation({
+        messages,
+        rootNodeId: "root",
+        activeCursorId: "old",
+      })
+        .node("root")
+        .selectBranch("next").activeCursorId,
     ).toBe("next-tail");
   });
 });

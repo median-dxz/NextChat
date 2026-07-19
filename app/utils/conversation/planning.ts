@@ -1,40 +1,32 @@
-import type { ConversationNode } from "./conversation-node";
-import type { RequestMessage } from "../client/api";
-import { estimateRequestMessageTokens } from "./context-budget";
-import { hash } from "./hmac";
-import { estimateTokenLength } from "./token";
+import { estimateRequestMessageTokens } from "../context-budget";
+import { estimateTokenLength } from "../token";
+import {
+  createSourceDigest,
+  type ConversationNode,
+  type NodeSummary,
+} from "./node";
+import {
+  createSummarySnapshot,
+  evaluateNodeSummary,
+  partitionProjectionIntoOutlineChains,
+  type CheckpointGenerationInput,
+  type CheckpointMaintenancePlan,
+  type NodeSummaryEvaluation,
+  type NodeSummaryFreshness,
+  type OutlineChain,
+  type SegmentGenerationBackground,
+  type SegmentMaintenancePlan,
+} from "./summary";
 
-export type NodeSummaryKind = "segment" | "checkpoint";
-export type NodeSummaryProvenance = "generated" | "user-edited";
-
-export interface NodeSummary {
-  content: string;
-  sourceNodeIds: string[];
-  sourceDigest: string;
-  provenance: NodeSummaryProvenance;
-}
-
-export function createSourceDigest(nodes: ConversationNode[]) {
-  const summaryDigestValue = (node: ConversationNode) => [
-    node.id,
-    node.role,
-    node.content,
-  ];
-  return hash(JSON.stringify(nodes.map(summaryDigestValue)));
-}
-
-export interface OutlineChain {
-  outlineLevel: number;
-  nodes: ConversationNode[];
-}
-
-export type NodeSummaryFreshness = "fresh" | "stale";
-
-export interface NodeSummaryEvaluation {
-  structurallyEligible: boolean;
-  freshness?: NodeSummaryFreshness;
-  sourceNodes: ConversationNode[];
-}
+export type {
+  CheckpointGenerationInput,
+  CheckpointMaintenancePlan,
+  NodeSummaryEvaluation,
+  NodeSummaryFreshness,
+  OutlineChain,
+  SegmentGenerationBackground,
+  SegmentMaintenancePlan,
+} from "./summary";
 
 export interface NodeSummaryRuntimeCacheStats {
   nodeTokenHits: number;
@@ -53,26 +45,6 @@ export interface NodeSummaryRuntimeCache {
   clear(): void;
 }
 
-export interface SegmentGenerationBackground {
-  kind: "raw" | "segment";
-  endpointNodeId: string;
-  tokens: number;
-  snapshot: string;
-  node?: ConversationNode;
-  content?: string;
-}
-
-export interface SegmentMaintenancePlan {
-  action: "create" | "refresh";
-  chainRootId: string;
-  ownerNodeId: string;
-  sourceNodeIds: string[];
-  sourceDigest: string;
-  sourceNodes: ConversationNode[];
-  background: SegmentGenerationBackground[];
-  expectedSummary?: NodeSummary;
-}
-
 export interface PlanSegmentMaintenanceArgs {
   projection: ConversationNode[];
   targetId: string;
@@ -81,25 +53,6 @@ export interface PlanSegmentMaintenanceArgs {
   inputBudget: number;
   force?: boolean;
   cache?: NodeSummaryRuntimeCache;
-}
-
-export interface CheckpointGenerationInput {
-  kind: "segment" | "checkpoint";
-  ownerNodeId: string;
-  content: string;
-  tokens: number;
-  snapshot: string;
-}
-
-export interface CheckpointMaintenancePlan {
-  action: "create" | "refresh";
-  chainRootId: string;
-  ownerNodeId: string;
-  sourceNodeIds: string[];
-  sourceDigest: string;
-  sourceNodes: ConversationNode[];
-  inputs: CheckpointGenerationInput[];
-  expectedSummary?: NodeSummary;
 }
 
 export interface PlanCheckpointMaintenanceArgs {
@@ -189,141 +142,8 @@ export interface NodeConversationContextPlan {
 
 export interface PlanNodeConversationContextArgs extends PlanChainContextArgs {}
 
-export function materializeContextRepresentations(
-  projection: ConversationNode[],
-  representations: ContextRepresentation[],
-): RequestMessage[] {
-  const nodesById = new Map(projection.map((node) => [node.id, node]));
-  const projectionOrder = new Map(
-    projection.map((node, index) => [node.id, index]),
-  );
-  return representations
-    .map((representation) => {
-      const endpointId =
-        representation.kind === "raw"
-          ? representation.nodeId
-          : representation.sourceNodeIds.at(-1);
-      const order = endpointId ? projectionOrder.get(endpointId) : undefined;
-      if (order === undefined) return;
-      if (representation.kind === "raw") {
-        const node = nodesById.get(representation.nodeId);
-        if (!node) return;
-        return {
-          order,
-          message: {
-            role: node.role,
-            content: node.content,
-          } satisfies RequestMessage,
-        };
-      }
-      return {
-        order,
-        message: {
-          role: "assistant" as const,
-          content: representation.content,
-        } satisfies RequestMessage,
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is {
-        order: number;
-        message: RequestMessage;
-      } => Boolean(item),
-    )
-    .sort((left, right) => left.order - right.order)
-    .map((item) => item.message);
-}
-
-export function partitionProjectionIntoOutlineChains(
-  projection: ConversationNode[],
-): OutlineChain[] {
-  const nodeChainIndexes = new Map<string, number>();
-  const nodesById = new Map<string, ConversationNode>();
-  const chains: OutlineChain[] = [];
-
-  for (const node of projection) {
-    const parent = node.parentId ? nodesById.get(node.parentId) : undefined;
-    const parentChainIndex = parent
-      ? nodeChainIndexes.get(parent.id)
-      : undefined;
-    let chainIndex: number;
-    if (
-      parent &&
-      parent.outlineLevel === node.outlineLevel &&
-      parentChainIndex !== undefined
-    ) {
-      chainIndex = parentChainIndex;
-    } else {
-      chainIndex = chains.length;
-      chains.push({ outlineLevel: node.outlineLevel, nodes: [] });
-    }
-    chains[chainIndex].nodes.push(node);
-    nodeChainIndexes.set(node.id, chainIndex);
-    nodesById.set(node.id, node);
-  }
-
-  return chains;
-}
-
 function summaryDigestValue(node: ConversationNode) {
   return [node.id, node.role, node.content];
-}
-
-export function evaluateNodeSummary(
-  owner: ConversationNode,
-  kind: NodeSummaryKind,
-  summary: NodeSummary,
-  chains: OutlineChain[],
-  createDigest: (nodes: ConversationNode[]) => string = createSourceDigest,
-): NodeSummaryEvaluation {
-  if (owner.role !== "assistant" || summary.sourceNodeIds.length === 0) {
-    return { structurallyEligible: false, sourceNodes: [] };
-  }
-
-  const locations = new Map<
-    string,
-    { chainIndex: number; nodeIndex: number; node: ConversationNode }
-  >();
-  chains.forEach((chain, chainIndex) =>
-    chain.nodes.forEach((node, nodeIndex) =>
-      locations.set(node.id, { chainIndex, nodeIndex, node }),
-    ),
-  );
-  const sourceLocations = summary.sourceNodeIds.map((id) => locations.get(id));
-  if (sourceLocations.some((location) => !location)) {
-    return { structurallyEligible: false, sourceNodes: [] };
-  }
-  const resolved = sourceLocations.filter(
-    (location): location is NonNullable<typeof location> => Boolean(location),
-  );
-  const first = resolved[0];
-  const sameContinuousChain = resolved.every(
-    (location, index) =>
-      location.chainIndex === first.chainIndex &&
-      location.nodeIndex === first.nodeIndex + index,
-  );
-  const ownerIsLastSource =
-    resolved.at(-1)?.node.id === owner.id &&
-    resolved.at(-1)?.node.role === "assistant";
-  const checkpointStartsAtChainRoot =
-    kind !== "checkpoint" || first.nodeIndex === 0;
-  if (
-    !sameContinuousChain ||
-    !ownerIsLastSource ||
-    !checkpointStartsAtChainRoot
-  ) {
-    return { structurallyEligible: false, sourceNodes: [] };
-  }
-
-  const sourceNodes = resolved.map((location) => location.node);
-  return {
-    structurallyEligible: true,
-    freshness:
-      summary.sourceDigest === createDigest(sourceNodes) ? "fresh" : "stale",
-    sourceNodes,
-  };
 }
 
 export function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
@@ -442,12 +262,7 @@ function buildSegmentBackground(
       endpointNodeId: owner.id,
       content: summary.content,
       tokens: cache.getSummaryTokens(summary.content),
-      snapshot: JSON.stringify([
-        summary.content,
-        summary.sourceNodeIds,
-        summary.sourceDigest,
-        summary.provenance,
-      ]),
+      snapshot: createSummarySnapshot(summary),
     });
   }
 
@@ -498,6 +313,7 @@ function createSegmentPlan(
     (node) => node.id === sourceNodes[0].id,
   );
   return {
+    kind: "segment",
     action,
     chainRootId: targetChain.nodes[0].id,
     ownerNodeId: owner.id,
@@ -613,15 +429,6 @@ interface CheckpointCandidate {
   evaluation: NodeSummaryEvaluation;
 }
 
-function summaryInputSnapshot(summary: NodeSummary) {
-  return JSON.stringify([
-    summary.content,
-    summary.sourceNodeIds,
-    summary.sourceDigest,
-    summary.provenance,
-  ]);
-}
-
 function collectCheckpointCandidates(
   chain: OutlineChain,
   chains: OutlineChain[],
@@ -683,7 +490,7 @@ function createCheckpointPlan(
       ownerNodeId: base.owner.id,
       content: base.summary.content,
       tokens: cache.getSummaryTokens(base.summary.content),
-      snapshot: summaryInputSnapshot(base.summary),
+      snapshot: createSummarySnapshot(base.summary),
     });
   }
   for (const segment of segments) {
@@ -692,7 +499,7 @@ function createCheckpointPlan(
       ownerNodeId: segment.owner.id,
       content: segment.summary.content,
       tokens: cache.getSummaryTokens(segment.summary.content),
-      snapshot: summaryInputSnapshot(segment.summary),
+      snapshot: createSummarySnapshot(segment.summary),
     });
   }
   if (
@@ -703,6 +510,7 @@ function createCheckpointPlan(
   }
   const sourceNodes = targetChain.nodes.slice(0, ownerIndex + 1);
   return {
+    kind: "checkpoint",
     action,
     chainRootId: targetChain.nodes[0].id,
     ownerNodeId: targetChain.nodes[ownerIndex].id,
@@ -1303,5 +1111,39 @@ export function combineChainContextFrontiers(
       finalFrontierSize: frontier.length,
       chainCount: chains.length,
     },
+  };
+}
+
+export interface ConversationPlanningApi {
+  readonly chainRootId: string | undefined;
+  segment(
+    options: Omit<PlanSegmentMaintenanceArgs, "projection" | "targetId">,
+  ): SegmentMaintenancePlan | undefined;
+  checkpoint(
+    options: Omit<PlanCheckpointMaintenanceArgs, "projection" | "targetId">,
+  ): CheckpointMaintenancePlan | undefined;
+}
+
+export function ConversationPlanning(
+  projection: ConversationNode[],
+  targetNodeId: string,
+): ConversationPlanningApi {
+  const targetChain = partitionProjectionIntoOutlineChains(projection).find(
+    (chain) => chain.nodes.some((node) => node.id === targetNodeId),
+  );
+  return {
+    chainRootId: targetChain?.nodes[0].id,
+    segment: (options) =>
+      planSegmentMaintenance({
+        projection,
+        targetId: targetNodeId,
+        ...options,
+      }),
+    checkpoint: (options) =>
+      planCheckpointMaintenance({
+        projection,
+        targetId: targetNodeId,
+        ...options,
+      }),
   };
 }

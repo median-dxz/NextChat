@@ -25,8 +25,7 @@ import {
 import { useAppConfig } from "../app/store/config";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getMessageTextContent } from "../app/utils";
-import { Graph } from "../app/utils/conversation-graph";
-import { createSourceDigest } from "../app/utils/node-summary";
+import { createSourceDigest } from "../app/utils/conversation";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();

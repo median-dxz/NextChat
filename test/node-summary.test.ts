@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import type { ConversationNode } from "../app/utils/conversation-node";
+import {
+  createSourceDigest,
+  type ConversationNode,
+} from "../app/utils/conversation";
 import {
   type ChainContextState,
   type NodeSummaryRuntimeCache,
@@ -7,16 +10,17 @@ import {
   combineChainContextFrontiers,
   compareChainContextStates,
   createNodeSummaryRuntimeCache,
-  createSourceDigest,
-  evaluateNodeSummary,
-  materializeContextRepresentations,
-  partitionProjectionIntoOutlineChains,
   planChainContextFrontiers,
   planCheckpointMaintenance,
   planOutlineChainContext,
   planNodeConversationContext,
   planSegmentMaintenance,
-} from "../app/utils/node-summary";
+} from "../app/utils/conversation/planning";
+import { materializeContextRepresentations } from "../app/utils/conversation/context";
+import {
+  evaluateNodeSummary,
+  partitionProjectionIntoOutlineChains,
+} from "../app/utils/conversation/summary";
 
 function node(
   id: string,
