@@ -154,33 +154,24 @@ export function RealtimeChat({
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
       if (item.type === "message" && item.role === "assistant") {
-        const parent = session.activeCursorId
-          ? session.messages.find(
-              (message) => message.id === session.activeCursorId,
-            )
-          : undefined;
         const botMessage = createConversationNode({
           role: item.role,
           content: "",
-          parentId: parent?.id,
-          outlineLevel: parent?.outlineLevel ?? 1,
         });
-        // add bot message first
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat([botMessage]);
-          session.rootNodeId ??= botMessage.id;
-          session.activeCursorId = botMessage.id;
-        });
+        chatStore.updateConversation(session.id, (conversation) =>
+          conversation.insert(botMessage),
+        );
+        let messageContent = "";
         let hasAudio = false;
         for await (const content of item) {
           if (content.type === "text") {
             for await (const text of content.textChunks()) {
-              botMessage.content += text;
+              messageContent += text;
             }
           } else if (content.type === "audio") {
             const textTask = async () => {
               for await (const text of content.transcriptChunks()) {
-                botMessage.content += text;
+                messageContent += text;
               }
             };
             const audioTask = async () => {
@@ -192,20 +183,21 @@ export function RealtimeChat({
             };
             await Promise.all([textTask(), audioTask()]);
           }
-          // update message.content
-          chatStore.updateTargetSession(session, (session) => {
-            session.messages = session.messages.concat();
-          });
+          chatStore.updateConversation(session.id, (conversation) =>
+            conversation.updateNodeData(botMessage.id, (message) => {
+              message.content = messageContent;
+            }),
+          );
         }
         if (hasAudio) {
           // upload audio get audio_url
           const blob = audioHandlerRef.current?.savePlayFile();
           uploadImage(blob!).then((audio_url) => {
-            botMessage.audio_url = audio_url;
-            // update text and audio_url
-            chatStore.updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
-            });
+            chatStore.updateConversation(session.id, (conversation) =>
+              conversation.updateNodeData(botMessage.id, (message) => {
+                message.audio_url = audio_url;
+              }),
+            );
           });
         }
       }
@@ -215,22 +207,13 @@ export function RealtimeChat({
   const handleInputAudio = async (item: RTInputAudioItem) => {
     await item.waitForCompletion();
     if (item.transcription) {
-      const parent = session.activeCursorId
-        ? session.messages.find(
-            (message) => message.id === session.activeCursorId,
-          )
-        : undefined;
       const userMessage = createConversationNode({
         role: "user",
         content: item.transcription,
-        parentId: parent?.id,
-        outlineLevel: parent?.outlineLevel ?? 1,
       });
-      chatStore.updateTargetSession(session, (session) => {
-        session.messages = session.messages.concat([userMessage]);
-        session.rootNodeId ??= userMessage.id;
-        session.activeCursorId = userMessage.id;
-      });
+      chatStore.updateConversation(session.id, (conversation) =>
+        conversation.insert(userMessage),
+      );
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;
       // upload audio get audio_url
@@ -239,10 +222,11 @@ export function RealtimeChat({
         audioEndMillis,
       );
       uploadImage(blob!).then((audio_url) => {
-        userMessage.audio_url = audio_url;
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat();
-        });
+        chatStore.updateConversation(session.id, (conversation) =>
+          conversation.updateNodeData(userMessage.id, (message) => {
+            message.audio_url = audio_url;
+          }),
+        );
       });
     }
     // stop streaming play after get input audio.

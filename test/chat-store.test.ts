@@ -13,6 +13,13 @@ vi.mock("../app/mcp/actions", () => ({
   isMcpEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("../app/store/prompt", () => ({
+  usePromptStore: {
+    getState: () => ({ prompts: {} }),
+    setState: vi.fn(),
+  },
+}));
+
 import {
   type ChatMessage,
   type ChatSession,
@@ -21,7 +28,9 @@ import {
   useChatStore,
 } from "../app/store/chat";
 import { useAppConfig } from "../app/store/config";
+import { StoreKey } from "../app/constant";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
+import { getLocalAppState, mergeAppState } from "../app/utils/sync";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -83,6 +92,57 @@ afterEach(() => {
 });
 
 describe("chat store persistence and owned lifecycles", () => {
+  test("commits conversation updates from the latest session snapshot", () => {
+    const session = setSession([message("user", "before")]);
+    const previousSessions = useChatStore.getState().sessions;
+    const previousMessages = session.messages;
+
+    useChatStore.getState().updateConversation(session.id, (conversation) =>
+      conversation.updateNodeData(session.messages[0].id, (node) => {
+        node.content = "after";
+      }),
+    );
+
+    const current = useChatStore.getState().sessions[0];
+    expect(current.messages[0].content).toBe("after");
+    expect(useChatStore.getState().sessions).not.toBe(previousSessions);
+    expect(current.messages).not.toBe(previousMessages);
+  });
+
+  test("keeps invalid remote conversations out while merging other sessions", () => {
+    const template = setSession([message("user", "valid")]);
+    const local = getLocalAppState();
+    const remote = structuredClone(local);
+    const invalid = structuredClone(template);
+    invalid.id = "invalid-remote";
+    invalid.messages[0].parentId = "missing-parent";
+    const valid = structuredClone(template);
+    valid.id = "valid-remote";
+    const extension = createConversationNode({
+      ...message("assistant", "remote extension"),
+      parentId: template.messages[0].id,
+      outlineLevel: 1,
+    });
+    const merged = structuredClone(template);
+    merged.messages[0].content = "remote conflict";
+    merged.messages.push(extension);
+    remote[StoreKey.Chat].sessions = [invalid, valid, merged];
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    mergeAppState(local, remote);
+
+    const ids = local[StoreKey.Chat].sessions.map((session) => session.id);
+    expect(ids).toContain("valid-remote");
+    expect(ids).not.toContain("invalid-remote");
+    const localSession = local[StoreKey.Chat].sessions.find(
+      (session) => session.id === template.id,
+    )!;
+    expect(localSession.messages.map((node) => node.content)).toEqual([
+      "valid",
+      "remote extension",
+    ]);
+  });
+
   test("forks graph nodes and remaps session references", () => {
     const original = setSession([
       message("user", "question"),

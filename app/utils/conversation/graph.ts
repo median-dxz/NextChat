@@ -19,41 +19,39 @@ export interface ConversationGraphIndex {
   sameLevelChildByParentId: Map<string, ConversationNode>;
 }
 
-export interface ConversationGraphNodeApi {
+export interface ConversationGraphNodeApi<TResult> {
   readonly value: ConversationNode;
   readonly parent: ConversationNode | undefined;
   readonly sameLevelSuccessor: ConversationNode | undefined;
   readonly branches: ConversationNode[];
 
-  projectToHere(): ConversationNode[];
-  shiftLevel(outlineDelta: -1 | 0 | 1): ConversationGraphState;
-  selectBranch(branchRootId?: string): ConversationGraphState;
-  remove(): ConversationGraphState;
+  shiftLevel(outlineDelta: -1 | 0 | 1): TResult;
+  selectBranch(branchRootId?: string): TResult;
+  remove(): TResult;
 }
 
-export interface ConversationGraphApi {
+export interface ConversationGraphApi<TResult> {
   readonly state: ConversationGraphState;
-  readonly index: ConversationGraphIndex;
 
-  validate(): ConversationGraphIndex;
+  validate(): void;
   projectActive(): ConversationNode[];
   projectToCursor(): ConversationNode[];
   projectTo(nodeId: string): ConversationNode[];
-  node(nodeId: string): ConversationGraphNodeApi;
-  findNode(nodeId: string): ConversationGraphNodeApi | undefined;
+  node(nodeId: string): ConversationGraphNodeApi<TResult>;
+  findNode(nodeId: string): ConversationGraphNodeApi<TResult> | undefined;
   insert(
     input: ConversationNode,
     outlineDelta?: -1 | 0 | 1,
     anchorId?: string,
-  ): ConversationGraphState;
+  ): TResult;
   insertProjected(
     input: ConversationNode,
     previousId?: string,
     nextId?: string,
-  ): ConversationGraphState;
-  swap(firstId: string, secondId: string): ConversationGraphState;
+  ): TResult;
+  swap(firstId: string, secondId: string): TResult;
   clone(createId: () => string): {
-    graph: ConversationGraphState;
+    conversation: TResult;
     ids: Map<string, string>;
   };
 }
@@ -107,13 +105,15 @@ function buildIndex(nodes: ConversationNode[]): ConversationGraphIndex {
   return { nodesById, childrenByParentId, sameLevelChildByParentId };
 }
 
-function validate(graph: ConversationGraphState): ConversationGraphIndex {
-  const index = buildIndex(graph.messages);
+function validate(
+  graph: ConversationGraphState,
+  index: ConversationGraphIndex,
+) {
   if (graph.messages.length === 0) {
     if (graph.rootNodeId || graph.activeCursorId) {
       throw new Error("Empty conversation graph cannot have root or cursor");
     }
-    return index;
+    return;
   }
 
   const roots = graph.messages.filter((node) => !node.parentId);
@@ -152,16 +152,14 @@ function validate(graph: ConversationGraphState): ConversationGraphIndex {
       throw new Error(`Node ${node.id} is not connected to the root`);
     }
   }
-
-  return index;
 }
 
 function shiftLevel(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   nodeId: string,
   outlineDelta: -1 | 0 | 1 = 0,
 ): ConversationGraphState {
-  const index = validate(graph);
   const target = index.nodesById.get(nodeId);
   if (!target) {
     throw new Error(`Missing conversation node ${nodeId}`);
@@ -197,10 +195,12 @@ function shiftLevel(
   });
 }
 
-function projectActive(graph: ConversationGraphState): ConversationNode[] {
+function projectActive(
+  graph: ConversationGraphState,
+  index: ConversationGraphIndex,
+) {
   if (!graph.rootNodeId) return [];
 
-  const index = validate(graph);
   const result: ConversationNode[] = [];
 
   const visit = (nodeId: string) => {
@@ -216,9 +216,12 @@ function projectActive(graph: ConversationGraphState): ConversationNode[] {
   return result;
 }
 
-function projectToCursor(graph: ConversationGraphState): ConversationNode[] {
+function projectToCursor(
+  graph: ConversationGraphState,
+  index: ConversationGraphIndex,
+) {
   if (!graph.activeCursorId) return [];
-  const projection = projectActive(graph);
+  const projection = projectActive(graph, index);
   const cursorIndex = projection.findIndex(
     (node) => node.id === graph.activeCursorId,
   );
@@ -228,10 +231,8 @@ function projectToCursor(graph: ConversationGraphState): ConversationNode[] {
 function completeGraphMutation(
   graph: ConversationGraphState,
   override?: Partial<ConversationGraphState>,
-): ConversationGraphState {
-  const nextState: ConversationGraphState = { ...graph, ...override };
-  validate(nextState);
-  return nextState;
+) {
+  return { ...graph, ...override };
 }
 
 function replaceNodes(
@@ -243,10 +244,10 @@ function replaceNodes(
 
 function setBranch(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   parentId: string,
   branchRootId?: string,
 ): ConversationGraphState {
-  const index = validate(graph);
   const parent = index.nodesById.get(parentId);
   if (!parent) throw new Error(`Missing branch parent ${parentId}`);
   if (branchRootId) {
@@ -268,7 +269,7 @@ function setBranch(
     ),
   });
 
-  if (projectToCursor(candidate).length > 0) {
+  if (projectToCursor(candidate, buildIndex(candidate.messages)).length > 0) {
     return candidate;
   }
 
@@ -287,12 +288,11 @@ function setBranch(
 
 function insert(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   input: ConversationNode,
   outlineDelta: -1 | 0 | 1 = 0,
   anchorId = graph.activeCursorId,
 ): ConversationGraphState {
-  const index = validate(graph);
-
   if (index.nodesById.has(input.id)) {
     throw new Error(`Duplicate conversation node id: ${input.id}`);
   }
@@ -315,7 +315,7 @@ function insert(
   const anchor = index.nodesById.get(anchorId);
   if (!anchor) throw new Error(`Missing insertion anchor ${anchorId}`);
 
-  if (!projectActive(graph).some((node) => node.id === anchor.id)) {
+  if (!projectActive(graph, index).some((node) => node.id === anchor.id)) {
     throw new Error("Cannot insert from an inactive conversation branch");
   }
 
@@ -365,11 +365,12 @@ function insert(
 
 function insertProjected(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   input: ConversationNode,
   previousId?: string,
   nextId?: string,
 ): ConversationGraphState {
-  const projection = projectActive(graph);
+  const projection = projectActive(graph, index);
   const previousIndex = previousId
     ? projection.findIndex((node) => node.id === previousId)
     : -1;
@@ -401,9 +402,8 @@ function insertProjected(
       activeCursorId: root.id,
     });
   }
-  if (!previousId) return insert(graph, input);
+  if (!previousId) return insert(graph, index, input);
 
-  const index = buildIndex(graph.messages);
   const previous = index.nodesById.get(previousId)!;
   const next = nextId ? index.nodesById.get(nextId)! : undefined;
   const targetLevel = next
@@ -419,6 +419,7 @@ function insertProjected(
 
   let inserted = insert(
     { ...graph, activeCursorId: attachmentParent.id },
+    index,
     input,
     0,
     attachmentParent.id,
@@ -462,10 +463,10 @@ function getSameLevelChain(
 
 function swap(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   firstId: string,
   secondId: string,
 ): ConversationGraphState {
-  const index = validate(graph);
   const first = index.nodesById.get(firstId);
   const second = index.nodesById.get(secondId);
 
@@ -528,9 +529,9 @@ function collectSubtreeIds(index: ConversationGraphIndex, rootId: string) {
 
 function remove(
   graph: ConversationGraphState,
+  index: ConversationGraphIndex,
   nodeId: string,
 ): ConversationGraphState {
-  const index = validate(graph);
   const node = index.nodesById.get(nodeId);
   if (!node) return graph;
   const parent = node.parentId ? index.nodesById.get(node.parentId) : undefined;
@@ -622,23 +623,34 @@ function clone(graph: ConversationGraphState, createId: () => string) {
     }
   }
 
-  validate(cloned);
   return { graph: cloned, ids };
 }
 
-function bindConversationGraph(
+function bindConversationGraph<TResult>(
   graph: ConversationGraphState,
-): ConversationGraphApi {
+  commit: (state: ConversationGraphState) => TResult,
+): ConversationGraphApi<TResult> {
   const state: ConversationGraphState = {
     messages: graph.messages,
     rootNodeId: graph.rootNodeId,
     activeCursorId: graph.activeCursorId,
   };
   let cachedIndex: ConversationGraphIndex | undefined;
+  let isValidated = false;
 
   const getIndex = () => (cachedIndex ??= buildIndex(state.messages));
+  const getValidatedIndex = () => {
+    const index = getIndex();
+    if (!isValidated) {
+      validate(state, index);
+      isValidated = true;
+    }
+    return index;
+  };
 
-  const findNode = (nodeId: string): ConversationGraphNodeApi | undefined => {
+  const findNode = (
+    nodeId: string,
+  ): ConversationGraphNodeApi<TResult> | undefined => {
     const index = getIndex();
     const value = index.nodesById.get(nodeId);
     if (!value) return undefined;
@@ -656,34 +668,40 @@ function bindConversationGraph(
           (child) => child.outlineLevel === value.outlineLevel + 1,
         );
       },
-      projectToHere: () =>
-        projectToCursor({ ...state, activeCursorId: value.id }),
-      shiftLevel: (...args) => shiftLevel(state, value.id, ...args),
-      selectBranch: (...args) => setBranch(state, value.id, ...args),
-      remove: () => remove(state, value.id),
+      shiftLevel: (...args) =>
+        commit(shiftLevel(state, getValidatedIndex(), value.id, ...args)),
+      selectBranch: (...args) =>
+        commit(setBranch(state, getValidatedIndex(), value.id, ...args)),
+      remove: () => commit(remove(state, getValidatedIndex(), value.id)),
     };
   };
 
   return {
     state,
-    get index() {
-      return getIndex();
+    validate() {
+      getValidatedIndex();
     },
-    validate: () => validate(state),
-    projectActive: () => projectActive(state),
-    projectToCursor: () => projectToCursor(state),
+    projectActive: () => projectActive(state, getValidatedIndex()),
+    projectToCursor: () => projectToCursor(state, getValidatedIndex()),
     projectTo: (nodeId) =>
-      projectToCursor({ ...state, activeCursorId: nodeId }),
+      projectToCursor(
+        { ...state, activeCursorId: nodeId },
+        getValidatedIndex(),
+      ),
     node: (nodeId) => {
       const node = findNode(nodeId);
       if (!node) throw new Error(`Missing conversation node ${nodeId}`);
       return node;
     },
     findNode,
-    insert: (...args) => insert(state, ...args),
-    insertProjected: (...args) => insertProjected(state, ...args),
-    swap: (...args) => swap(state, ...args),
-    clone: (...args) => clone(state, ...args),
+    insert: (...args) => commit(insert(state, getValidatedIndex(), ...args)),
+    insertProjected: (...args) =>
+      commit(insertProjected(state, getValidatedIndex(), ...args)),
+    swap: (...args) => commit(swap(state, getValidatedIndex(), ...args)),
+    clone: (...args) => {
+      const { graph: cloned, ids } = clone(state, ...args);
+      return { conversation: commit(cloned), ids };
+    },
   };
 }
 

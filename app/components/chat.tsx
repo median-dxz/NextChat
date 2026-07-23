@@ -125,10 +125,7 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import {
-  Conversation,
-  type ConversationGraphState,
-} from "../utils/conversation";
+import { Conversation } from "../utils/conversation";
 import {
   DragDropContext,
   Draggable,
@@ -928,16 +925,16 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                     value={message.role}
                                     aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
                                     onChange={(event) =>
-                                      chatStore.updateTargetSession(
-                                        session,
-                                        (draft) => {
-                                          const target = draft.messages.find(
-                                            (item) => item.id === message.id,
-                                          );
-                                          if (target)
-                                            target.role = event.currentTarget
-                                              .value as ChatMessage["role"];
-                                        },
+                                      chatStore.updateConversation(
+                                        session.id,
+                                        (conversation) =>
+                                          conversation.updateNodeData(
+                                            message.id,
+                                            (target) => {
+                                              target.role = event.currentTarget
+                                                .value as ChatMessage["role"];
+                                            },
+                                          ),
                                       )
                                     }
                                   >
@@ -1091,44 +1088,38 @@ function NodeViewerModal(props: {
 
   const save = () => {
     try {
-      chatStore.updateTargetSession(session, (draft) => {
+      chatStore.updateConversation(session.id, (conversation) => {
         const outlineDelta =
           outlineLevel === node.outlineLevel
             ? 0
             : outlineLevel > node.outlineLevel
               ? 1
               : -1;
-        const graph = Conversation(draft)
-          .node(node.id)
-          .shiftLevel(outlineDelta);
-        draft.messages = graph.messages;
-        draft.rootNodeId = graph.rootNodeId;
-        draft.activeCursorId = graph.activeCursorId;
-        const target = draft.messages.find((item) => item.id === node.id);
-        if (!target) return;
-        target.role = role;
-        const images = getMessageImages(target);
-        target.content = images.length
-          ? [
-              { type: "text", text: content },
-              ...images.map((url) => ({
-                type: "image_url" as const,
-                image_url: { url },
-              })),
-            ]
-          : content;
-        let summaryState: ConversationGraphState = draft;
+        let next = conversation.node(node.id).shiftLevel(outlineDelta);
+        next = next.updateNodeData(node.id, (target) => {
+          target.role = role;
+          const images = getMessageImages(target);
+          target.content = images.length
+            ? [
+                { type: "text", text: content },
+                ...images.map((url) => ({
+                  type: "image_url" as const,
+                  image_url: { url },
+                })),
+              ]
+            : content;
+        });
         for (const [kind, value] of [
           ["segment", segment],
           ["checkpoint", checkpoint],
         ] as const) {
-          const summary = Conversation(summaryState).summaries.node(target.id);
-          summaryState =
+          const summary = next.summaries.node(node.id);
+          next =
             role === "assistant"
               ? summary.edit(kind, value)
               : summary.remove(kind);
         }
-        draft.messages = summaryState.messages;
+        return next;
       });
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
@@ -1756,26 +1747,31 @@ function ChatView() {
   };
 
   useEffect(() => {
-    chatStore.updateTargetSession(session, (session) => {
+    chatStore.updateConversation(session.id, (conversation) => {
+      let next = conversation;
       const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
-      session.messages.forEach((m) => {
+      conversation.state.messages.forEach((m) => {
         // check if should stop all stale messages
         if (m.isError || new Date(m.date).getTime() < stopTiming) {
-          if (m.streaming) {
-            m.streaming = false;
-          }
-
-          if (m.content.length === 0) {
-            m.isError = true;
-            m.content = prettyObject({
-              error: true,
-              message: "empty response",
+          if (m.streaming || m.content.length === 0) {
+            next = next.updateNodeData(m.id, (target) => {
+              target.streaming = false;
+              if (target.content.length === 0) {
+                target.isError = true;
+                target.content = prettyObject({
+                  error: true,
+                  message: "empty response",
+                });
+              }
             });
           }
         }
       });
+      return next;
+    });
 
-      // auto sync mask config from global config
+    // auto sync mask config from global config
+    chatStore.updateTargetSession(session, (session) => {
       if (session.mask.syncGlobalConfig) {
         console.log("[Mask] syncing from global, name = ", session.mask.name);
         session.mask.modelConfig = { ...config.modelConfig };

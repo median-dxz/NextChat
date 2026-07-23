@@ -24,6 +24,7 @@ import {
   Conversation,
   createMessage,
   type ChatMessage,
+  type ConversationApi,
   type ConversationNode,
   type NodeSummaryKind,
 } from "../utils/conversation";
@@ -295,10 +296,8 @@ export const useChatStore = createPersistStore(
 
         newSession.topic = currentSession.topic;
         // 克隆消息图并重建节点 ID
-        const { graph } = Conversation(currentSession).clone(nanoid);
-        newSession.messages = graph.messages;
-        newSession.rootNodeId = graph.rootNodeId;
-        newSession.activeCursorId = graph.activeCursorId;
+        const { conversation } = Conversation(currentSession).clone(nanoid);
+        Object.assign(newSession, conversation.state);
         newSession.pinnedInputs = currentSession.pinnedInputs.map(
           (message) => ({
             ...message,
@@ -471,26 +470,15 @@ export const useChatStore = createPersistStore(
         chatOrchestrator.cancelAll();
       },
 
-      updateMessage(
-        sessionIndex: number,
-        messageIndex: number,
-        updater: (message?: ChatMessage) => void,
-      ) {
-        const sessions = get().sessions;
-        const session = sessions.at(sessionIndex);
-        const messages = session?.messages;
-        updater(messages?.at(messageIndex));
-        set(() => ({ sessions }));
-      },
-
       resetSession(session: ChatSession) {
-        get().updateTargetSession(session, (session) => {
-          session.messages = [];
-          session.rootNodeId = undefined;
-          session.activeCursorId = undefined;
-          session.pendingOutlineDelta = undefined;
-          session.globalMemory = Conversation.createMemory();
-        });
+        get().updateConversation(
+          session.id,
+          () => Conversation({ messages: [] }),
+          {
+            pendingOutlineDelta: undefined,
+            globalMemory: Conversation.createMemory(),
+          },
+        );
       },
 
       generateSessionTitle(
@@ -582,13 +570,9 @@ export const useChatStore = createPersistStore(
         nodeId: string,
         kind: NodeSummaryKind,
       ) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const summary = Conversation(draft).summaries.findNode(nodeId);
-          if (!summary) return;
-          draft.messages = summary.remove(kind).messages;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.summaries.findNode(nodeId)?.remove(kind),
+        );
       },
 
       editGlobalMemory(
@@ -691,16 +675,9 @@ export const useChatStore = createPersistStore(
       },
 
       deleteMessage(sessionId: string, messageId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const node = Conversation(draft).findNode(messageId);
-          if (!node) return;
-          const graph = node.remove();
-          draft.messages = graph.messages;
-          draft.rootNodeId = graph.rootNodeId;
-          draft.activeCursorId = graph.activeCursorId;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.findNode(messageId)?.remove(),
+        );
       },
 
       async retryMessage(sessionId: string, messageId: string) {
@@ -742,9 +719,9 @@ export const useChatStore = createPersistStore(
           getSessionActiveMessages(session).map((node) => node.id),
         );
         if (!activeIds.has(nodeId)) return;
-        get().updateTargetSession(session, (draft) => {
-          draft.activeCursorId = nodeId;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.moveCursor(nodeId),
+        );
       },
 
       selectConversationBranch(
@@ -754,13 +731,9 @@ export const useChatStore = createPersistStore(
       ) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const graph = Conversation(draft)
-            .node(parentId)
-            .selectBranch(branchRootId);
-          draft.messages = graph.messages;
-          draft.activeCursorId = graph.activeCursorId;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.node(parentId).selectBranch(branchRootId),
+        );
       },
 
       startConversationBranch(sessionId: string, parentId: string) {
@@ -770,10 +743,11 @@ export const useChatStore = createPersistStore(
           getSessionActiveMessages(session).map((node) => node.id),
         );
         if (!activeIds.has(parentId)) return;
-        get().updateTargetSession(session, (draft) => {
-          draft.activeCursorId = parentId;
-          draft.pendingOutlineDelta = 1;
-        });
+        get().updateConversation(
+          sessionId,
+          (conversation) => conversation.moveCursor(parentId),
+          { pendingOutlineDelta: 1 },
+        );
       },
 
       insertMessageBetween(
@@ -784,26 +758,17 @@ export const useChatStore = createPersistStore(
       ) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const graph = Conversation(draft).insertProjected(
-            message,
-            previousId,
-            nextId,
-          );
-          draft.messages = graph.messages;
-          draft.rootNodeId = graph.rootNodeId;
-          draft.activeCursorId = graph.activeCursorId;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.insertProjected(message, previousId, nextId),
+        );
       },
 
       swapMessages(sessionId: string, firstId: string, secondId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const graph = Conversation(draft).swap(firstId, secondId);
-          draft.messages = graph.messages;
-          draft.rootNodeId = graph.rootNodeId;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.swap(firstId, secondId),
+        );
       },
 
       updateMessageContent(
@@ -811,14 +776,12 @@ export const useChatStore = createPersistStore(
         messageId: string,
         content: ChatMessage["content"],
       ) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
-          const message = draft.messages.find((item) => item.id === messageId);
-          if (!message) return;
-          message.content = content;
-          if (message.role === "assistant") message.reasoning = undefined;
-        });
+        get().updateConversation(sessionId, (conversation) =>
+          conversation.updateNodeData(messageId, (message) => {
+            message.content = content;
+            if (message.role === "assistant") message.reasoning = undefined;
+          }),
+        );
       },
 
       updateStat(message: ChatMessage, session: ChatSession) {
@@ -827,6 +790,33 @@ export const useChatStore = createPersistStore(
           // TODO: should update chat count and word count
         });
       },
+
+      updateConversation(
+        sessionId: string,
+        updater: (conversation: ConversationApi) => ConversationApi | undefined,
+        sessionPatch: Partial<
+          Omit<ChatSession, keyof ConversationGraphState | "id">
+        > = {},
+      ) {
+        set((state) => {
+          const index = state.sessions.findIndex(
+            (session) => session.id === sessionId,
+          );
+          if (index < 0) return {};
+          const current = state.sessions[index];
+          const conversation = Conversation(current);
+          const next = updater(conversation);
+          if (!next || next === conversation) return {};
+          const sessions = state.sessions.slice();
+          sessions[index] = {
+            ...current,
+            ...sessionPatch,
+            ...next.state,
+          };
+          return { sessions };
+        });
+      },
+
       updateTargetSession(
         targetSession: ChatSession,
         updater: (session: ChatSession) => void,
@@ -886,9 +876,8 @@ export const useChatStore = createPersistStore(
       getSession(sessionId) {
         return get().sessions.find((session) => session.id === sessionId);
       },
-      updateSession(sessionId, updater) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (session) get().updateTargetSession(session, updater);
+      updateConversation(sessionId, updater) {
+        get().updateConversation(sessionId, updater);
       },
       getClientApi,
       resolveDefaultModel: getSummarizeModel,
@@ -899,9 +888,8 @@ export const useChatStore = createPersistStore(
       getSession(sessionId) {
         return get().sessions.find((session) => session.id === sessionId);
       },
-      updateSession(sessionId, updater) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (session) get().updateTargetSession(session, updater);
+      updateConversation(sessionId, updater, sessionPatch) {
+        get().updateConversation(sessionId, updater, sessionPatch);
       },
       getClientApi,
       completionEffects: {
@@ -915,7 +903,6 @@ export const useChatStore = createPersistStore(
           if (!session || !message) return;
 
           get().updateTargetSession(session, (draft) => {
-            draft.messages = draft.messages.concat();
             draft.lastUpdate = Date.now();
           });
           get().updateStat(message, session);

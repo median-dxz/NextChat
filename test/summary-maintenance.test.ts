@@ -19,7 +19,7 @@ function createHarness(session: SummaryMaintenanceSession) {
   const provider = createDeferredClientApi();
   const maintenance = createSummaryMaintenance({
     getSession: repository.getSession,
-    updateSession: repository.updateSession,
+    updateConversation: repository.updateConversation,
     getClientApi: () => provider.api,
     resolveDefaultModel: () => ["summary-model", ServiceProvider.OpenAI],
     summaryPrompt: "Summarize the conversation",
@@ -107,7 +107,7 @@ describe("summary maintenance", () => {
       draft.messages = Conversation(draft).summaries.node(targetNodeId).edit(
         "segment",
         "manual segment",
-      ).messages;
+      ).state.messages;
     });
     provider.finish(0, "late generated segment");
     await pending;
@@ -139,7 +139,7 @@ describe("summary maintenance", () => {
       draft.messages = Conversation(draft).summaries.node(target.id).edit(
         "checkpoint",
         "manual checkpoint",
-      ).messages;
+      ).state.messages;
     });
     provider.finish(0, "late generated checkpoint");
     await pending;

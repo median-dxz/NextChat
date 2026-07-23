@@ -4,7 +4,7 @@ import {
   getContextInputBudget,
   getEffectiveMaxOutputTokens,
 } from "../context-budget";
-import { ConversationGraph, type ConversationGraphState } from "./graph";
+import { type ConversationGraphApi } from "./graph";
 import type { ConversationNode } from "./node";
 import {
   planNodeConversationContext,
@@ -58,10 +58,9 @@ export interface ConversationContextAssembly {
 }
 
 function availableToCursor(
-  state: ConversationGraphState,
+  graph: ConversationGraphApi<unknown>,
   options: Pick<ConversationContextBuildOptions, "cursorId" | "excludeNodeId">,
 ) {
-  const graph = ConversationGraph(state);
   const projection = options.cursorId
     ? graph.projectTo(options.cursorId)
     : graph.projectToCursor();
@@ -77,10 +76,10 @@ function availableToCursor(
 }
 
 function planContext(
-  state: ConversationGraphState,
+  graph: ConversationGraphApi<unknown>,
   options: ConversationContextBuildOptions,
 ) {
-  const projection = availableToCursor(state, options);
+  const projection = availableToCursor(graph, options);
   const planningProjection =
     options.summaries === "enabled"
       ? projection
@@ -136,10 +135,10 @@ function materializeNeutralEntries(
     .map(({ entry }) => entry);
 }
 
-export function ConversationContext(state: ConversationGraphState) {
+export function ConversationContext(graph: ConversationGraphApi<unknown>) {
   return {
     build(options: ConversationContextBuildOptions) {
-      const { plan, projection } = planContext(state, options);
+      const { plan, projection } = planContext(graph, options);
       return {
         entries: materializeNeutralEntries(projection, plan.representations),
         diagnostics: plan.diagnostics,

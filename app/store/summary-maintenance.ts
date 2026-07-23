@@ -4,6 +4,7 @@ import {
   Conversation,
   createMessage,
   type ChatMessage,
+  type ConversationApi,
   type ConversationGraphState,
   type NodeSummaryKind,
 } from "../utils/conversation";
@@ -23,9 +24,9 @@ export interface SummaryMaintenanceCommand {
 
 export interface SummaryMaintenanceDependencies {
   getSession(sessionId: string): SummaryMaintenanceSession | undefined;
-  updateSession(
+  updateConversation(
     sessionId: string,
-    updater: (session: SummaryMaintenanceSession) => void,
+    updater: (conversation: ConversationApi) => ConversationApi | undefined,
   ): void;
   getClientApi(providerName?: string): ClientApi;
   resolveDefaultModel(
@@ -133,13 +134,9 @@ export function createSummaryMaintenance(
         providerName,
         dependencies.summaryPrompt,
       );
-      dependencies.updateSession(command.sessionId, (current) => {
-        const next = Conversation(current).summaries.commitGenerated(
-          segmentPlan,
-          content,
-        );
-        if (next) current.messages = next.messages;
-      });
+      dependencies.updateConversation(command.sessionId, (conversation) =>
+        conversation.summaries.commitGenerated(segmentPlan, content),
+      );
     }
 
     if (command.onlyKind === "segment") return;
@@ -173,13 +170,9 @@ export function createSummaryMaintenance(
       providerName,
       dependencies.summaryPrompt,
     );
-    dependencies.updateSession(command.sessionId, (current) => {
-      const next = Conversation(current).summaries.commitGenerated(
-        checkpointPlan,
-        content,
-      );
-      if (next) current.messages = next.messages;
-    });
+    dependencies.updateConversation(command.sessionId, (conversation) =>
+      conversation.summaries.commitGenerated(checkpointPlan, content),
+    );
   };
 
   return {

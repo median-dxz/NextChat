@@ -21,7 +21,7 @@ function createHarness(session: ChatOrchestratorSession) {
   const dispatch = vi.fn();
   const orchestrator = createChatOrchestrator({
     getSession: repository.getSession,
-    updateSession: repository.updateSession,
+    updateConversation: repository.updateConversation,
     getClientApi: () => provider.api,
     completionEffects: { dispatch },
   });

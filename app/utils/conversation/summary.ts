@@ -1,4 +1,7 @@
-import { ConversationGraph, type ConversationGraphState } from "./graph";
+import {
+  type ConversationGraphApi,
+  type ConversationGraphState,
+} from "./graph";
 import {
   createSourceDigest,
   type ConversationNode,
@@ -59,9 +62,9 @@ export interface CheckpointMaintenancePlan extends SummaryMaintenancePlanBase {
 export type SummaryMaintenancePlan =
   SegmentMaintenancePlan | CheckpointMaintenancePlan;
 
-export interface ConversationNodeSummaryApi {
-  edit(kind: NodeSummaryKind, content: string): ConversationGraphState;
-  remove(kind: NodeSummaryKind): ConversationGraphState;
+export interface ConversationNodeSummaryApi<TResult> {
+  edit(kind: NodeSummaryKind, content: string): TResult;
+  remove(kind: NodeSummaryKind): TResult;
 }
 
 export function partitionProjectionIntoOutlineChains(
@@ -207,12 +210,19 @@ function updateNode(
   return { ...state, messages };
 }
 
-function bindConversationSummary(state: ConversationGraphState) {
-  const graph = ConversationGraph(state);
-  const findNode = (nodeId: string): ConversationNodeSummaryApi | undefined => {
+function bindConversationSummary<TResult>(
+  graph: ConversationGraphApi<TResult>,
+  commitData: (state: ConversationGraphState) => TResult,
+) {
+  const state = graph.state;
+  const findNode = (
+    nodeId: string,
+  ): ConversationNodeSummaryApi<TResult> | undefined => {
     const graphNode = graph.findNode(nodeId);
     if (!graphNode) return;
     const node = graphNode.value;
+    const commitNode = (updater: (target: ConversationNode) => void) =>
+      commitData(updateNode(state, node.id, updater));
     const projection = graph.projectTo(node.id);
     const chains = partitionProjectionIntoOutlineChains(projection);
 
@@ -254,13 +264,13 @@ function bindConversationSummary(state: ConversationGraphState) {
         ) {
           throw new Error(`Invalid ${kind} summary coverage for ${node.id}`);
         }
-        return updateNode(state, node.id, (target) => {
+        return commitNode((target) => {
           target.nodeSummaries ??= {};
           target.nodeSummaries[kind] = candidate;
         });
       },
       remove(kind) {
-        return updateNode(state, node.id, (target) => {
+        return commitNode((target) => {
           if (!target.nodeSummaries) return;
           delete target.nodeSummaries[kind];
           if (Object.keys(target.nodeSummaries).length === 0) {
@@ -326,13 +336,17 @@ function bindConversationSummary(state: ConversationGraphState) {
       ) {
         return;
       }
-      return updateNode(state, target.id, (current) => {
-        current.nodeSummaries ??= {};
-        current.nodeSummaries[plan.kind] = candidate;
-      });
+      return commitData(
+        updateNode(state, target.id, (current) => {
+          current.nodeSummaries ??= {};
+          current.nodeSummaries[plan.kind] = candidate;
+        }),
+      );
     },
   };
 }
 
-export type ConversationSummaryApi = ReturnType<typeof bindConversationSummary>;
+export type ConversationSummaryApi<TResult> = ReturnType<
+  typeof bindConversationSummary<TResult>
+>;
 export const ConversationSummary = bindConversationSummary;

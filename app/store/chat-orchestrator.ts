@@ -22,6 +22,7 @@ import {
   createConversationNode,
   createMessage,
   type ChatMessageTool,
+  type ConversationApi,
   type ConversationGraphState,
   type ConversationNode,
   type GlobalMemory,
@@ -86,13 +87,18 @@ export interface ChatCompletionEffects {
 
 export interface ChatOrchestratorDependencies {
   getSession(sessionId: string): ChatOrchestratorSession | undefined;
-  updateSession(
+  updateConversation(
     sessionId: string,
-    updater: (session: ChatOrchestratorSession) => void,
+    updater: (conversation: ConversationApi) => ConversationApi | undefined,
+    sessionPatch?: Partial<
+      Pick<ChatOrchestratorSession, "pendingOutlineDelta">
+    >,
   ): void;
   getClientApi(providerName?: string): ClientApi;
   completionEffects: ChatCompletionEffects;
 }
+
+type ConversationNodeUpdater = Parameters<ConversationApi["updateNodeData"]>[1];
 
 export interface ChatOrchestrator {
   start(command: ChatRunCommand): Promise<ChatRunHandle>;
@@ -269,7 +275,7 @@ function prepareInput(
 }
 
 function prepareRetryGraph(
-  session: ChatOrchestratorSession,
+  session: ConversationGraphState,
   sourceNodeId: string,
 ) {
   const targetNode = Conversation(session).findNode(sourceNodeId);
@@ -281,7 +287,7 @@ function prepareRetryGraph(
       throw new Error("An assistant retry requires its direct user node");
     }
     return {
-      graph: { ...targetNode.remove(), activeCursorId: user.id },
+      conversation: targetNode.remove().moveCursor(user.id),
       source: { ...user },
       reuseUser: true,
       insertBeforeId: undefined,
@@ -289,18 +295,17 @@ function prepareRetryGraph(
   }
 
   const response = targetNode.sameLevelSuccessor;
-  let graph = targetNode.remove();
+  let conversation = targetNode.remove();
   if (response?.role === "assistant") {
-    const responseNode = Conversation(graph).findNode(response.id);
-    if (responseNode) graph = responseNode.remove();
+    const responseNode = conversation.findNode(response.id);
+    if (responseNode) conversation = responseNode.remove();
   }
-  graph = { ...graph, activeCursorId: target.parentId };
-  Conversation(graph).validate();
+  conversation = conversation.moveCursor(target.parentId);
   return {
-    graph,
+    conversation,
     source: { ...target },
     reuseUser: false,
-    insertBeforeId: target.parentId ? undefined : graph.rootNodeId,
+    insertBeforeId: target.parentId ? undefined : conversation.state.rootNodeId,
   };
 }
 
@@ -312,12 +317,11 @@ export function createChatOrchestrator(
   const updateNode = (
     sessionId: string,
     nodeId: string,
-    updater: (node: ConversationNode) => void,
+    updater: ConversationNodeUpdater,
   ) => {
-    dependencies.updateSession(sessionId, (session) => {
-      const node = session.messages.find((message) => message.id === nodeId);
-      if (node) updater(node);
-    });
+    dependencies.updateConversation(sessionId, (conversation) =>
+      conversation.updateNodeData(nodeId, updater),
+    );
   };
 
   return {
@@ -345,7 +349,7 @@ export function createChatOrchestrator(
         streaming: true,
         model: modelConfig.model,
       });
-      const contextState = retry?.graph ?? session;
+      const contextConversation = retry?.conversation ?? Conversation(session);
       const globalMemoryInput =
         session.globalMemory.enabled && session.globalMemory.content.trim()
           ? createMessage({
@@ -354,7 +358,7 @@ export function createChatOrchestrator(
               date: "",
             })
           : undefined;
-      const assembly = Conversation(contextState).context.assemble({
+      const assembly = contextConversation.context.assemble({
         systemInputs,
         pinnedInputs: session.pinnedInputs,
         globalMemoryInput,
@@ -370,36 +374,39 @@ export function createChatOrchestrator(
         modelConfig.providerName,
       ).materialize(assembly.entries);
 
-      let committedGraph: ConversationGraphState = contextState;
-      if (!retry?.reuseUser) {
-        committedGraph = retry?.insertBeforeId
-          ? Conversation(committedGraph).insertProjected(
-              userNode,
-              undefined,
-              retry.insertBeforeId,
-            )
-          : Conversation(committedGraph).insert(
-              userNode,
-              session.pendingOutlineDelta ?? 0,
-            );
-      }
-      committedGraph = Conversation(committedGraph).insert(
-        assistantNode,
-        0,
-        userNode.id,
+      let committedConversation: ConversationApi | undefined;
+      dependencies.updateConversation(
+        command.sessionId,
+        (latest) => {
+          const latestRetry = command.retry
+            ? prepareRetryGraph(latest.state, command.retry.sourceNodeId)
+            : undefined;
+          let next = latestRetry?.conversation ?? latest;
+          if (!latestRetry?.reuseUser) {
+            next = latestRetry?.insertBeforeId
+              ? next.insertProjected(
+                  userNode,
+                  undefined,
+                  latestRetry.insertBeforeId,
+                )
+              : next.insert(
+                  userNode,
+                  dependencies.getSession(command.sessionId)
+                    ?.pendingOutlineDelta ?? 0,
+                );
+          }
+          committedConversation = next.insert(assistantNode, 0, userNode.id);
+          return committedConversation;
+        },
+        { pendingOutlineDelta: undefined },
       );
-      const committedUser = committedGraph.messages.find(
-        (node) => node.id === userNode.id,
-      )!;
-      const committedAssistant = committedGraph.messages.find(
-        (node) => node.id === assistantNode.id,
-      )!;
-      dependencies.updateSession(command.sessionId, (draft) => {
-        draft.messages = committedGraph.messages;
-        draft.rootNodeId = committedGraph.rootNodeId;
-        draft.activeCursorId = committedGraph.activeCursorId;
-        draft.pendingOutlineDelta = undefined;
-      });
+      if (!committedConversation) {
+        throw new Error(`Missing conversation session ${command.sessionId}`);
+      }
+      const committedUser = committedConversation.findNode(userNode.id)!.value;
+      const committedAssistant = committedConversation.findNode(
+        assistantNode.id,
+      )!.value;
 
       const runId = nanoid();
       let reasoningStartedAt: number | undefined;
