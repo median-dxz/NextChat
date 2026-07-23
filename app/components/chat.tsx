@@ -1071,9 +1071,23 @@ function NodeViewerModal(props: {
   const [outlineLevel, setOutlineLevel] = useState(
     () => node?.outlineLevel ?? 1,
   );
+  const [editingProperty, setEditingProperty] = useState<
+    "outline-level" | "role"
+  >();
   const [generating, setGenerating] = useState(false);
 
   if (!node) return null;
+
+  const outlineLevelOptions = ([-1, 0, 1] as const).flatMap((delta) => {
+    const level = node.outlineLevel + delta;
+    if (level < 1) return [];
+    try {
+      Conversation(session).node(node.id).shiftLevel(delta);
+      return [level];
+    } catch {
+      return [];
+    }
+  });
 
   const save = () => {
     try {
@@ -1199,34 +1213,67 @@ function NodeViewerModal(props: {
       >
         <div className={styles["node-viewer"]}>
           <div className={styles["node-viewer-properties"]}>
-            <label className={styles["node-viewer-level"]}>
-              <span>L</span>
-              <input
-                type="number"
-                min={1}
-                value={outlineLevel}
-                aria-label="Outline level"
-                onChange={(event) =>
-                  setOutlineLevel(Number(event.currentTarget.value))
-                }
-              />
-            </label>
-            <label className={styles["node-viewer-role"]}>
-              <span>{Locale.Chat.Graph.Role}</span>
-              <Select
-                value={role}
-                aria-label={Locale.Chat.Graph.Role}
-                onChange={(event) =>
-                  setRole(event.currentTarget.value as ChatMessage["role"])
-                }
-              >
-                {ROLES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            <div className={styles["node-viewer-level"]}>
+              <span id="node-outline-level-label">
+                {Locale.Chat.Graph.OutlineLevel}
+              </span>
+              {editingProperty === "outline-level" ? (
+                <Select
+                  autoFocus
+                  value={outlineLevel}
+                  aria-labelledby="node-outline-level-label"
+                  onBlur={() => setEditingProperty(undefined)}
+                  onChange={(event) =>
+                    setOutlineLevel(Number(event.currentTarget.value))
+                  }
+                >
+                  {outlineLevelOptions.map((level) => (
+                    <option key={level} value={level}>
+                      L{level}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <button
+                  type="button"
+                  className={styles["node-viewer-property-tag"]}
+                  aria-label={`${Locale.Chat.Graph.OutlineLevel}: L${outlineLevel}`}
+                  disabled={outlineLevelOptions.length === 1}
+                  onClick={() => setEditingProperty("outline-level")}
+                >
+                  L{outlineLevel}
+                </button>
+              )}
+            </div>
+            <div className={styles["node-viewer-role"]}>
+              <span id="node-role-label">{Locale.Chat.Graph.Role}</span>
+              {editingProperty === "role" ? (
+                <Select
+                  autoFocus
+                  value={role}
+                  aria-labelledby="node-role-label"
+                  onBlur={() => setEditingProperty(undefined)}
+                  onChange={(event) =>
+                    setRole(event.currentTarget.value as ChatMessage["role"])
+                  }
+                >
+                  {ROLES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <button
+                  type="button"
+                  className={styles["node-viewer-property-tag"]}
+                  aria-label={`${Locale.Chat.Graph.Role}: ${role}`}
+                  onClick={() => setEditingProperty("role")}
+                >
+                  {role}
+                </button>
+              )}
+            </div>
           </div>
           <label className={styles["node-viewer-content"]}>
             <span>{Locale.Chat.Actions.Edit}</span>

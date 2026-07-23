@@ -357,12 +357,13 @@
 .node-viewer-properties {
   display: flex;
   align-items: center;
-  gap: 10px;
+  column-gap: 24px;
+  row-gap: 10px;
+  flex-wrap: wrap;
   padding-bottom: 12px;
   border-bottom: var(--border-in-light);
 }
 
-.node-viewer-level,
 .graph-editor-level,
 .branch-selector-level {
   flex: none;
@@ -375,25 +376,52 @@
   line-height: 1.4;
 }
 
-.node-viewer-level {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  input {
-    width: 34px;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-  }
-}
-
+.node-viewer-level,
 .node-viewer-role {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
+}
+
+.node-viewer-property-tag {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: var(--border-in-light);
+  border-radius: 8px;
+  background: var(--second);
+  color: var(--black);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.node-viewer-level {
+  .node-viewer-property-tag {
+    min-width: 72px;
+  }
+
+  select {
+    width: auto;
+    min-width: 72px;
+    padding-block: 7px;
+  }
+}
+
+.node-viewer-role {
+  .node-viewer-property-tag {
+    min-width: 104px;
+  }
 
   select {
     width: auto;
