@@ -8,7 +8,7 @@ import {
   getModelSizes,
   supportsCustomSize,
 } from "../app/utils";
-import { RequestMessage } from "../app/client/api";
+import type { ConversationMessageInput } from "../app/utils/conversation";
 
 describe("trimTopic", () => {
   test("removes wrapping quotes and asterisks", () => {
@@ -52,17 +52,17 @@ describe("getMessageTextContent", () => {
       role: "assistant",
       content: "final answer",
       reasoning: "private reasoning",
-    } as RequestMessage & { reasoning: string };
+    } as ConversationMessageInput & { reasoning: string };
     expect(getMessageTextContent(msg)).toBe("final answer");
   });
 
   test("returns plain string content as-is", () => {
-    const msg: RequestMessage = { role: "user", content: "hello" };
+    const msg: ConversationMessageInput = { role: "user", content: "hello" };
     expect(getMessageTextContent(msg)).toBe("hello");
   });
 
   test("returns the first text part of multimodal content", () => {
-    const msg: RequestMessage = {
+    const msg: ConversationMessageInput = {
       role: "user",
       content: [
         { type: "image_url", image_url: { url: "http://img" } },
@@ -73,7 +73,7 @@ describe("getMessageTextContent", () => {
   });
 
   test("returns empty string when there is no text part", () => {
-    const msg: RequestMessage = {
+    const msg: ConversationMessageInput = {
       role: "user",
       content: [{ type: "image_url", image_url: { url: "http://img" } }],
     };
@@ -83,7 +83,7 @@ describe("getMessageTextContent", () => {
 
 describe("getMessageTextContentWithoutThinking", () => {
   test("drops thinking lines that start with '> '", () => {
-    const msg: RequestMessage = {
+    const msg: ConversationMessageInput = {
       role: "assistant",
       content: "> reasoning step\nfinal answer",
     };
@@ -91,7 +91,7 @@ describe("getMessageTextContentWithoutThinking", () => {
   });
 
   test("drops blank lines and trims the result", () => {
-    const msg: RequestMessage = {
+    const msg: ConversationMessageInput = {
       role: "assistant",
       content: "\n> thinking\n\nline one\nline two\n",
     };
@@ -103,12 +103,15 @@ describe("getMessageTextContentWithoutThinking", () => {
 
 describe("getMessageImages", () => {
   test("returns an empty array for string content", () => {
-    const msg: RequestMessage = { role: "user", content: "no images here" };
+    const msg: ConversationMessageInput = {
+      role: "user",
+      content: "no images here",
+    };
     expect(getMessageImages(msg)).toEqual([]);
   });
 
   test("collects all image urls from multimodal content", () => {
-    const msg: RequestMessage = {
+    const msg: ConversationMessageInput = {
       role: "user",
       content: [
         { type: "image_url", image_url: { url: "http://a" } },

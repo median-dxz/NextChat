@@ -1,6 +1,6 @@
 "use client";
 import { ApiPath, Baidu, BAIDU_BASE_URL } from "@/app/constant";
-import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
+import { useAccessStore } from "@/app/store";
 import { getAccessToken } from "@/app/utils/baidu";
 
 import {
@@ -20,6 +20,7 @@ import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, getTimeoutMSByModel } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
+import { toBaiduRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -77,9 +78,9 @@ export class ErnieApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages = options.messages.map((v) => ({
+    const messages: RequestPayload["messages"] = options.messages.map((v) => ({
       // "error_code": 336006, "error_msg": "the role of message with even index in the messages must be user or function",
-      role: v.role === "system" ? "user" : v.role,
+      role: toBaiduRole(v.role),
       content: getMessageTextContent(v),
     }));
 
@@ -98,11 +99,7 @@ export class ErnieApi implements LLMApi {
       }
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const shouldStream = !!options.config.stream;
     const requestPayload: RequestPayload = {
@@ -142,7 +139,7 @@ export class ErnieApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // make a fetch request

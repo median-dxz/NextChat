@@ -1,12 +1,6 @@
 "use client";
 import { ApiPath, CHATGLM_BASE_URL, ChatGLM } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { stream } from "@/app/utils/chat";
 import {
   ChatOptions,
@@ -24,13 +18,14 @@ import {
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
 import { preProcessImageContent } from "@/app/utils/chat";
+import { toOpenAICompatibleRole } from "./roles";
 
 interface BasePayload {
   model: string;
 }
 
 interface ChatPayload extends BasePayload {
-  messages: ChatOptions["messages"];
+  messages: RequestPayload["messages"];
   stream?: boolean;
   temperature?: number;
   presence_penalty?: number;
@@ -74,7 +69,7 @@ export class ChatGLMApi implements LLMApi {
   }
 
   private createPayload(
-    messages: ChatOptions["messages"],
+    messages: RequestPayload["messages"],
     modelConfig: any,
     options: ChatOptions,
   ): BasePayload {
@@ -155,19 +150,16 @@ export class ChatGLMApi implements LLMApi {
 
   async chat(options: ChatOptions) {
     const visionModel = isVisionModel(options.config.model);
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
       const content = visionModel
         ? await preProcessImageContent(v.content)
         : getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
     const modelType = this.getModelType(modelConfig.model);
     const requestPayload = this.createPayload(messages, modelConfig, options);
     const path = this.path(this.getModelPath(modelType));
@@ -182,7 +174,7 @@ export class ChatGLMApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       const requestTimeoutId = setTimeout(
@@ -205,13 +197,11 @@ export class ChatGLMApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return stream(
           path,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,

@@ -3,7 +3,8 @@ import {
   UPLOAD_URL,
   REQUEST_TIMEOUT_MS,
 } from "@/app/constant";
-import { MultimodalContent, RequestMessage } from "@/app/client/api";
+import type { MultimodalContent } from "@/app/client/api";
+import type { ConversationContent } from "@/app/utils/conversation";
 import Locale from "@/app/locales";
 import {
   EventStreamContentType,
@@ -72,7 +73,7 @@ export function compressImage(file: Blob, maxSize: number): Promise<string> {
 }
 
 export async function preProcessImageContentBase(
-  content: RequestMessage["content"],
+  content: ConversationContent,
   transformImageUrl: (url: string) => Promise<{ [key: string]: any }>,
 ) {
   if (typeof content === "string") {
@@ -94,9 +95,7 @@ export async function preProcessImageContentBase(
   return result;
 }
 
-export async function preProcessImageContent(
-  content: RequestMessage["content"],
-) {
+export async function preProcessImageContent(content: ConversationContent) {
   return preProcessImageContentBase(content, async (url) => ({
     type: "image_url",
     image_url: { url },
@@ -104,7 +103,7 @@ export async function preProcessImageContent(
 }
 
 export async function preProcessImageContentForAlibabaDashScope(
-  content: RequestMessage["content"],
+  content: ConversationContent,
 ) {
   return preProcessImageContentBase(content, async (url) => ({
     image: url,

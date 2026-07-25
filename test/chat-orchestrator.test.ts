@@ -36,12 +36,21 @@ describe("chat orchestrator", () => {
   test("separates start from completion and records reasoning duration", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-16T12:00:00Z"));
-    const session = chatSession(undefined, { id: "reasoning" });
-    const { orchestrator, provider, repository, dispatch } = createHarness(session);
+    const session = chatSession(undefined, {
+      id: "reasoning",
+      modelConfig: { model: "target-model" },
+      pluginIds: ["target-plugin"],
+    });
+    const { orchestrator, provider, repository, dispatch } =
+      createHarness(session);
 
     const handle = await orchestrator.start({
       sessionId: session.id,
       content: "question",
+    });
+    expect(provider.requests[0]).toMatchObject({
+      config: { model: "target-model" },
+      pluginIds: ["target-plugin"],
     });
     let completed = false;
     void handle.completion.then(() => {
@@ -95,7 +104,8 @@ describe("chat orchestrator", () => {
 
   test("cancels explicitly and ignores a late Provider finish", async () => {
     const session = chatSession(undefined, { id: "cancel" });
-    const { orchestrator, provider, repository, dispatch } = createHarness(session);
+    const { orchestrator, provider, repository, dispatch } =
+      createHarness(session);
 
     const handle = await orchestrator.start({
       sessionId: session.id,
@@ -103,7 +113,9 @@ describe("chat orchestrator", () => {
     });
     provider.update(0, "partial answer");
     handle.cancel();
-    await expect(handle.completion).resolves.toMatchObject({ status: "cancelled" });
+    await expect(handle.completion).resolves.toMatchObject({
+      status: "cancelled",
+    });
     provider.finish(0, "late answer");
 
     expect(provider.controllers[0].signal.aborted).toBe(true);
@@ -117,7 +129,8 @@ describe("chat orchestrator", () => {
 
   test("settles Provider errors without completion effects", async () => {
     const session = chatSession(undefined, { id: "failed" });
-    const { orchestrator, provider, repository, dispatch } = createHarness(session);
+    const { orchestrator, provider, repository, dispatch } =
+      createHarness(session);
 
     const handle = await orchestrator.start({
       sessionId: session.id,
@@ -160,9 +173,9 @@ describe("chat orchestrator", () => {
       parentId: "user",
       streaming: true,
     });
-    expect(provider.requests[0].messages.map((message) => message.content)).toEqual([
-      "question",
-    ]);
+    expect(
+      provider.requests[0].messages.map((message) => message.content),
+    ).toEqual(["question"]);
   });
 
   test("retries a user by replacing its direct response", async () => {

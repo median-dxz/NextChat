@@ -1,11 +1,5 @@
 import { nanoid } from "nanoid";
-import type {
-  ChatOptions,
-  ClientApi,
-  MultimodalContent,
-  RequestMessage,
-} from "../client/api";
-import { getProviderContextAdapter } from "../client/provider-context";
+import type { ChatOptions, ClientApi, MultimodalContent } from "../client/api";
 import {
   DEFAULT_INPUT_TEMPLATE,
   DEFAULT_MODELS,
@@ -24,6 +18,7 @@ import {
   type ChatMessageTool,
   type ConversationApi,
   type ConversationGraphState,
+  type ConversationMessageInput,
   type ConversationNode,
   type GlobalMemory,
 } from "../utils/conversation";
@@ -32,9 +27,9 @@ import type { ModelConfig } from "./config";
 export interface ChatOrchestratorSession extends ConversationGraphState {
   id: string;
   pendingOutlineDelta?: -1 | 1;
-  pinnedInputs: RequestMessage[];
+  pinnedInputs: ConversationMessageInput[];
   globalMemory: GlobalMemory;
-  mask: { modelConfig: ModelConfig };
+  mask: { modelConfig: ModelConfig; plugin: string[] };
 }
 
 export interface ChatRunCommand {
@@ -370,10 +365,6 @@ export function createChatOrchestrator(
         recentRawNodeCount: modelConfig.recentRawNodeCount,
         summaries: modelConfig.sendMemory ? "enabled" : "disabled",
       });
-      const messages = getProviderContextAdapter(
-        modelConfig.providerName,
-      ).materialize(assembly.entries);
-
       let committedConversation: ConversationApi | undefined;
       dependencies.updateConversation(
         command.sessionId,
@@ -421,12 +412,13 @@ export function createChatOrchestrator(
       };
       const api = dependencies.getClientApi(modelConfig.providerName);
       const providerRun = startProviderRun(api, {
-        messages,
+        messages: assembly.messages,
         config: {
           ...modelConfig,
           max_tokens: assembly.effectiveMaxOutputTokens,
           stream: true,
         },
+        pluginIds: session.mask.plugin,
         onUpdate(message) {
           if (message) finishReasoningTiming();
           updateNode(command.sessionId, committedAssistant.id, (node) => {

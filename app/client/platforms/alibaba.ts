@@ -1,12 +1,6 @@
 "use client";
 import { ApiPath, Alibaba, ALIBABA_BASE_URL } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import {
   preProcessImageContentForAlibabaDashScope,
   streamWithThink,
@@ -28,6 +22,7 @@ import {
   isVisionModel,
 } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -94,25 +89,22 @@ export class QwenApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const visionModel = isVisionModel(options.config.model);
 
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestInput["messages"] = [];
     for (const v of options.messages) {
       const content = (
         visionModel
           ? await preProcessImageContentForAlibabaDashScope(v.content)
-          : v.role === "assistant"
+          : v.role === "model"
             ? getMessageTextContentWithoutThinking(v)
             : getMessageTextContent(v)
       ) as any;
 
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
     const shouldStream = !!options.config.stream;
@@ -135,7 +127,7 @@ export class QwenApi implements LLMApi {
 
     try {
       const headers = {
-        ...getHeaders(),
+        ...getHeaders(modelConfig.providerName),
         "X-DashScope-SSE": shouldStream ? "enable" : "disable",
       };
 
@@ -156,9 +148,7 @@ export class QwenApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,

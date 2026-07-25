@@ -1,13 +1,7 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
 import { ApiPath, DEEPSEEK_BASE_URL, DeepSeek } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { streamWithThink } from "@/app/utils/chat";
 import {
   ChatOptions,
@@ -24,6 +18,7 @@ import {
 } from "@/app/utils";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export class DeepSeekApi implements LLMApi {
   private disableListModels = true;
@@ -64,19 +59,20 @@ export class DeepSeekApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      if (v.role === "assistant") {
+      const role = toOpenAICompatibleRole(v.role);
+      if (v.role === "model") {
         const content = getMessageTextContentWithoutThinking(v);
-        messages.push({ role: v.role, content });
+        messages.push({ role, content });
       } else {
         const content = getMessageTextContent(v);
-        messages.push({ role: v.role, content });
+        messages.push({ role, content });
       }
     }
 
     // 检测并修复消息顺序，确保除system外的第一个消息是user
-    const filteredMessages: ChatOptions["messages"] = [];
+    const filteredMessages: RequestPayload["messages"] = [];
     let hasFoundFirstUser = false;
 
     for (const msg of messages) {
@@ -94,11 +90,7 @@ export class DeepSeekApi implements LLMApi {
       // If hasFoundFirstUser is false and it is not a system message, it will be skipped.
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages: filteredMessages,
@@ -124,7 +116,7 @@ export class DeepSeekApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // make a fetch request
@@ -136,13 +128,11 @@ export class DeepSeekApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,

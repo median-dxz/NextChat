@@ -1,6 +1,6 @@
 "use client";
 import { ApiPath, TENCENT_BASE_URL } from "@/app/constant";
-import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
+import { useAccessStore } from "@/app/store";
 
 import {
   ChatOptions,
@@ -27,6 +27,7 @@ import mapValues from "lodash-es/mapValues";
 import isArray from "lodash-es/isArray";
 import isObject from "lodash-es/isObject";
 import { fetch } from "@/app/utils/stream";
+import { toTencentRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -101,15 +102,11 @@ export class HunyuanApi implements LLMApi {
     const visionModel = isVisionModel(options.config.model);
     const messages = options.messages.map((v, index) => ({
       // "Messages 中 system 角色必须位于列表的最开始"
-      role: index !== 0 && v.role === "system" ? "user" : v.role,
+      role: toTencentRole(v.role, index),
       content: visionModel ? v.content : getMessageTextContent(v),
     }));
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = capitalizeKeys({
       model: modelConfig.model,
@@ -131,7 +128,7 @@ export class HunyuanApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // make a fetch request

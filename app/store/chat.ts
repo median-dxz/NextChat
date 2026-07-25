@@ -1,25 +1,33 @@
+import { nanoid } from "nanoid";
+
 import {
   getMessageTextContent,
   isDalle3,
   safeLocalStorage,
   trimTopic,
 } from "../utils";
-
-import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
-import { nanoid } from "nanoid";
-import type { ClientApi } from "../client/api";
-import { getClientApi } from "../client/api";
+import { requestText, toModelInputMessages } from "../client/request-text";
 import { showToast } from "../components/ui-lib";
+import { getClientApi } from "../client/api";
+
+import { executeMcpAction, isMcpEnabled } from "@/app/mcp/actions";
+import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
+
 import {
-  GEMINI_SUMMARIZE_MODEL,
   DEEPSEEK_SUMMARIZE_MODEL,
+  GEMINI_SUMMARIZE_MODEL,
+  REQUEST_TIMEOUT_MS,
   ServiceProvider,
   StoreKey,
   SUMMARIZE_MODEL,
 } from "../constant";
 import Locale from "../locales";
-import { createPersistStore } from "../utils/store";
-import { estimateTokenLength } from "../utils/token";
+import { extractMcpJson, isMcpJson } from "../mcp/utils";
+import { deepClone } from "../utils/clone";
+import type {
+  ConversationGraphState,
+  GlobalMemory,
+} from "../utils/conversation";
 import {
   Conversation,
   createMessage,
@@ -28,20 +36,17 @@ import {
   type ConversationNode,
   type NodeSummaryKind,
 } from "../utils/conversation";
-import { ModelConfig, useAppConfig } from "./config";
-import { useAccessStore } from "./access";
+import { prettyObject } from "../utils/format";
 import { collectModelsWithDefaultModel } from "../utils/model";
-import { createEmptyMask, Mask } from "./mask";
-import { executeMcpAction, isMcpEnabled } from "@/app/mcp/actions";
-import { extractMcpJson, isMcpJson } from "../mcp/utils";
-import type {
-  ConversationGraphState,
-  GlobalMemory,
-} from "../utils/conversation";
+import { createPersistStore } from "../utils/store";
+import { estimateTokenLength } from "../utils/token";
+import { useAccessStore } from "./access";
 import {
   createChatOrchestrator,
   type ChatOrchestrator,
 } from "./chat-orchestrator";
+import { useAppConfig } from "./config";
+import { createEmptyMask, Mask } from "./mask";
 import {
   createSummaryMaintenance,
   type SummaryMaintenance,
@@ -62,34 +67,6 @@ interface MemoryModelOverride {
   providerName: string;
 }
 
-function requestOneShot(
-  api: ClientApi,
-  messages: ChatMessage[],
-  modelConfig: ModelConfig,
-  model: string,
-  providerName: string,
-) {
-  return new Promise<string>((resolve, reject) => {
-    const { max_tokens, ...config } = modelConfig;
-    api.llm.chat({
-      messages,
-      config: { ...config, stream: false, model, providerName },
-      onReasoningUpdate() {},
-      onFinish(message, response) {
-        if (response?.status === 200 && message.trim()) resolve(message.trim());
-        else {
-          reject(
-            new Error(
-              `Global memory request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
-            ),
-          );
-        }
-      },
-      onError: reject,
-    });
-  });
-}
-
 export interface ChatStat {
   tokenCount: number;
   wordCount: number;
@@ -108,6 +85,15 @@ export interface ChatSession extends ConversationGraphState {
 
   mask: Mask;
 }
+
+type ChatSessionMetadata = Omit<
+  ChatSession,
+  keyof ConversationGraphState | "id"
+>;
+
+type ConversationSessionPatch = Partial<
+  Pick<ChatSessionMetadata, "pendingOutlineDelta" | "globalMemory">
+>;
 
 export function getSessionActiveMessages(session: ChatSession) {
   return Conversation(session).projectActive();
@@ -285,6 +271,26 @@ export const useChatStore = createPersistStore(
 
     let chatOrchestrator: ChatOrchestrator;
     let summaryMaintenance: SummaryMaintenance;
+
+    function updateSession(
+      sessionId: string,
+      updater: (session: ChatSession) => ChatSession | undefined,
+    ) {
+      set((state) => {
+        const index = state.sessions.findIndex(
+          (session) => session.id === sessionId,
+        );
+        if (index < 0) return {};
+
+        const current = state.sessions[index];
+        const next = updater(current);
+        if (!next || next === current) return {};
+
+        const sessions = state.sessions.slice();
+        sessions[index] = next;
+        return { sessions };
+      });
+    }
 
     const methods = {
       forkSession() {
@@ -499,10 +505,6 @@ export const useChatStore = createPersistStore(
               session.mask.modelConfig.model,
               session.mask.modelConfig.providerName,
             );
-        const titleApi: ClientApi = getClientApi(
-          titleProviderName as ServiceProvider,
-        );
-
         // remove error messages if any
         const messages = getSessionMessagesToCursor(session);
 
@@ -528,26 +530,25 @@ export const useChatStore = createPersistStore(
               content: Locale.Store.Prompt.Topic,
             }),
           ];
-          titleApi.llm.chat({
-            messages: topicMessages,
-            config: {
+          const topicAtRequest = session.topic;
+          void requestText(
+            getClientApi(titleProviderName as ServiceProvider),
+            toModelInputMessages(topicMessages),
+            {
+              ...modelConfig,
               model: titleModel,
-              stream: false,
               providerName: titleProviderName,
             },
-            // Reasoning is intentionally not persisted as a title.
-            onReasoningUpdate() {},
-            onFinish(message, responseRes) {
-              if (responseRes?.status === 200) {
-                get().updateTargetSession(
-                  session,
-                  (session) =>
-                    (session.topic =
-                      message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC),
-                );
-              }
-            },
-          });
+            session.mask.plugin ?? [],
+          )
+            .then((message) => {
+              get().updateSessionMetadata(session.id, (metadata) => {
+                if (metadata.topic !== topicAtRequest) return false;
+                metadata.topic =
+                  message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC;
+              });
+            })
+            .catch((error) => console.error("[Title]", error));
         }
       },
 
@@ -579,9 +580,7 @@ export const useChatStore = createPersistStore(
         sessionId: string,
         update: Partial<Pick<GlobalMemory, "enabled" | "prompt" | "content">>,
       ) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateTargetSession(session, (draft) => {
+        get().updateSessionMetadata(sessionId, (draft) => {
           Object.assign(draft.globalMemory, update);
           draft.globalMemory.revision += 1;
         });
@@ -647,19 +646,27 @@ export const useChatStore = createPersistStore(
               user,
               assistant,
             ];
-            const content = await requestOneShot(
+            const content = await requestText(
               getClientApi(providerName as ServiceProvider),
-              messages,
-              modelConfig,
-              model,
-              providerName,
+              toModelInputMessages(messages),
+              {
+                ...modelConfig,
+                model,
+                providerName,
+              },
+              session.mask.plugin ?? [],
             );
+            if (!content) {
+              throw new Error(
+                `Global memory request returned empty content (${providerName}/${model})`,
+              );
+            }
             const current = get().sessions.find(
               (item) => item.id === sessionId,
             );
             if (!current || current.globalMemory.revision !== revision) return;
-            get().updateTargetSession(current, (draft) => {
-              if (draft.globalMemory.revision !== revision) return;
+            get().updateSessionMetadata(sessionId, (draft) => {
+              if (draft.globalMemory.revision !== revision) return false;
               draft.globalMemory.content = content;
               draft.globalMemory.revision += 1;
             });
@@ -706,7 +713,7 @@ export const useChatStore = createPersistStore(
           (item) => item.id === session.activeCursorId,
         );
         if (!cursor || (delta === -1 && cursor.outlineLevel <= 1)) return;
-        get().updateTargetSession(session, (draft) => {
+        get().updateSessionMetadata(sessionId, (draft) => {
           draft.pendingOutlineDelta =
             draft.pendingOutlineDelta === delta ? undefined : delta;
         });
@@ -784,8 +791,8 @@ export const useChatStore = createPersistStore(
         );
       },
 
-      updateStat(message: ChatMessage, session: ChatSession) {
-        get().updateTargetSession(session, (session) => {
+      updateStat(message: ChatMessage, sessionId: string) {
+        get().updateSessionMetadata(sessionId, (session) => {
           session.stat.charCount += message.content.length;
           // TODO: should update chat count and word count
         });
@@ -794,38 +801,40 @@ export const useChatStore = createPersistStore(
       updateConversation(
         sessionId: string,
         updater: (conversation: ConversationApi) => ConversationApi | undefined,
-        sessionPatch: Partial<
-          Omit<ChatSession, keyof ConversationGraphState | "id">
-        > = {},
+        sessionPatch: ConversationSessionPatch = {},
       ) {
-        set((state) => {
-          const index = state.sessions.findIndex(
-            (session) => session.id === sessionId,
-          );
-          if (index < 0) return {};
-          const current = state.sessions[index];
+        updateSession(sessionId, (current) => {
           const conversation = Conversation(current);
           const next = updater(conversation);
-          if (!next || next === conversation) return {};
-          const sessions = state.sessions.slice();
-          sessions[index] = {
+          if (!next || next === conversation) return;
+          return {
             ...current,
             ...sessionPatch,
             ...next.state,
           };
-          return { sessions };
         });
       },
 
-      updateTargetSession(
-        targetSession: ChatSession,
-        updater: (session: ChatSession) => void,
+      updateSessionMetadata(
+        sessionId: string,
+        updater: (metadata: ChatSessionMetadata) => void | false,
       ) {
-        const sessions = get().sessions;
-        const index = sessions.findIndex((s) => s.id === targetSession.id);
-        if (index < 0) return;
-        updater(sessions[index]);
-        set(() => ({ sessions }));
+        updateSession(sessionId, (current) => {
+          const metadata: ChatSessionMetadata = {
+            topic: current.topic,
+            pendingOutlineDelta: current.pendingOutlineDelta,
+            pinnedInputs: deepClone(current.pinnedInputs),
+            globalMemory: { ...current.globalMemory },
+            stat: { ...current.stat },
+            lastUpdate: current.lastUpdate,
+            mask: deepClone(current.mask),
+          };
+          if (updater(metadata) === false) return;
+          return {
+            ...current,
+            ...metadata,
+          };
+        });
       },
       async clearAllData() {
         await indexedDBStorage.clear();
@@ -886,7 +895,17 @@ export const useChatStore = createPersistStore(
 
     chatOrchestrator = createChatOrchestrator({
       getSession(sessionId) {
-        return get().sessions.find((session) => session.id === sessionId);
+        const session = get().sessions.find(
+          (session) => session.id === sessionId,
+        );
+        if (!session) return;
+        return {
+          ...session,
+          mask: {
+            ...session.mask,
+            plugin: session.mask.plugin ?? [],
+          },
+        };
       },
       updateConversation(sessionId, updater, sessionPatch) {
         get().updateConversation(sessionId, updater, sessionPatch);
@@ -902,10 +921,10 @@ export const useChatStore = createPersistStore(
           );
           if (!session || !message) return;
 
-          get().updateTargetSession(session, (draft) => {
+          get().updateSessionMetadata(session.id, (draft) => {
             draft.lastUpdate = Date.now();
           });
-          get().updateStat(message, session);
+          get().updateStat(message, session.id);
           get().checkMcpJson(message, session.id);
           get().generateSessionTitle(session);
           if (session.mask.modelConfig.sendMemory) {
@@ -924,11 +943,12 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 4.3,
+    version: 4,
     merge(persistedState, currentState) {
       const restoredState = persistedState as
         Partial<typeof DEFAULT_CHAT_STATE> | undefined;
       const sessions = restoredState?.sessions ?? currentState.sessions;
+      const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
 
       sessions.forEach((session) => {
         session.pinnedInputs ??= [];
@@ -943,8 +963,20 @@ export const useChatStore = createPersistStore(
           session.rootNodeId ??= session.messages[0]?.id;
         }
         session.messages.forEach((message) => {
-          if (message.streaming === true) {
+          const wasStreaming = message.streaming === true;
+          const isStale = new Date(message.date).getTime() < stopTiming;
+          if (wasStreaming) message.streaming = false;
+          if (
+            message.content.length === 0 &&
+            !message.reasoning &&
+            (wasStreaming || message.isError || isStale)
+          ) {
             message.streaming = false;
+            message.isError = true;
+            message.content = prettyObject({
+              error: true,
+              message: "empty response",
+            });
           }
         });
       });
@@ -961,69 +993,13 @@ export const useChatStore = createPersistStore(
         JSON.stringify(state),
       ) as typeof DEFAULT_CHAT_STATE;
 
-      if (version < 2) {
-        newState.sessions = [];
-
-        const oldSessions = state.sessions;
-        for (const oldSession of oldSessions) {
-          const newSession = createEmptySession();
-          newSession.topic = oldSession.topic;
-          newSession.messages = [...oldSession.messages];
-          newSession.mask.modelConfig.sendMemory = true;
-          newSession.mask.modelConfig.recentRawNodeCount = 4;
-          newSession.mask.modelConfig.segmentTargetSourceTokens = 1000;
-          newState.sessions.push(newSession);
-        }
+      if (version !== 3.3) {
+        throw new Error(`Unsupported chat store version: ${version}`);
       }
 
-      if (version < 3) {
-        // migrate id to nanoid
-        newState.sessions.forEach((s) => {
-          s.id = nanoid();
-          s.messages.forEach((m) => (m.id = nanoid()));
-        });
-      }
-
-      // Enable `enableInjectSystemPrompts` attribute for old sessions.
-      // Resolve issue of old sessions not automatically enabling.
-      if (version < 3.1) {
-        newState.sessions.forEach((s) => {
-          if (
-            // Exclude those already set by user
-            !s.mask.modelConfig.hasOwnProperty("enableInjectSystemPrompts")
-          ) {
-            // Because users may have changed this configuration,
-            // the user's current configuration is used instead of the default
-            const config = useAppConfig.getState();
-            s.mask.modelConfig.enableInjectSystemPrompts =
-              config.modelConfig.enableInjectSystemPrompts;
-          }
-        });
-      }
-
-      // add default summarize model for every session
-      if (version < 3.2) {
-        newState.sessions.forEach((s) => {
-          const config = useAppConfig.getState();
-          s.mask.modelConfig.compressModel = config.modelConfig.compressModel;
-          s.mask.modelConfig.compressProviderName =
-            config.modelConfig.compressProviderName;
-        });
-      }
-      // revert default summarize model for every session
-      if (version < 3.3) {
-        newState.sessions.forEach((s) => {
-          const config = useAppConfig.getState();
-          s.mask.modelConfig.compressModel = "";
-          s.mask.modelConfig.compressProviderName = "";
-        });
-      }
-
-      if (version < 4.3) {
-        newState.sessions.forEach((session: any) => {
-          migrateSessionToConversation(session);
-        });
-      }
+      newState.sessions.forEach((session: any) => {
+        migrateSessionToConversation(session);
+      });
 
       return newState as any;
     },

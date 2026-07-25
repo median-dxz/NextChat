@@ -1,4 +1,5 @@
 import type { ClientApi } from "../client/api";
+import { requestText, toModelInputMessages } from "../client/request-text";
 import { getContextInputBudget } from "../utils/context-budget";
 import {
   Conversation,
@@ -12,7 +13,7 @@ import type { ModelConfig } from "./config";
 
 export interface SummaryMaintenanceSession extends ConversationGraphState {
   id: string;
-  mask: { modelConfig: ModelConfig };
+  mask: { modelConfig: ModelConfig; plugin?: string[] };
 }
 
 export interface SummaryMaintenanceCommand {
@@ -45,40 +46,35 @@ interface SummaryJob {
   promise: Promise<void>;
 }
 
-function requestSummary(
+async function requestSummary(
   api: ClientApi,
   messages: ChatMessage[],
   modelConfig: ModelConfig,
   model: string,
   providerName: string,
   summaryPrompt: string,
+  pluginIds: string[],
 ) {
-  return new Promise<string>((resolve, reject) => {
-    const { max_tokens, ...config } = modelConfig;
-    api.llm.chat({
-      messages: messages.concat(
+  const content = await requestText(
+    api,
+    toModelInputMessages(
+      messages.concat(
         createMessage({
           role: "system",
           content: summaryPrompt,
           date: "",
         }),
       ),
-      config: { ...config, stream: false, model, providerName },
-      onReasoningUpdate() {},
-      onFinish(message, response) {
-        if (response?.status === 200 && message.trim()) {
-          resolve(message.trim());
-        } else {
-          reject(
-            new Error(
-              `Summary request failed (${providerName}/${model}, status ${response?.status ?? "unknown"})`,
-            ),
-          );
-        }
-      },
-      onError: reject,
-    });
-  });
+    ),
+    { ...modelConfig, model, providerName },
+    pluginIds,
+  );
+  if (!content) {
+    throw new Error(
+      `Summary request returned empty content (${providerName}/${model})`,
+    );
+  }
+  return content;
 }
 
 export function createSummaryMaintenance(
@@ -133,6 +129,7 @@ export function createSummaryMaintenance(
         model,
         providerName,
         dependencies.summaryPrompt,
+        session.mask.plugin ?? [],
       );
       dependencies.updateConversation(command.sessionId, (conversation) =>
         conversation.summaries.commitGenerated(segmentPlan, content),
@@ -169,6 +166,7 @@ export function createSummaryMaintenance(
       model,
       providerName,
       dependencies.summaryPrompt,
+      checkpointSession.mask.plugin ?? [],
     );
     dependencies.updateConversation(command.sessionId, (conversation) =>
       conversation.summaries.commitGenerated(checkpointPlan, content),

@@ -1,4 +1,4 @@
-import type { RequestMessage } from "../client/api";
+import type { ConversationMessageInput } from "./conversation";
 import { estimateTokenLength } from "./token";
 
 function getContextSafetyReserve(contextWindowTokens: number) {
@@ -33,7 +33,7 @@ export function getEffectiveMaxOutputTokens(
 }
 
 export function estimateRequestMessageTokens(
-  message: Pick<RequestMessage, "content">,
+  message: Pick<ConversationMessageInput, "content">,
 ) {
   if (!Array.isArray(message.content)) {
     return estimateTokenLength(message.content);

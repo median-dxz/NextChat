@@ -101,6 +101,7 @@ export function chatSession(
     modelConfig?: Partial<ModelConfig>;
     pendingOutlineDelta?: -1 | 1;
     pinnedInputs?: ChatMessage[];
+    pluginIds?: string[];
   } = {},
 ) {
   return {
@@ -111,6 +112,7 @@ export function chatSession(
     globalMemory: Conversation.createMemory(),
     mask: {
       modelConfig: { ...TEST_MODEL_CONFIG, ...options.modelConfig },
+      plugin: options.pluginIds ?? [],
     },
   };
 }

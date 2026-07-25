@@ -5,7 +5,7 @@ import {
   Iflytek,
   REQUEST_TIMEOUT_MS,
 } from "@/app/constant";
-import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
+import { useAccessStore } from "@/app/store";
 
 import {
   ChatOptions,
@@ -25,6 +25,7 @@ import { getMessageTextContent } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
 
 import { RequestPayload } from "./openai";
+import { toOpenAICompatibleRole } from "./roles";
 
 export class SparkApi implements LLMApi {
   private disableListModels = true;
@@ -65,17 +66,14 @@ export class SparkApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
       const content = getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -101,7 +99,7 @@ export class SparkApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // Make a fetch request

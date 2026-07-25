@@ -28,21 +28,10 @@ export type {
   SegmentMaintenancePlan,
 } from "./summary";
 
-export interface NodeSummaryRuntimeCacheStats {
-  nodeTokenHits: number;
-  nodeTokenMisses: number;
-  summaryTokenHits: number;
-  summaryTokenMisses: number;
-  digestHits: number;
-  digestMisses: number;
-}
-
-export interface NodeSummaryRuntimeCache {
-  stats: NodeSummaryRuntimeCacheStats;
+interface NodeSummaryRuntimeCache {
   getNodeTokens(node: ConversationNode): number;
   getSummaryTokens(content: string): number;
   getSourceDigest(nodes: ConversationNode[]): string;
-  clear(): void;
 }
 
 export interface PlanSegmentMaintenanceArgs {
@@ -52,7 +41,6 @@ export interface PlanSegmentMaintenanceArgs {
   maxSourceNodes: number;
   inputBudget: number;
   force?: boolean;
-  cache?: NodeSummaryRuntimeCache;
 }
 
 export interface PlanCheckpointMaintenanceArgs {
@@ -62,7 +50,6 @@ export interface PlanCheckpointMaintenanceArgs {
   mergeTokenTarget: number;
   inputBudget: number;
   force?: boolean;
-  cache?: NodeSummaryRuntimeCache;
 }
 
 export type ContextRepresentation =
@@ -75,7 +62,7 @@ export type ContextRepresentation =
       freshness: NodeSummaryFreshness;
     };
 
-export interface ChainContextState {
+interface ChainContextState {
   tokens: number;
   coveredNodeCount: number;
   freshCoveredNodeCount: number;
@@ -85,37 +72,32 @@ export interface ChainContextState {
   selectedRepresentations: ContextRepresentation[];
 }
 
-export interface OutlineChainContextFrontier {
-  chainRootId: string;
-  outlineLevel: number;
-  nodeIds: string[];
+interface OutlineChainContextFrontier {
   states: ChainContextState[];
   approximated: boolean;
 }
 
-export interface RecentRawContext {
+interface RecentRawContext {
   tokens: number;
-  nodeIds: string[];
   representations: ContextRepresentation[];
 }
 
-export interface ChainContextPlanningResult {
+interface ChainContextPlanningResult {
   recentRaw: RecentRawContext;
   optionalBudget: number;
-  optionalNodeIds: string[];
   chains: OutlineChainContextFrontier[];
 }
 
-export interface PlanChainContextArgs {
+interface PlanChainContextArgs {
   projection: ConversationNode[];
   recentRawNodeCount: number;
   availableTokens: number;
-  cache?: NodeSummaryRuntimeCache;
+  includeSummaries: boolean;
   frontierLimit?: number;
   tokenBucketSize?: number;
 }
 
-export interface ContextParetoOptions {
+interface ContextParetoOptions {
   frontierLimit?: number;
   tokenBucketSize?: number;
 }
@@ -127,20 +109,16 @@ export interface ContextPlanningDiagnostics {
   chainCount: number;
 }
 
-export interface CombinedContextFrontier {
+interface CombinedContextFrontier {
   states: ChainContextState[];
   diagnostics: ContextPlanningDiagnostics;
 }
 
-export interface NodeConversationContextPlan {
+interface NodeConversationContextPlan {
   tokens: number;
   representations: ContextRepresentation[];
-  recentRaw: RecentRawContext;
-  state: ChainContextState;
   diagnostics: ContextPlanningDiagnostics;
 }
-
-export interface PlanNodeConversationContextArgs extends PlanChainContextArgs {}
 
 function summaryDigestValue(node: ConversationNode) {
   return [node.id, node.role, node.content];
@@ -150,36 +128,19 @@ function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
   const nodeTokens = new Map<string, number>();
   const summaryTokens = new Map<string, number>();
   const digests = new Map<string, string>();
-  const stats: NodeSummaryRuntimeCacheStats = {
-    nodeTokenHits: 0,
-    nodeTokenMisses: 0,
-    summaryTokenHits: 0,
-    summaryTokenMisses: 0,
-    digestHits: 0,
-    digestMisses: 0,
-  };
 
   return {
-    stats,
     getNodeTokens(node) {
       const key = JSON.stringify([node.id, node.role, node.content]);
       const cached = nodeTokens.get(key);
-      if (cached !== undefined) {
-        stats.nodeTokenHits += 1;
-        return cached;
-      }
-      stats.nodeTokenMisses += 1;
+      if (cached !== undefined) return cached;
       const tokens = estimateRequestMessageTokens(node);
       nodeTokens.set(key, tokens);
       return tokens;
     },
     getSummaryTokens(content) {
       const cached = summaryTokens.get(content);
-      if (cached !== undefined) {
-        stats.summaryTokenHits += 1;
-        return cached;
-      }
-      stats.summaryTokenMisses += 1;
+      if (cached !== undefined) return cached;
       const tokens = estimateTokenLength(content);
       summaryTokens.set(content, tokens);
       return tokens;
@@ -187,27 +148,15 @@ function createNodeSummaryRuntimeCache(): NodeSummaryRuntimeCache {
     getSourceDigest(nodes) {
       const key = JSON.stringify(nodes.map(summaryDigestValue));
       const cached = digests.get(key);
-      if (cached !== undefined) {
-        stats.digestHits += 1;
-        return cached;
-      }
-      stats.digestMisses += 1;
+      if (cached !== undefined) return cached;
       const digest = createSourceDigest(nodes);
       digests.set(key, digest);
       return digest;
     },
-    clear() {
-      nodeTokens.clear();
-      summaryTokens.clear();
-      digests.clear();
-      Object.keys(stats).forEach((key) => {
-        stats[key as keyof NodeSummaryRuntimeCacheStats] = 0;
-      });
-    },
   };
 }
 
-interface SegmentInterval {
+interface SummaryInterval {
   start: number;
   end: number;
   owner: ConversationNode;
@@ -215,12 +164,16 @@ interface SegmentInterval {
   evaluation: NodeSummaryEvaluation;
 }
 
-function collectSegmentIntervals(chain: OutlineChain, chains: OutlineChain[]) {
+function collectSummaryIntervals(
+  chain: OutlineChain,
+  chains: OutlineChain[],
+  kind: "segment" | "checkpoint",
+) {
   const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
-  return chain.nodes.flatMap((owner): SegmentInterval[] => {
-    const summary = owner.nodeSummaries?.segment;
+  return chain.nodes.flatMap((owner): SummaryInterval[] => {
+    const summary = owner.nodeSummaries?.[kind];
     if (!summary) return [];
-    const evaluation = evaluateNodeSummary(owner, "segment", summary, chains);
+    const evaluation = evaluateNodeSummary(owner, kind, summary, chains);
     if (!evaluation.structurallyEligible) return [];
     return [
       {
@@ -350,8 +303,8 @@ function planSegmentMaintenance(
   const targetIndex = targetChain.nodes.findIndex(
     (node) => node.id === target.id,
   );
-  const cache = args.cache ?? createNodeSummaryRuntimeCache();
-  const intervals = collectSegmentIntervals(targetChain, chains)
+  const cache = createNodeSummaryRuntimeCache();
+  const intervals = collectSummaryIntervals(targetChain, chains, "segment")
     .filter((interval) => interval.end <= targetIndex)
     .sort((left, right) => left.start - right.start || left.end - right.end);
 
@@ -422,45 +375,12 @@ function planSegmentMaintenance(
   );
 }
 
-interface CheckpointCandidate {
-  end: number;
-  owner: ConversationNode;
-  summary: NodeSummary;
-  evaluation: NodeSummaryEvaluation;
-}
-
-function collectCheckpointCandidates(
-  chain: OutlineChain,
-  chains: OutlineChain[],
-) {
-  const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
-  return chain.nodes.flatMap((owner): CheckpointCandidate[] => {
-    const summary = owner.nodeSummaries?.checkpoint;
-    if (!summary) return [];
-    const evaluation = evaluateNodeSummary(
-      owner,
-      "checkpoint",
-      summary,
-      chains,
-    );
-    if (!evaluation.structurallyEligible) return [];
-    return [
-      {
-        end: positions.get(owner.id)!,
-        owner,
-        summary,
-        evaluation,
-      },
-    ];
-  });
-}
-
 function collectFreshSegmentsForRange(
-  intervals: SegmentInterval[],
+  intervals: SummaryInterval[],
   start: number,
   end: number,
 ) {
-  const selected: SegmentInterval[] = [];
+  const selected: SummaryInterval[] = [];
   let cursor = start;
   for (const interval of intervals) {
     if (interval.end < start) continue;
@@ -477,8 +397,8 @@ function createCheckpointPlan(
   action: CheckpointMaintenancePlan["action"],
   targetChain: OutlineChain,
   ownerIndex: number,
-  base: CheckpointCandidate | undefined,
-  segments: SegmentInterval[],
+  base: SummaryInterval | undefined,
+  segments: SummaryInterval[],
   inputBudget: number,
   cache: NodeSummaryRuntimeCache,
   expectedSummary?: NodeSummary,
@@ -540,11 +460,11 @@ function planCheckpointMaintenance(
   const targetIndex = targetChain.nodes.findIndex(
     (node) => node.id === target.id,
   );
-  const cache = args.cache ?? createNodeSummaryRuntimeCache();
-  const segments = collectSegmentIntervals(targetChain, chains)
+  const cache = createNodeSummaryRuntimeCache();
+  const segments = collectSummaryIntervals(targetChain, chains, "segment")
     .filter((interval) => interval.end <= targetIndex)
     .sort((left, right) => left.start - right.start || left.end - right.end);
-  const checkpoints = collectCheckpointCandidates(targetChain, chains)
+  const checkpoints = collectSummaryIntervals(targetChain, chains, "checkpoint")
     .filter((checkpoint) => checkpoint.end <= targetIndex)
     .sort((left, right) => left.end - right.end);
 
@@ -597,7 +517,7 @@ function planCheckpointMaintenance(
   const availableSegments = segments.filter((segment) => segment.end >= start);
   if (availableSegments.length === 0) return;
   let cursor = start;
-  const continuous: SegmentInterval[] = [];
+  const continuous: SummaryInterval[] = [];
   for (const segment of availableSegments) {
     if (segment.start !== cursor || segment.evaluation.freshness !== "fresh") {
       return;
@@ -840,6 +760,7 @@ function buildChainContextEdges(
   allChains: OutlineChain[],
   nodeCount: number,
   cache: NodeSummaryRuntimeCache,
+  includeSummaries: boolean,
 ) {
   const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
   const edges = Array.from(
@@ -859,35 +780,38 @@ function buildChainContextEdges(
       representation: { kind: "raw", nodeId: node.id },
     });
   }
-  for (const owner of chain.nodes.slice(0, nodeCount)) {
-    for (const kind of ["segment", "checkpoint"] as const) {
-      const summary = owner.nodeSummaries?.[kind];
-      if (!summary) continue;
-      const evaluation = evaluateNodeSummary(owner, kind, summary, allChains);
-      if (!evaluation.structurallyEligible || !evaluation.freshness) continue;
-      const start = positions.get(evaluation.sourceNodes[0].id);
-      const end = positions.get(evaluation.sourceNodes.at(-1)!.id);
-      if (start === undefined || end === undefined || end >= nodeCount)
-        continue;
-      const coveredNodeCount = end - start + 1;
-      edges[start].push({
-        end: end + 1,
-        tokens: cache.getSummaryTokens(summary.content),
-        coveredNodeCount,
-        freshCoveredNodeCount:
-          evaluation.freshness === "fresh" ? coveredNodeCount : 0,
-        rawCoveredNodeCount: 0,
-        segmentCoveredNodeCount: kind === "segment" ? coveredNodeCount : 0,
-        checkpointCoveredNodeCount:
-          kind === "checkpoint" ? coveredNodeCount : 0,
-        representation: {
-          kind,
-          ownerNodeId: owner.id,
-          sourceNodeIds: summary.sourceNodeIds.slice(),
-          content: summary.content,
-          freshness: evaluation.freshness,
-        },
-      });
+  if (includeSummaries) {
+    for (const owner of chain.nodes.slice(0, nodeCount)) {
+      for (const kind of ["segment", "checkpoint"] as const) {
+        const summary = owner.nodeSummaries?.[kind];
+        if (!summary) continue;
+        const evaluation = evaluateNodeSummary(owner, kind, summary, allChains);
+        if (!evaluation.structurallyEligible || !evaluation.freshness) continue;
+        const start = positions.get(evaluation.sourceNodes[0].id);
+        const end = positions.get(evaluation.sourceNodes.at(-1)!.id);
+        if (start === undefined || end === undefined || end >= nodeCount) {
+          continue;
+        }
+        const coveredNodeCount = end - start + 1;
+        edges[start].push({
+          end: end + 1,
+          tokens: cache.getSummaryTokens(summary.content),
+          coveredNodeCount,
+          freshCoveredNodeCount:
+            evaluation.freshness === "fresh" ? coveredNodeCount : 0,
+          rawCoveredNodeCount: 0,
+          segmentCoveredNodeCount: kind === "segment" ? coveredNodeCount : 0,
+          checkpointCoveredNodeCount:
+            kind === "checkpoint" ? coveredNodeCount : 0,
+          representation: {
+            kind,
+            ownerNodeId: owner.id,
+            sourceNodeIds: summary.sourceNodeIds.slice(),
+            content: summary.content,
+            freshness: evaluation.freshness,
+          },
+        });
+      }
     }
   }
   return edges;
@@ -898,7 +822,8 @@ function planOutlineChainContext(
   allChains: OutlineChain[],
   nodeCount: number,
   tokenBudget: number,
-  cache: NodeSummaryRuntimeCache = createNodeSummaryRuntimeCache(),
+  cache: NodeSummaryRuntimeCache,
+  includeSummaries: boolean,
   options: ContextParetoOptions = {},
 ): OutlineChainContextFrontier {
   const limitedNodeCount = Math.max(0, Math.min(nodeCount, chain.nodes.length));
@@ -908,6 +833,7 @@ function planOutlineChainContext(
     allChains,
     limitedNodeCount,
     cache,
+    includeSummaries,
   );
   const statesAt = Array.from(
     { length: limitedNodeCount + 1 },
@@ -944,15 +870,12 @@ function planOutlineChainContext(
     compareChainContextStates(right, left),
   );
   return {
-    chainRootId: chain.nodes[0]?.id ?? "",
-    outlineLevel: chain.outlineLevel,
-    nodeIds: chain.nodes.slice(0, limitedNodeCount).map((node) => node.id),
     states,
     approximated,
   };
 }
 
-export function selectRecentRawContext(
+function selectRecentRawContext(
   projection: ConversationNode[],
   recentRawNodeCount: number,
   availableTokens: number,
@@ -973,7 +896,6 @@ export function selectRecentRawContext(
   return {
     startIndex,
     tokens,
-    nodeIds: selected.map((node) => node.id),
     representations: selected.map((node) => ({
       kind: "raw" as const,
       nodeId: node.id,
@@ -984,7 +906,7 @@ export function selectRecentRawContext(
 function planChainContextFrontiers(
   args: PlanChainContextArgs,
 ): ChainContextPlanningResult {
-  const cache = args.cache ?? createNodeSummaryRuntimeCache();
+  const cache = createNodeSummaryRuntimeCache();
   const recentRaw = selectRecentRawContext(
     args.projection,
     args.recentRawNodeCount,
@@ -1008,6 +930,7 @@ function planChainContextFrontiers(
             prefixLength,
             optionalBudget,
             cache,
+            args.includeSummaries,
             args,
           ),
         ]
@@ -1016,17 +939,15 @@ function planChainContextFrontiers(
   return {
     recentRaw: {
       tokens: recentRaw.tokens,
-      nodeIds: recentRaw.nodeIds,
       representations: recentRaw.representations,
     },
     optionalBudget,
-    optionalNodeIds: optionalProjection.map((node) => node.id),
     chains,
   };
 }
 
 export function planNodeConversationContext(
-  args: PlanNodeConversationContextArgs,
+  args: PlanChainContextArgs,
 ): NodeConversationContextPlan {
   const planning = planChainContextFrontiers(args);
   const combined = combineChainContextFrontiers(
@@ -1040,9 +961,9 @@ export function planNodeConversationContext(
   );
   const recentState: ChainContextState = {
     tokens: planning.recentRaw.tokens,
-    coveredNodeCount: planning.recentRaw.nodeIds.length,
-    freshCoveredNodeCount: planning.recentRaw.nodeIds.length,
-    rawCoveredNodeCount: planning.recentRaw.nodeIds.length,
+    coveredNodeCount: planning.recentRaw.representations.length,
+    freshCoveredNodeCount: planning.recentRaw.representations.length,
+    rawCoveredNodeCount: planning.recentRaw.representations.length,
     segmentCoveredNodeCount: 0,
     checkpointCoveredNodeCount: 0,
     selectedRepresentations: planning.recentRaw.representations,
@@ -1052,8 +973,6 @@ export function planNodeConversationContext(
   return {
     tokens: state.tokens,
     representations: state.selectedRepresentations,
-    recentRaw: planning.recentRaw,
-    state,
     diagnostics: combined.diagnostics,
   };
 }

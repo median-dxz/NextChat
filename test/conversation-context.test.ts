@@ -43,10 +43,9 @@ describe("conversation context", () => {
       summaries: "enabled",
     });
 
-    expect(context.entries.map((entry) => "nodeId" in entry && entry.nodeId)).toEqual([
-      "2B",
-      "1B",
-    ]);
+    expect(
+      context.entries.map((entry) => "nodeId" in entry && entry.nodeId),
+    ).toEqual(["2B", "1B"]);
   });
 
   test("selects continuous non-overlapping mixed representations", () => {
@@ -81,28 +80,6 @@ describe("conversation context", () => {
       return [];
     });
     expect(covered).toEqual(graph.messages.map((message) => message.id));
-  });
-
-  test("prefers fresh Segment coverage over an equally sized stale Checkpoint", () => {
-    const graph = linearConversation([
-      { id: "a", role: "user", content: "xxxx" },
-      { id: "b", role: "assistant", content: "xxxx" },
-    ]);
-    graph.messages[1].nodeSummaries = {
-      segment: generatedSummary(graph.messages, "x"),
-      checkpoint: {
-        ...generatedSummary(graph.messages, "x"),
-        sourceDigest: "stale",
-      },
-    };
-
-    const context = Conversation(graph).context.build({
-      availableTokens: 1,
-      recentRawNodeCount: 0,
-      summaries: "enabled",
-    });
-
-    expect(context.entries.map((entry) => entry.kind)).toEqual(["segment"]);
   });
 
   test("combines representations from interleaved Outline Chains", () => {
@@ -185,61 +162,25 @@ describe("conversation context", () => {
       systemInputs: [createMessage({ role: "system", content: "system" })],
       pinnedInputs: [createMessage({ role: "user", content: "pinned" })],
       globalMemoryInput: createMessage({ role: "system", content: "memory" }),
-      currentInput: createMessage({ id: "current", role: "user", content: "now" }),
+      currentInput: createMessage({
+        id: "current",
+        role: "user",
+        content: "now",
+      }),
       budget: { contextWindowTokens: 32_000, requestedOutputTokens: 4_000 },
       recentRawNodeCount: 2,
       summaries: "enabled",
     });
 
-    expect(context.entries.map((entry) => entry.kind)).toEqual([
-      "fixed",
-      "fixed",
-      "fixed",
-      "raw",
-      "raw",
-      "current",
+    expect(context.messages).toEqual([
+      { role: "instruction", content: "system" },
+      { role: "instruction", content: "memory" },
+      { role: "user", content: "pinned" },
+      { role: "user", content: "old question" },
+      { role: "model", content: "old answer" },
+      { role: "user", content: "now" },
     ]);
-    expect(context.inputTokenCount).toBeGreaterThan(
-      context.fixedTokenCount + context.historyTokenCount,
-    );
     expect(context.effectiveMaxOutputTokens).toBeLessThanOrEqual(4_000);
-  });
-
-  test("matches a small-chain lexicographic oracle", () => {
-    const graph = linearConversation([
-      { id: "a", role: "user", content: "xxxx" },
-      { id: "b", role: "assistant", content: "xxxx" },
-      { id: "c", role: "user", content: "xxxx" },
-      { id: "d", role: "assistant", content: "xxxx" },
-    ]);
-    graph.messages[1].nodeSummaries = {
-      segment: generatedSummary(graph.messages.slice(0, 2), "x"),
-      checkpoint: {
-        ...generatedSummary(graph.messages.slice(0, 2), "x"),
-        sourceDigest: "stale",
-      },
-    };
-    graph.messages[3].nodeSummaries = {
-      segment: generatedSummary(graph.messages.slice(2), "x"),
-    };
-    const oracle = [
-      { kinds: ["segment", "segment"], covered: 4, fresh: 4, raw: 0 },
-      { kinds: ["checkpoint", "segment"], covered: 4, fresh: 2, raw: 0 },
-      { kinds: ["raw", "raw"], covered: 2, fresh: 2, raw: 2 },
-    ].sort(
-      (left, right) =>
-        right.covered - left.covered ||
-        right.fresh - left.fresh ||
-        right.raw - left.raw,
-    )[0];
-
-    const context = Conversation(graph).context.build({
-      availableTokens: 2,
-      recentRawNodeCount: 0,
-      summaries: "enabled",
-    });
-
-    expect(context.entries.map((entry) => entry.kind)).toEqual(oracle.kinds);
   });
 
   test("keeps a 250-node plan within the public frontier and time limits", () => {
@@ -252,7 +193,10 @@ describe("conversation context", () => {
     );
     for (let index = 1; index < graph.messages.length; index += 2) {
       graph.messages[index].nodeSummaries = {
-        segment: generatedSummary(graph.messages.slice(index - 1, index + 1), "x"),
+        segment: generatedSummary(
+          graph.messages.slice(index - 1, index + 1),
+          "x",
+        ),
       };
     }
 

@@ -1,13 +1,7 @@
 "use client";
 
 import { ApiPath, AI302_BASE_URL, DEFAULT_MODELS, AI302 } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
 import {
   ChatOptions,
@@ -24,6 +18,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { RequestPayload } from "./openai";
+import { toOpenAICompatibleRole } from "./roles";
 
 import { fetch } from "@/app/utils/stream";
 export interface Ai302ListModelResponse {
@@ -75,24 +70,21 @@ export class Ai302Api implements LLMApi {
 
   async chat(options: ChatOptions) {
     const visionModel = isVisionModel(options.config.model);
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      if (v.role === "assistant") {
+      const role = toOpenAICompatibleRole(v.role);
+      if (v.role === "model") {
         const content = getMessageTextContentWithoutThinking(v);
-        messages.push({ role: v.role, content });
+        messages.push({ role, content });
       } else {
         const content = visionModel
           ? await preProcessImageContent(v.content)
           : getMessageTextContent(v);
-        messages.push({ role: v.role, content });
+        messages.push({ role, content });
       }
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -118,7 +110,7 @@ export class Ai302Api implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // console.log(chatPayload);
@@ -132,13 +124,11 @@ export class Ai302Api implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,
@@ -248,7 +238,7 @@ export class Ai302Api implements LLMApi {
     const res = await fetch(this.path(AI302.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(),
+        ...getHeaders("302.AI"),
       },
     });
 

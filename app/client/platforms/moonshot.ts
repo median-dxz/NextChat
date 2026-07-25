@@ -6,13 +6,7 @@ import {
   Moonshot,
   REQUEST_TIMEOUT_MS,
 } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { stream } from "@/app/utils/chat";
 import {
   ChatOptions,
@@ -25,6 +19,7 @@ import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent } from "@/app/utils";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export class MoonshotApi implements LLMApi {
   private disableListModels = true;
@@ -65,17 +60,14 @@ export class MoonshotApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
       const content = getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -101,7 +93,7 @@ export class MoonshotApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // make a fetch request
@@ -113,13 +105,11 @@ export class MoonshotApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,

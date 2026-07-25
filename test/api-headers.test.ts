@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { getHeaders } from "../app/client/api";
 import { ServiceProvider } from "../app/constant";
 import { useAccessStore } from "../app/store/access";
-import { useChatStore } from "../app/store/chat";
 
 describe("provider authentication headers", () => {
   beforeEach(() => {
@@ -35,11 +34,7 @@ describe("provider authentication headers", () => {
     [ServiceProvider.XAI, "Authorization", "Bearer xai-key"],
     [ServiceProvider.DeepSeek, "Authorization", "Bearer deepseek-key"],
     [ServiceProvider.ChatGLM, "Authorization", "Bearer chatglm-key"],
-    [
-      ServiceProvider.SiliconFlow,
-      "Authorization",
-      "Bearer siliconflow-key",
-    ],
+    [ServiceProvider.SiliconFlow, "Authorization", "Bearer siliconflow-key"],
     [
       ServiceProvider.Iflytek,
       "Authorization",
@@ -47,10 +42,7 @@ describe("provider authentication headers", () => {
     ],
     [ServiceProvider["302.AI"], "Authorization", "Bearer 302-key"],
   ])("maps %s to its configured key and header", (provider, header, value) => {
-    useChatStore.getState().currentSession().mask.modelConfig.providerName =
-      provider;
-
-    const headers = getHeaders();
+    const headers = getHeaders(provider);
 
     expect(headers[header]).toBe(value);
   });

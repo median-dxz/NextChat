@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { showToast } from "./components/ui-lib";
 import Locale from "./locales";
-import { RequestMessage } from "./client/api";
+import type { ConversationContent } from "./utils/conversation";
 import {
   REQUEST_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS_FOR_THINKING,
@@ -236,7 +236,12 @@ export function isMacOS(): boolean {
   return false;
 }
 
-export function getMessageTextContent(message: RequestMessage) {
+type MessageContentSource = {
+  content: ConversationContent;
+  role?: unknown;
+};
+
+export function getMessageTextContent(message: MessageContentSource) {
   if (typeof message.content === "string") {
     return message.content;
   }
@@ -248,7 +253,9 @@ export function getMessageTextContent(message: RequestMessage) {
   return "";
 }
 
-export function getMessageTextContentWithoutThinking(message: RequestMessage) {
+export function getMessageTextContentWithoutThinking(
+  message: MessageContentSource,
+) {
   let content = "";
 
   if (typeof message.content === "string") {
@@ -270,7 +277,7 @@ export function getMessageTextContentWithoutThinking(message: RequestMessage) {
     .trim();
 }
 
-export function getMessageImages(message: RequestMessage): string[] {
+export function getMessageImages(message: MessageContentSource): string[] {
   if (typeof message.content === "string") {
     return [];
   }

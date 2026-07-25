@@ -1,6 +1,5 @@
 import { useDebouncedCallback } from "use-debounce";
 import React, {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -103,7 +102,6 @@ import {
   DEFAULT_TTS_ENGINE,
   ModelProvider,
   Path,
-  REQUEST_TIMEOUT_MS,
   ServiceProvider,
   UNFINISHED_INPUT,
 } from "../constant";
@@ -116,7 +114,7 @@ import { ExportMessageModal } from "./exporter";
 import { ReasoningDisclosure } from "./reasoning";
 import { getClientConfig } from "../config/client";
 import { useAllModels } from "../utils/hooks";
-import { ClientApi, MultimodalContent, ROLES } from "../client/api";
+import { ClientApi } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
@@ -125,7 +123,7 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { Conversation } from "../utils/conversation";
+import { CONVERSATION_ROLES, Conversation } from "../utils/conversation";
 import {
   DragDropContext,
   Draggable,
@@ -136,6 +134,22 @@ import {
 const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
+
+function replaceMessageText(
+  message: Pick<ChatMessage, "content">,
+  text: string,
+): ChatMessage["content"] {
+  const images = getMessageImages(message);
+  if (images.length === 0) return text;
+
+  return [
+    { type: "text", text },
+    ...images.map((url) => ({
+      type: "image_url" as const,
+      image_url: { url },
+    })),
+  ];
+}
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -205,10 +219,9 @@ export function SessionConfigModel(props: { onClose: () => void }) {
           updateMask={(updater) => {
             const mask = { ...session.mask };
             updater(mask);
-            chatStore.updateTargetSession(
-              session,
-              (session) => (session.mask = mask),
-            );
+            chatStore.updateSessionMetadata(session.id, (session) => {
+              session.mask = mask;
+            });
           }}
           shouldSyncFromGlobal
         />
@@ -542,7 +555,7 @@ export function ChatActions(props: {
     if (isUnavailableModel && models.length > 0) {
       // show next model to default model if exist
       let nextModel = models.find((model) => model.isDefault) || models[0];
-      chatStore.updateTargetSession(session, (session) => {
+      chatStore.updateSessionMetadata(session.id, (session) => {
         session.mask.modelConfig.model = nextModel.name;
         session.mask.modelConfig.providerName = nextModel?.provider
           ?.providerName as ServiceProvider;
@@ -645,7 +658,7 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const [model, providerName] = getModelProvider(s[0]);
-              chatStore.updateTargetSession(session, (session) => {
+              chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.modelConfig.model = model as ModelType;
                 session.mask.modelConfig.providerName =
                   providerName as ServiceProvider;
@@ -684,7 +697,7 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const size = s[0];
-              chatStore.updateTargetSession(session, (session) => {
+              chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.modelConfig.size = size;
               });
               showToast(size);
@@ -711,7 +724,7 @@ export function ChatActions(props: {
             onSelection={(q) => {
               if (q.length === 0) return;
               const quality = q[0];
-              chatStore.updateTargetSession(session, (session) => {
+              chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.modelConfig.quality = quality;
               });
               showToast(quality);
@@ -738,7 +751,7 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const style = s[0];
-              chatStore.updateTargetSession(session, (session) => {
+              chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.modelConfig.style = style;
               });
               showToast(style);
@@ -769,7 +782,7 @@ export function ChatActions(props: {
             }))}
             onClose={() => setShowPluginSelector(false)}
             onSelection={(s) => {
-              chatStore.updateTargetSession(session, (session) => {
+              chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.plugin = s as string[];
               });
             }}
@@ -857,10 +870,9 @@ export function EditMessageModal(props: { onClose: () => void }) {
                 type="text"
                 value={session.topic}
                 onInput={(e) =>
-                  chatStore.updateTargetSession(
-                    session,
-                    (session) => (session.topic = e.currentTarget.value),
-                  )
+                  chatStore.updateSessionMetadata(session.id, (session) => {
+                    session.topic = e.currentTarget.value;
+                  })
                 }
               />
               <IconButton
@@ -938,7 +950,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                       )
                                     }
                                   >
-                                    {ROLES.map((role) => (
+                                    {CONVERSATION_ROLES.map((role) => (
                                       <option key={role} value={role}>
                                         {role}
                                       </option>
@@ -1098,16 +1110,7 @@ function NodeViewerModal(props: {
         let next = conversation.node(node.id).shiftLevel(outlineDelta);
         next = next.updateNodeData(node.id, (target) => {
           target.role = role;
-          const images = getMessageImages(target);
-          target.content = images.length
-            ? [
-                { type: "text", text: content },
-                ...images.map((url) => ({
-                  type: "image_url" as const,
-                  image_url: { url },
-                })),
-              ]
-            : content;
+          target.content = replaceMessageText(target, content);
         });
         for (const [kind, value] of [
           ["segment", segment],
@@ -1127,40 +1130,28 @@ function NodeViewerModal(props: {
     }
     props.onClose();
   };
-  const generate = async () => {
-    setGenerating(true);
-    try {
-      await chatStore.generateNodeSummary(session.id, node.id, true);
-      const current = useChatStore
-        .getState()
-        .currentSession()
-        .messages.find((item) => item.id === node.id);
-      setSegment(current?.nodeSummaries?.segment?.content ?? "");
-      setCheckpoint(current?.nodeSummaries?.checkpoint?.content ?? "");
-      setSegmentOpen(Boolean(current?.nodeSummaries?.segment?.content));
-      setCheckpointOpen(Boolean(current?.nodeSummaries?.checkpoint?.content));
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error));
-    } finally {
-      setGenerating(false);
+  const refreshSummaryDrafts = (kind?: "segment" | "checkpoint") => {
+    const current = useChatStore
+      .getState()
+      .sessions.find((item) => item.id === session.id)
+      ?.messages.find((item) => item.id === node.id);
+
+    if (!kind || kind === "segment") {
+      const value = current?.nodeSummaries?.segment?.content ?? "";
+      setSegment(value);
+      setSegmentOpen(Boolean(value));
+    }
+    if (!kind || kind === "checkpoint") {
+      const value = current?.nodeSummaries?.checkpoint?.content ?? "";
+      setCheckpoint(value);
+      setCheckpointOpen(Boolean(value));
     }
   };
-  const generateKind = async (kind: "segment" | "checkpoint") => {
+  const generateSummary = async (kind?: "segment" | "checkpoint") => {
     setGenerating(true);
     try {
       await chatStore.generateNodeSummary(session.id, node.id, true, kind);
-      const current = useChatStore
-        .getState()
-        .currentSession()
-        .messages.find((item) => item.id === node.id);
-      const value = current?.nodeSummaries?.[kind]?.content ?? "";
-      if (kind === "segment") {
-        setSegment(value);
-        setSegmentOpen(Boolean(value));
-      } else {
-        setCheckpoint(value);
-        setCheckpointOpen(Boolean(value));
-      }
+      refreshSummaryDrafts(kind);
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1172,6 +1163,24 @@ function NodeViewerModal(props: {
     if (kind === "segment") setSegment("");
     else setCheckpoint("");
   };
+  const summaryEditors = [
+    {
+      kind: "segment" as const,
+      label: Locale.Chat.Graph.Segment,
+      value: segment,
+      open: segmentOpen,
+      setValue: setSegment,
+      setOpen: setSegmentOpen,
+    },
+    {
+      kind: "checkpoint" as const,
+      label: Locale.Chat.Graph.Checkpoint,
+      value: checkpoint,
+      open: checkpointOpen,
+      setValue: setCheckpoint,
+      setOpen: setCheckpointOpen,
+    },
+  ];
 
   return (
     <div className="modal-mask">
@@ -1189,7 +1198,7 @@ function NodeViewerModal(props: {
                   text={Locale.Chat.Graph.GenerateSummary}
                   icon={generating ? <LoadingButtonIcon /> : <BrainIcon />}
                   disabled={generating}
-                  onClick={() => void generate()}
+                  onClick={() => void generateSummary()}
                 />,
               ]
             : []),
@@ -1248,7 +1257,7 @@ function NodeViewerModal(props: {
                     setRole(event.currentTarget.value as ChatMessage["role"])
                   }
                 >
-                  {ROLES.map((item) => (
+                  {CONVERSATION_ROLES.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -1284,62 +1293,38 @@ function NodeViewerModal(props: {
           </div>
           {role === "assistant" && (
             <div className={styles["node-summary-editor"]}>
-              <details
-                open={segmentOpen}
-                onToggle={(event) => setSegmentOpen(event.currentTarget.open)}
-              >
-                <summary>
-                  <span>{Locale.Chat.Graph.Segment}</span>
-                  <span>{segment ? `${segment.length}` : "—"}</span>
-                </summary>
-                <textarea
-                  rows={4}
-                  value={segment}
-                  onChange={(e) => setSegment(e.target.value)}
-                />
-                <div className={styles["node-summary-actions"]}>
-                  <IconButton
-                    text={Locale.Chat.Graph.GenerateSummary}
-                    icon={<BrainIcon />}
-                    disabled={generating}
-                    onClick={() => void generateKind("segment")}
+              {summaryEditors.map((editor) => (
+                <details
+                  key={editor.kind}
+                  open={editor.open}
+                  onToggle={(event) => editor.setOpen(event.currentTarget.open)}
+                >
+                  <summary>
+                    <span>{editor.label}</span>
+                    <span>{editor.value ? `${editor.value.length}` : "—"}</span>
+                  </summary>
+                  <textarea
+                    rows={4}
+                    value={editor.value}
+                    onChange={(event) =>
+                      editor.setValue(event.currentTarget.value)
+                    }
                   />
-                  <IconButton
-                    text={Locale.Chat.Actions.Delete}
-                    icon={<DeleteIcon />}
-                    onClick={() => deleteSummary("segment")}
-                  />
-                </div>
-              </details>
-              <details
-                open={checkpointOpen}
-                onToggle={(event) =>
-                  setCheckpointOpen(event.currentTarget.open)
-                }
-              >
-                <summary>
-                  <span>{Locale.Chat.Graph.Checkpoint}</span>
-                  <span>{checkpoint ? `${checkpoint.length}` : "—"}</span>
-                </summary>
-                <textarea
-                  rows={4}
-                  value={checkpoint}
-                  onChange={(e) => setCheckpoint(e.target.value)}
-                />
-                <div className={styles["node-summary-actions"]}>
-                  <IconButton
-                    text={Locale.Chat.Graph.GenerateSummary}
-                    icon={<BrainIcon />}
-                    disabled={generating}
-                    onClick={() => void generateKind("checkpoint")}
-                  />
-                  <IconButton
-                    text={Locale.Chat.Actions.Delete}
-                    icon={<DeleteIcon />}
-                    onClick={() => deleteSummary("checkpoint")}
-                  />
-                </div>
-              </details>
+                  <div className={styles["node-summary-actions"]}>
+                    <IconButton
+                      text={Locale.Chat.Graph.GenerateSummary}
+                      icon={<BrainIcon />}
+                      disabled={generating}
+                      onClick={() => void generateSummary(editor.kind)}
+                    />
+                    <IconButton
+                      text={Locale.Chat.Actions.Delete}
+                      icon={<DeleteIcon />}
+                      onClick={() => deleteSummary(editor.kind)}
+                    />
+                  </div>
+                </details>
+              ))}
             </div>
           )}
         </div>
@@ -1747,31 +1732,8 @@ function ChatView() {
   };
 
   useEffect(() => {
-    chatStore.updateConversation(session.id, (conversation) => {
-      let next = conversation;
-      const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
-      conversation.state.messages.forEach((m) => {
-        // check if should stop all stale messages
-        if (m.isError || new Date(m.date).getTime() < stopTiming) {
-          if (m.streaming || m.content.length === 0) {
-            next = next.updateNodeData(m.id, (target) => {
-              target.streaming = false;
-              if (target.content.length === 0) {
-                target.isError = true;
-                target.content = prettyObject({
-                  error: true,
-                  message: "empty response",
-                });
-              }
-            });
-          }
-        }
-      });
-      return next;
-    });
-
     // auto sync mask config from global config
-    chatStore.updateTargetSession(session, (session) => {
+    chatStore.updateSessionMetadata(session.id, (session) => {
       if (session.mask.syncGlobalConfig) {
         console.log("[Mask] syncing from global, name = ", session.mask.name);
         session.mask.modelConfig = { ...config.modelConfig };
@@ -1819,7 +1781,7 @@ function ChatView() {
   };
 
   const onPinMessage = (message: ChatMessage) => {
-    chatStore.updateTargetSession(session, (session) => {
+    chatStore.updateSessionMetadata(session.id, (session) => {
       session.pinnedInputs.push({
         ...createMessage({
           role: message.role,
@@ -1902,9 +1864,6 @@ function ChatView() {
 
   // preview messages
   const visibleSessionMessages = getSessionActiveMessages(session);
-  const storedNodesById = new Map(
-    session.messages.map((message) => [message.id, message]),
-  );
   const renderMessages = context
     .concat(visibleSessionMessages as RenderMessage[])
     .concat(
@@ -1932,14 +1891,6 @@ function ChatView() {
     Math.max(0, renderMessages.length - CHAT_PAGE_SIZE),
   );
   const lastScrollTop = useRef(0);
-  // Native scroll anchoring trial: manual page-anchor tracking is disabled.
-  // const pendingPageAnchor = useRef<
-  //   | {
-  //       scrollHeight: number;
-  //       scrollTop: number;
-  //     }
-  //   | undefined
-  // >(undefined);
 
   function setMsgRenderIndex(newIndex: number) {
     newIndex = Math.min(renderMessages.length - CHAT_PAGE_SIZE, newIndex);
@@ -1952,23 +1903,6 @@ function ChatView() {
     renderMessages.length,
   );
   const messages = renderMessages.slice(msgRenderIndex, endRenderIndex);
-
-  // Native scroll anchoring should preserve the visible message when the
-  // rendered page window changes. Keep manual compensation disabled while
-  // verifying that behavior in supported browsers.
-  // useLayoutEffect(() => {
-  //   const anchor = pendingPageAnchor.current;
-  //   const element = scrollRef.current;
-  //   if (!anchor || !element) return;
-  //
-  //   const nextScrollTop = Math.max(
-  //     0,
-  //     anchor.scrollTop + element.scrollHeight - anchor.scrollHeight,
-  //   );
-  //   pendingPageAnchor.current = undefined;
-  //   lastScrollTop.current = nextScrollTop;
-  //   element.scrollTop = nextScrollTop;
-  // }, [msgRenderIndex, scrollRef]);
 
   const onChatBodyScroll = (e: HTMLElement) => {
     const previousScrollTop = lastScrollTop.current;
@@ -1983,19 +1917,7 @@ function ChatView() {
     handleScroll();
 
     if (pageDirection !== 0) {
-      const requestedIndex = msgRenderIndex + pageDirection * CHAT_PAGE_SIZE;
-      const nextIndex = Math.max(
-        0,
-        Math.min(renderMessages.length - CHAT_PAGE_SIZE, requestedIndex),
-      );
-      if (nextIndex !== msgRenderIndex) {
-        // Native scroll anchoring trial: do not capture a manual page anchor.
-        // pendingPageAnchor.current = {
-        //   scrollHeight: e.scrollHeight,
-        //   scrollTop: e.scrollTop,
-        // };
-        _setMsgRenderIndex(nextIndex);
-      }
+      setMsgRenderIndex(msgRenderIndex + pageDirection * CHAT_PAGE_SIZE);
     }
   };
 
@@ -2326,7 +2248,10 @@ function ChatView() {
                     const absoluteIndex = msgRenderIndex + i;
                     const isUser = message.role === "user";
                     const isContext = absoluteIndex < context.length;
-                    const storedNode = storedNodesById.get(message.id);
+                    const storedNode =
+                      isContext || message.preview ? undefined : message;
+                    const messageText = getMessageTextContent(message);
+                    const messageImages = getMessageImages(message);
                     const isActiveTurn = isMessageInStreamingTurn(
                       renderMessages,
                       absoluteIndex,
@@ -2348,40 +2273,23 @@ function ChatView() {
                       }
                       const newMessage = await showPrompt(
                         Locale.Chat.Actions.Edit,
-                        getMessageTextContent(message),
+                        messageText,
                         10,
                       );
-                      let newContent: string | MultimodalContent[] = newMessage;
-                      const images = getMessageImages(message);
-                      if (images.length > 0) {
-                        newContent = [{ type: "text", text: newMessage }];
-                        images.forEach((url) =>
-                          (newContent as MultimodalContent[]).push({
-                            type: "image_url",
-                            image_url: { url },
-                          }),
+                      const newContent = replaceMessageText(
+                        message,
+                        newMessage,
+                      );
+                      chatStore.updateSessionMetadata(session.id, (draft) => {
+                        const item = draft.mask.context.find(
+                          (item) => item.id === message.id,
                         );
-                      }
-                      if (
-                        session.messages.some((item) => item.id === message.id)
-                      ) {
-                        chatStore.updateMessageContent(
-                          session.id,
-                          message.id,
-                          newContent,
-                        );
-                      } else {
-                        chatStore.updateTargetSession(session, (draft) => {
-                          const item = draft.mask.context.find(
-                            (item) => item.id === message.id,
-                          );
-                          if (item) item.content = newContent;
-                        });
-                      }
+                        if (item) item.content = newContent;
+                      });
                     };
 
                     return (
-                      <Fragment key={message.id}>
+                      <React.Fragment key={message.id}>
                         <div
                           id={`chat-message-${message.id}`}
                           className={clsx(
@@ -2476,9 +2384,7 @@ function ChatView() {
                                           text={Locale.Chat.Actions.Copy}
                                           icon={<CopyIcon />}
                                           onClick={() =>
-                                            copyToClipboard(
-                                              getMessageTextContent(message),
-                                            )
+                                            copyToClipboard(messageText)
                                           }
                                         />
                                         {config.ttsConfig.enable && (
@@ -2496,9 +2402,7 @@ function ChatView() {
                                               )
                                             }
                                             onClick={() =>
-                                              openaiSpeech(
-                                                getMessageTextContent(message),
-                                              )
+                                              openaiSpeech(messageText)
                                             }
                                           />
                                         )}
@@ -2542,12 +2446,12 @@ function ChatView() {
                                   reasoningDurationMs={
                                     message.reasoningDurationMs
                                   }
-                                  content={getMessageTextContent(message)}
+                                  content={messageText}
                                 />
                               )}
                               <Markdown
                                 key={message.streaming ? "loading" : "done"}
-                                content={getMessageTextContent(message)}
+                                content={messageText}
                                 loading={
                                   (message.preview || message.streaming) &&
                                   message.content.length === 0 &&
@@ -2555,14 +2459,14 @@ function ChatView() {
                                 }
                                 onDoubleClickCapture={() => {
                                   if (!isMobileScreen) return;
-                                  setUserInput(getMessageTextContent(message));
+                                  setUserInput(messageText);
                                 }}
                                 fontSize={fontSize}
                                 fontFamily={fontFamily}
                                 parentRef={scrollRef}
                                 defaultShow={i >= messages.length - 6}
                               />
-                              {getMessageImages(message).length == 1 && (
+                              {messageImages.length == 1 && (
                                 <>
                                   {/* External and data URLs cannot use Next image optimization. */}
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2570,39 +2474,36 @@ function ChatView() {
                                     className={
                                       styles["chat-message-item-image"]
                                     }
-                                    src={getMessageImages(message)[0]}
+                                    src={messageImages[0]}
                                     alt=""
                                   />
                                 </>
                               )}
-                              {getMessageImages(message).length > 1 && (
+                              {messageImages.length > 1 && (
                                 <div
                                   className={styles["chat-message-item-images"]}
                                   style={
                                     {
-                                      "--image-count":
-                                        getMessageImages(message).length,
+                                      "--image-count": messageImages.length,
                                     } as React.CSSProperties
                                   }
                                 >
-                                  {getMessageImages(message).map(
-                                    (image, index) => {
-                                      return (
-                                        <React.Fragment key={index}>
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img
-                                            className={
-                                              styles[
-                                                "chat-message-item-image-multi"
-                                              ]
-                                            }
-                                            src={image}
-                                            alt=""
-                                          />
-                                        </React.Fragment>
-                                      );
-                                    },
-                                  )}
+                                  {messageImages.map((image, index) => {
+                                    return (
+                                      <React.Fragment key={index}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          className={
+                                            styles[
+                                              "chat-message-item-image-multi"
+                                            ]
+                                          }
+                                          src={image}
+                                          alt=""
+                                        />
+                                      </React.Fragment>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -2657,7 +2558,7 @@ function ChatView() {
                             </div>
                           </div>
                         </div>
-                      </Fragment>
+                      </React.Fragment>
                     );
                   })}
               </div>

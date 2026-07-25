@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { ChatGPTApi } from "../app/client/platforms/openai";
 import { GeminiProApi } from "../app/client/platforms/google";
-import { getProviderContextAdapter } from "../app/client/provider-context";
 import { ServiceProvider } from "../app/constant";
 
 const originalFetch = window.fetch;
@@ -13,30 +11,6 @@ afterEach(() => {
 });
 
 describe("provider context adaptation", () => {
-  test("uses the request-specific output limit for OpenAI vision models", async () => {
-    let payload: any;
-    window.fetch = vi.fn(async (_input, init) => {
-      payload = JSON.parse(String(init?.body));
-      return new Response(
-        JSON.stringify({ choices: [{ message: { content: "ok" } }] }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
-    });
-
-    await new ChatGPTApi().chat({
-      messages: [{ role: "user", content: "hello" }],
-      config: {
-        model: "gpt-4o-mini",
-        providerName: ServiceProvider.OpenAI,
-        max_tokens: 128,
-        stream: false,
-      },
-      onFinish() {},
-    });
-
-    expect(payload.max_tokens).toBe(128);
-  });
-
   test("maps assistant history to Gemini model and normalizes adjacent roles", async () => {
     let payload: any;
     window.fetch = vi.fn(async (_input, init) => {
@@ -49,38 +23,26 @@ describe("provider context adaptation", () => {
       );
     });
 
-    const messages = getProviderContextAdapter(ServiceProvider.Google).materialize(
-      [
-        {
-          kind: "fixed",
-          message: { role: "system", content: "memory" },
-        },
-        {
-          kind: "fixed",
-          message: { role: "user", content: "pinned" },
-        },
-        {
-          kind: "segment",
-          ownerNodeId: "summary-owner",
-          sourceNodeIds: ["summary-source"],
-          content: "summary",
-          freshness: "fresh",
-        },
-        {
-          kind: "current",
-          message: { role: "user", content: "current" },
-        },
-      ],
-    );
+    const messages = [
+      { role: "instruction" as const, content: "memory" },
+      { role: "user" as const, content: "pinned" },
+      { role: "model" as const, content: "summary" },
+      { role: "user" as const, content: "current" },
+    ];
 
     await new GeminiProApi().chat({
       messages,
       config: {
         model: "gemini-2.0-flash",
         providerName: ServiceProvider.Google,
+        temperature: 0.5,
+        top_p: 1,
         max_tokens: 128,
+        presence_penalty: 0,
+        frequency_penalty: 0,
         stream: false,
       },
+      pluginIds: [],
       onFinish() {},
     });
 

@@ -1,4 +1,4 @@
-import { LLMModel } from "../client/api";
+import type { LLMModel } from "../client/api";
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { getClientConfig } from "../config/client";
 import {
@@ -207,7 +207,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.4,
+    version: 4.2,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -219,78 +219,35 @@ export const useAppConfig = createPersistStore(
     migrate(persistedState, version) {
       const state = persistedState as ChatConfig;
 
-      if (version < 3.4) {
-        state.modelConfig.sendMemory = true;
-        state.modelConfig.recentRawNodeCount = 4;
-        state.modelConfig.segmentTargetSourceTokens = 1000;
-        state.modelConfig.frequency_penalty = 0;
-        state.modelConfig.top_p = 1;
-        state.modelConfig.template = DEFAULT_INPUT_TEMPLATE;
-        state.dontShowMaskSplashScreen = false;
-        state.hideBuiltinMasks = false;
+      if (version !== 4.1) {
+        throw new Error(`Unsupported config store version: ${version}`);
       }
 
-      if (version < 3.5) {
-        state.customModels = "claude,claude-100k";
-      }
-
-      if (version < 3.6) {
-        state.modelConfig.enableInjectSystemPrompts = true;
-      }
-
-      if (version < 3.7) {
-        state.enableAutoGenerateTitle = true;
-      }
-
-      if (version < 3.8) {
-        state.lastUpdate = Date.now();
-      }
-
-      if (version < 3.9) {
-        state.modelConfig.template =
-          state.modelConfig.template !== DEFAULT_INPUT_TEMPLATE
-            ? state.modelConfig.template
-            : (config?.template ?? DEFAULT_INPUT_TEMPLATE);
-      }
-
-      if (version < 4.1) {
-        state.modelConfig.compressModel =
-          DEFAULT_CONFIG.modelConfig.compressModel;
-        state.modelConfig.compressProviderName =
-          DEFAULT_CONFIG.modelConfig.compressProviderName;
-      }
-
-      if (version < 4.2) {
-        state.modelConfig.contextWindowTokens =
-          DEFAULT_CONFIG.modelConfig.contextWindowTokens;
-      }
-
-      if (version < 4.3) {
-        state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
-        state.modelConfig.titleProviderName =
-          DEFAULT_CONFIG.modelConfig.titleProviderName;
-      }
-
-      if (version < 4.4) {
-        state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
-        state.modelConfig.memoryProviderName =
-          DEFAULT_CONFIG.modelConfig.memoryProviderName;
-        const legacyModelConfig = state.modelConfig as any;
-        state.modelConfig.recentRawNodeCount =
-          legacyModelConfig.historyMessageCount ??
-          DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
-        state.modelConfig.segmentTargetSourceTokens =
-          legacyModelConfig.compressMessageLengthThreshold ??
-          DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
-        state.modelConfig.segmentMaxSourceNodes = 16;
-        state.modelConfig.checkpointTargetSegments = 4;
-        state.modelConfig.checkpointMergeTargetTokens = Math.max(
-          1000,
-          state.modelConfig.segmentTargetSourceTokens,
-        );
-        delete legacyModelConfig.historyMessageCount;
-        delete legacyModelConfig.compressMessageLengthThreshold;
-      }
+      state.modelConfig.contextWindowTokens =
+        DEFAULT_CONFIG.modelConfig.contextWindowTokens;
+      state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
+      state.modelConfig.titleProviderName =
+        DEFAULT_CONFIG.modelConfig.titleProviderName;
+      state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
+      state.modelConfig.memoryProviderName =
+        DEFAULT_CONFIG.modelConfig.memoryProviderName;
+      const legacyModelConfig = state.modelConfig as any;
+      state.modelConfig.recentRawNodeCount =
+        legacyModelConfig.historyMessageCount ??
+        DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
+      state.modelConfig.segmentTargetSourceTokens =
+        legacyModelConfig.compressMessageLengthThreshold ??
+        DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
+      state.modelConfig.segmentMaxSourceNodes =
+        DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
+      state.modelConfig.checkpointTargetSegments =
+        DEFAULT_CONFIG.modelConfig.checkpointTargetSegments;
+      state.modelConfig.checkpointMergeTargetTokens = Math.max(
+        DEFAULT_CONFIG.modelConfig.checkpointMergeTargetTokens,
+        state.modelConfig.segmentTargetSourceTokens,
+      );
+      delete legacyModelConfig.historyMessageCount;
+      delete legacyModelConfig.compressMessageLengthThreshold;
 
       return state as any;
     },

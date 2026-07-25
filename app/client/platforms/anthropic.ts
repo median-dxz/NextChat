@@ -1,12 +1,6 @@
 import { Anthropic, ApiPath } from "@/app/constant";
 import { ChatOptions, getHeaders, LLMApi, SpeechOptions } from "../api";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  usePluginStore,
-  ChatMessageTool,
-} from "@/app/store";
+import { useAccessStore, usePluginStore, ChatMessageTool } from "@/app/store";
 import { getClientConfig } from "@/app/config/client";
 import { ANTHROPIC_BASE_URL } from "@/app/constant";
 import { getMessageTextContent, isVisionModel } from "@/app/utils";
@@ -14,6 +8,7 @@ import { preProcessImageContent, stream } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export type MultiBlockContent = {
   type: "image" | "text";
@@ -90,17 +85,17 @@ export class ClaudeApi implements LLMApi {
 
     const shouldStream = !!options.config.stream;
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     // try get base64image from local cache image_url
-    const messages: ChatOptions["messages"] = [];
+    const messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: ChatOptions["messages"][number]["content"];
+    }> = [];
     for (const v of options.messages) {
       const content = await preProcessImageContent(v.content);
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
     const keys = ["system", "user"];
@@ -198,14 +193,12 @@ export class ClaudeApi implements LLMApi {
       let index = -1;
       const [tools, funcs] = usePluginStore
         .getState()
-        .getAsTools(
-          useChatStore.getState().currentSession().mask?.plugin || [],
-        );
+        .getAsTools(options.pluginIds);
       return stream(
         path,
         requestBody,
         {
-          ...getHeaders(),
+          ...getHeaders(modelConfig.providerName),
           "anthropic-version": accessStore.anthropicApiVersion,
         },
         // @ts-ignore
@@ -323,7 +316,7 @@ export class ClaudeApi implements LLMApi {
         body: JSON.stringify(requestBody),
         signal: controller.signal,
         headers: {
-          ...getHeaders(), // get common headers
+          ...getHeaders("Anthropic"), // get common headers
           "anthropic-version": accessStore.anthropicApiVersion,
           // do not send `anthropicApiKey` in browser!!!
           // Authorization: getAuthKey(accessStore.anthropicApiKey),

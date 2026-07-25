@@ -4,12 +4,7 @@ import {
   ModelProvider,
   ServiceProvider,
 } from "../constant";
-import {
-  ChatMessageTool,
-  ModelType,
-  useAccessStore,
-  useChatStore,
-} from "../store";
+import { ChatMessageTool, ModelType, useAccessStore } from "../store";
 import { ChatGPTApi, DalleRequestPayload } from "./platforms/openai";
 import { GeminiProApi } from "./platforms/google";
 import { ClaudeApi } from "./platforms/anthropic";
@@ -24,41 +19,39 @@ import { XAIApi } from "./platforms/xai";
 import { ChatGLMApi } from "./platforms/glm";
 import { SiliconflowApi } from "./platforms/siliconflow";
 import { Ai302Api } from "./platforms/ai302";
-
-export const ROLES = ["system", "user", "assistant"] as const;
-export type MessageRole = (typeof ROLES)[number];
+import type {
+  ConversationContent,
+  ConversationMultimodalContent,
+} from "../utils/conversation";
 
 export const Models = ["gpt-3.5-turbo", "gpt-4"] as const;
 export const TTSModels = ["tts-1", "tts-1-hd"] as const;
 export type ChatModel = ModelType;
 
-export interface MultimodalContent {
-  type: "text" | "image_url";
-  text?: string;
-  image_url?: {
-    url: string;
-  };
-}
+export type MultimodalContent = ConversationMultimodalContent;
 
 export interface MultimodalContentForAlibaba {
   text?: string;
   image?: string;
 }
 
-export interface RequestMessage {
-  role: MessageRole;
-  content: string | MultimodalContent[];
+export const MODEL_INPUT_ROLES = ["instruction", "user", "model"] as const;
+export type ModelInputRole = (typeof MODEL_INPUT_ROLES)[number];
+
+export interface ModelInputMessage {
+  role: ModelInputRole;
+  content: ConversationContent;
 }
 
 export interface LLMConfig {
   model: string;
-  providerName?: string;
-  temperature?: number;
-  top_p?: number;
-  max_tokens?: number;
+  providerName: string;
+  temperature: number;
+  top_p: number;
+  max_tokens: number;
   stream?: boolean;
-  presence_penalty?: number;
-  frequency_penalty?: number;
+  presence_penalty: number;
+  frequency_penalty: number;
   size?: DalleRequestPayload["size"];
   quality?: DalleRequestPayload["quality"];
   style?: DalleRequestPayload["style"];
@@ -74,8 +67,9 @@ export interface SpeechOptions {
 }
 
 export interface ChatOptions {
-  messages: RequestMessage[];
+  messages: ModelInputMessage[];
   config: LLMConfig;
+  pluginIds: string[];
 
   onUpdate?: (message: string, chunk: string) => void;
   onReasoningUpdate?: (reasoning: string, chunk: string) => void;
@@ -203,9 +197,11 @@ export function validString(x: string): boolean {
   return x?.length > 0;
 }
 
-export function getHeaders(ignoreHeaders: boolean = false) {
+export function getHeaders(
+  providerName: string,
+  ignoreHeaders: boolean = false,
+) {
   const accessStore = useAccessStore.getState();
-  const chatStore = useChatStore.getState();
   let headers: Record<string, string> = {};
   if (!ignoreHeaders) {
     headers = {
@@ -217,25 +213,14 @@ export function getHeaders(ignoreHeaders: boolean = false) {
   const clientConfig = getClientConfig();
 
   function getConfig() {
-    const modelConfig = chatStore.currentSession().mask.modelConfig;
-    const isGoogle = modelConfig.providerName === ServiceProvider.Google;
-    const isAzure = modelConfig.providerName === ServiceProvider.Azure;
-    const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
-    const isBaidu = modelConfig.providerName === ServiceProvider.Baidu;
-    const isByteDance = modelConfig.providerName === ServiceProvider.ByteDance;
-    const isAlibaba = modelConfig.providerName === ServiceProvider.Alibaba;
-    const isMoonshot = modelConfig.providerName === ServiceProvider.Moonshot;
-    const isIflytek = modelConfig.providerName === ServiceProvider.Iflytek;
-    const isDeepSeek = modelConfig.providerName === ServiceProvider.DeepSeek;
-    const isXAI = modelConfig.providerName === ServiceProvider.XAI;
-    const isChatGLM = modelConfig.providerName === ServiceProvider.ChatGLM;
-    const isSiliconFlow =
-      modelConfig.providerName === ServiceProvider.SiliconFlow;
-    const isAI302 = modelConfig.providerName === ServiceProvider["302.AI"];
+    const isGoogle = providerName === ServiceProvider.Google;
+    const isAzure = providerName === ServiceProvider.Azure;
+    const isAnthropic = providerName === ServiceProvider.Anthropic;
+    const isBaidu = providerName === ServiceProvider.Baidu;
     const isEnabledAccessControl = accessStore.enabledAccessControl();
 
     let apiKey: string;
-    switch (modelConfig.providerName) {
+    switch (providerName) {
       case ServiceProvider.Google:
         apiKey = accessStore.googleApiKey;
         break;
@@ -284,15 +269,6 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       isAzure,
       isAnthropic,
       isBaidu,
-      isByteDance,
-      isAlibaba,
-      isMoonshot,
-      isIflytek,
-      isDeepSeek,
-      isXAI,
-      isChatGLM,
-      isSiliconFlow,
-      isAI302,
       apiKey,
       isEnabledAccessControl,
     };
@@ -313,15 +289,6 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     isAzure,
     isAnthropic,
     isBaidu,
-    // isByteDance,
-    // isAlibaba,
-    // isMoonshot,
-    // isIflytek,
-    // isDeepSeek,
-    // isXAI,
-    // isChatGLM,
-    // isSiliconFlow,
-    // isAI302,
     apiKey,
     isEnabledAccessControl,
   } = getConfig();

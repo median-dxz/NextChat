@@ -13,7 +13,6 @@ import {
   ChatMessageTool,
   useAccessStore,
   useAppConfig,
-  useChatStore,
   usePluginStore,
 } from "@/app/store";
 import { collectModelsWithDefaultModel } from "@/app/utils/model";
@@ -44,6 +43,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -165,7 +165,7 @@ export class ChatGPTApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(ServiceProvider.OpenAI),
       };
 
       // make a fetch request
@@ -184,11 +184,7 @@ export class ChatGPTApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     let requestPayload: RequestPayload | DalleRequestPayload;
 
@@ -214,17 +210,17 @@ export class ChatGPTApi implements LLMApi {
       };
     } else {
       const visionModel = isVisionModel(options.config.model);
-      const messages: ChatOptions["messages"] = [];
+      const messages: RequestPayload["messages"] = [];
       for (const v of options.messages) {
         const content = visionModel
           ? await preProcessImageContent(v.content)
           : getMessageTextContent(v);
-        if (!(isO1OrO3 && v.role === "system"))
-          messages.push({ role: v.role, content });
+        const role = toOpenAICompatibleRole(v.role);
+        if (!(isO1OrO3 && role === "system")) messages.push({ role, content });
       }
 
       // O1 not support image, tools (plugin in ChatGPTNextWeb) and system, stream, logprobs, temperature, top_p, n, presence_penalty, frequency_penalty yet.
-      requestPayload = {
+      const chatRequestPayload: RequestPayload = {
         messages,
         stream: options.config.stream,
         model: modelConfig.model,
@@ -238,26 +234,27 @@ export class ChatGPTApi implements LLMApi {
 
       if (isGpt5) {
         // Remove max_tokens if present
-        delete requestPayload.max_tokens;
+        delete chatRequestPayload.max_tokens;
         // Add max_completion_tokens (or max_completion_tokens if that's what you meant)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
+        chatRequestPayload.max_completion_tokens = modelConfig.max_tokens;
       } else if (isO1OrO3) {
         // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
         // (https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/reasoning?tabs=python-secure#markdown-output)
-        requestPayload["messages"].unshift({
+        chatRequestPayload.messages.unshift({
           role: "developer",
           content: "Formatting re-enabled",
         });
 
         // o1/o3 uses max_completion_tokens to control the number of tokens (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
+        chatRequestPayload.max_completion_tokens = modelConfig.max_tokens;
       }
 
       // add max_tokens to vision model
       if (visionModel && !isO1OrO3 && !isGpt5) {
-        requestPayload["max_tokens"] = modelConfig.max_tokens;
+        chatRequestPayload.max_tokens = modelConfig.max_tokens;
       }
+      requestPayload = chatRequestPayload;
     }
 
     console.log("[Request] openai payload: ", requestPayload);
@@ -302,14 +299,12 @@ export class ChatGPTApi implements LLMApi {
         let index = -1;
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         // console.log("getAsTools", tools, funcs);
         streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,
@@ -402,7 +397,7 @@ export class ChatGPTApi implements LLMApi {
           method: "POST",
           body: JSON.stringify(requestPayload),
           signal: controller.signal,
-          headers: getHeaders(),
+          headers: getHeaders(modelConfig.providerName),
         };
 
         // make a fetch request
@@ -442,12 +437,12 @@ export class ChatGPTApi implements LLMApi {
         ),
         {
           method: "GET",
-          headers: getHeaders(),
+          headers: getHeaders(ServiceProvider.OpenAI),
         },
       ),
       fetch(this.path(OpenaiPath.SubsPath), {
         method: "GET",
-        headers: getHeaders(),
+        headers: getHeaders(ServiceProvider.OpenAI),
       }),
     ]);
 
@@ -497,7 +492,7 @@ export class ChatGPTApi implements LLMApi {
     const res = await fetch(this.path(OpenaiPath.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(),
+        ...getHeaders(ServiceProvider.OpenAI),
       },
     });
 

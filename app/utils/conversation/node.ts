@@ -2,7 +2,8 @@ import { nanoid } from "nanoid";
 import type { DEFAULT_MODELS } from "../../constant";
 import { hash } from "../hmac";
 
-export type ConversationRole = "system" | "user" | "assistant";
+export const CONVERSATION_ROLES = ["system", "user", "assistant"] as const;
+export type ConversationRole = (typeof CONVERSATION_ROLES)[number];
 
 export interface ConversationMultimodalContent {
   type: "text" | "image_url";
@@ -13,6 +14,11 @@ export interface ConversationMultimodalContent {
 }
 
 export type ConversationContent = string | ConversationMultimodalContent[];
+
+export interface ConversationMessageInput {
+  role: ConversationRole;
+  content: ConversationContent;
+}
 
 export type ChatMessageTool = {
   id: string;
@@ -27,9 +33,7 @@ export type ChatMessageTool = {
   errorMsg?: string;
 };
 
-export type ChatMessage = {
-  role: ConversationRole;
-  content: ConversationContent;
+export type ChatMessage = ConversationMessageInput & {
   date: string;
   reasoning?: string;
   reasoningDurationMs?: number;

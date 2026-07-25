@@ -22,7 +22,8 @@ import {
   useAppConfig,
   useChatStore,
 } from "../store";
-import { MultimodalContent, ROLES } from "../client/api";
+import { MultimodalContent } from "../client/api";
+import { CONVERSATION_ROLES } from "../utils/conversation";
 import {
   Input,
   List,
@@ -285,7 +286,7 @@ function ContextPromptItem(props: {
               })
             }
           >
-            {ROLES.map((r) => (
+            {CONVERSATION_ROLES.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>

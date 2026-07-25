@@ -257,7 +257,7 @@ export const useAccessStore = createPersistStore(
         method: "post",
         body: null,
         headers: {
-          ...getHeaders(),
+          ...getHeaders(DEFAULT_CONFIG.modelConfig.providerName),
         },
       })
         .then((res) => res.json())

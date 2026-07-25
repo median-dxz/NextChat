@@ -1,12 +1,6 @@
 "use client";
 import { ApiPath, ByteDance, BYTEDANCE_BASE_URL } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 
 import {
   ChatOptions,
@@ -25,6 +19,7 @@ import {
   getTimeoutMSByModel,
 } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
+import { toOpenAICompatibleRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -85,20 +80,17 @@ export class DoubaoApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayloadForByteDance["messages"] = [];
     for (const v of options.messages) {
       const content =
-        v.role === "assistant"
+        v.role === "model"
           ? getMessageTextContentWithoutThinking(v)
           : await preProcessImageContent(v.content);
-      messages.push({ role: v.role, content });
+      const role = toOpenAICompatibleRole(v.role);
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
 
     const shouldStream = !!options.config.stream;
     const requestPayload: RequestPayloadForByteDance = {
@@ -120,7 +112,7 @@ export class DoubaoApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       // make a fetch request
@@ -132,13 +124,11 @@ export class DoubaoApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           tools as any,
           funcs,
           controller,

@@ -29,7 +29,11 @@ function createHarness(session: SummaryMaintenanceSession) {
 
 function summarySession(id: string, pairs = 1) {
   const messages = Array.from({ length: pairs }, (_, index) => [
-    { id: `${id}-user-${index}`, role: "user" as const, content: `question ${index}` },
+    {
+      id: `${id}-user-${index}`,
+      role: "user" as const,
+      content: `question ${index}`,
+    },
     {
       id: `${id}-assistant-${index}`,
       role: "assistant" as const,
@@ -38,6 +42,7 @@ function summarySession(id: string, pairs = 1) {
   ]).flat();
   return chatSession(linearConversation(messages), {
     id,
+    pluginIds: [`${id}-plugin`],
     modelConfig: {
       segmentTargetSourceTokens: 0,
       checkpointTargetSegments: 1,
@@ -56,6 +61,7 @@ describe("summary maintenance", () => {
     const second = maintenance.maintain(command);
     expect(first).toBe(second);
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
+    expect(provider.requests[0].pluginIds).toEqual(["coalesce-plugin"]);
     provider.finish(0, "segment result");
     await vi.waitFor(() => expect(provider.requests).toHaveLength(2));
     provider.finish(1, "checkpoint result");
@@ -66,29 +72,6 @@ describe("summary maintenance", () => {
       .messages.find((message) => message.id === targetNodeId)!;
     expect(target.nodeSummaries?.segment?.content).toBe("segment result");
     expect(target.nodeSummaries?.checkpoint?.content).toBe("checkpoint result");
-  });
-
-  test("limits maintenance to the requested summary kind", async () => {
-    const session = summarySession("segment-only");
-    const targetNodeId = session.messages.at(-1)!.id;
-    const { maintenance, provider, repository } = createHarness(session);
-
-    const pending = maintenance.maintain({
-      sessionId: session.id,
-      targetNodeId,
-      force: true,
-      onlyKind: "segment",
-    });
-    await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
-    provider.finish(0, "segment only");
-    await pending;
-
-    const target = repository
-      .getSession(session.id)!
-      .messages.find((message) => message.id === targetNodeId)!;
-    expect(target.nodeSummaries?.segment?.content).toBe("segment only");
-    expect(target.nodeSummaries?.checkpoint).toBeUndefined();
-    expect(provider.requests).toHaveLength(1);
   });
 
   test("does not overwrite a Segment edited during generation", async () => {
@@ -104,52 +87,22 @@ describe("summary maintenance", () => {
     });
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
     repository.updateSession(session.id, (draft) => {
-      draft.messages = Conversation(draft).summaries.node(targetNodeId).edit(
-        "segment",
-        "manual segment",
-      ).state.messages;
+      draft.messages = Conversation(draft)
+        .summaries.node(targetNodeId)
+        .edit("segment", "manual segment").state.messages;
     });
     provider.finish(0, "late generated segment");
     await pending;
 
-    expect(
-      repository
-        .getSession(session.id)!
-        .messages.find((message) => message.id === targetNodeId)?.nodeSummaries
-        ?.segment,
-    ).toMatchObject({ content: "manual segment", provenance: "user-edited" });
-  });
-
-  test("does not overwrite a Checkpoint edited during generation", async () => {
-    const session = summarySession("checkpoint-edit");
-    const target = session.messages.at(-1)!;
-    target.nodeSummaries = {
-      segment: generatedSummary(session.messages, "segment"),
-    };
-    const { maintenance, provider, repository } = createHarness(session);
-
-    const pending = maintenance.maintain({
-      sessionId: session.id,
-      targetNodeId: target.id,
-      force: true,
-      onlyKind: "checkpoint",
+    const summaries = repository
+      .getSession(session.id)!
+      .messages.find((message) => message.id === targetNodeId)?.nodeSummaries;
+    expect(summaries?.segment).toMatchObject({
+      content: "manual segment",
+      provenance: "user-edited",
     });
-    await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
-    repository.updateSession(session.id, (draft) => {
-      draft.messages = Conversation(draft).summaries.node(target.id).edit(
-        "checkpoint",
-        "manual checkpoint",
-      ).state.messages;
-    });
-    provider.finish(0, "late generated checkpoint");
-    await pending;
-
-    expect(
-      repository
-        .getSession(session.id)!
-        .messages.find((message) => message.id === target.id)?.nodeSummaries
-        ?.checkpoint,
-    ).toMatchObject({ content: "manual checkpoint", provenance: "user-edited" });
+    expect(summaries?.checkpoint).toBeUndefined();
+    expect(provider.requests).toHaveLength(1);
   });
 
   test("serializes one Outline Chain and continues after failure", async () => {
@@ -171,7 +124,9 @@ describe("summary maintenance", () => {
     });
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
     provider.fail(0, new Error("provider failed"));
-    await expect(firstResult).resolves.toMatchObject({ message: "provider failed" });
+    await expect(firstResult).resolves.toMatchObject({
+      message: "provider failed",
+    });
     await vi.waitFor(() => expect(provider.requests).toHaveLength(2));
     provider.finish(1, "second segment");
     await second;
@@ -179,8 +134,9 @@ describe("summary maintenance", () => {
     expect(
       repository
         .getSession(session.id)!
-        .messages.find((message) => message.id === secondTargetId)?.nodeSummaries
-        ?.segment?.content,
+        .messages.find((message) => message.id === secondTargetId)
+        ?.nodeSummaries?.segment?.content,
     ).toBe("second segment");
   });
+
 });

@@ -1,14 +1,13 @@
-import type { RequestMessage } from "../../client/api";
+import type { ModelInputMessage } from "../../client/api";
 import {
   estimateRequestMessageTokens,
   getContextInputBudget,
   getEffectiveMaxOutputTokens,
 } from "../context-budget";
 import { type ConversationGraphApi } from "./graph";
-import type { ConversationNode } from "./node";
+import type { ConversationMessageInput, ConversationNode } from "./node";
 import {
   planNodeConversationContext,
-  type ContextPlanningDiagnostics,
   type ContextRepresentation,
 } from "./planning";
 
@@ -21,10 +20,10 @@ export interface ConversationContextBuildOptions {
 }
 
 export interface ConversationContextAssemblyOptions {
-  systemInputs: RequestMessage[];
-  pinnedInputs: RequestMessage[];
-  globalMemoryInput?: RequestMessage;
-  currentInput: RequestMessage & { id?: string };
+  systemInputs: ConversationMessageInput[];
+  pinnedInputs: ConversationMessageInput[];
+  globalMemoryInput?: ConversationMessageInput;
+  currentInput: ConversationMessageInput & { id?: string };
   budget: {
     contextWindowTokens: number;
     requestedOutputTokens: number;
@@ -36,10 +35,6 @@ export interface ConversationContextAssemblyOptions {
 
 export type ConversationContextEntry =
   | {
-      kind: "fixed" | "current";
-      message: RequestMessage;
-    }
-  | {
       kind: "raw";
       nodeId: string;
       role: ConversationNode["role"];
@@ -48,13 +43,32 @@ export type ConversationContextEntry =
   | Extract<ContextRepresentation, { kind: "segment" | "checkpoint" }>;
 
 export interface ConversationContextAssembly {
-  entries: ConversationContextEntry[];
-  diagnostics: ContextPlanningDiagnostics;
-  inputTokenCount: number;
-  fixedTokenCount: number;
-  historyTokenCount: number;
-  availableHistoryTokens: number;
+  messages: ModelInputMessage[];
   effectiveMaxOutputTokens: number;
+}
+
+function toModelInputRole(role: ConversationMessageInput["role"]) {
+  if (role === "system") return "instruction";
+  if (role === "assistant") return "model";
+  return "user";
+}
+
+function toModelInputMessage(
+  entry: ConversationMessageInput | ConversationContextEntry,
+): ModelInputMessage {
+  if (!("kind" in entry)) {
+    return {
+      role: toModelInputRole(entry.role),
+      content: entry.content,
+    };
+  }
+  if (entry.kind === "raw") {
+    return {
+      role: toModelInputRole(entry.role),
+      content: entry.content,
+    };
+  }
+  return { role: "model", content: entry.content };
 }
 
 function availableToCursor(
@@ -73,26 +87,6 @@ function availableToCursor(
     const parent = graph.findNode(node.parentId)?.value;
     return parent?.role !== "user" || isAvailable(parent);
   });
-}
-
-function planContext(
-  graph: ConversationGraphApi<unknown>,
-  options: ConversationContextBuildOptions,
-) {
-  const projection = availableToCursor(graph, options);
-  const planningProjection =
-    options.summaries === "enabled"
-      ? projection
-      : projection.map((node) => ({
-          ...node,
-          nodeSummaries: undefined,
-        }));
-  const plan = planNodeConversationContext({
-    projection: planningProjection,
-    recentRawNodeCount: options.recentRawNodeCount,
-    availableTokens: options.availableTokens,
-  });
-  return { plan, projection: planningProjection };
 }
 
 function materializeNeutralEntries(
@@ -138,7 +132,13 @@ function materializeNeutralEntries(
 export function ConversationContext(graph: ConversationGraphApi<unknown>) {
   return {
     build(options: ConversationContextBuildOptions) {
-      const { plan, projection } = planContext(graph, options);
+      const projection = availableToCursor(graph, options);
+      const plan = planNodeConversationContext({
+        projection,
+        recentRawNodeCount: options.recentRawNodeCount,
+        availableTokens: options.availableTokens,
+        includeSummaries: options.summaries === "enabled",
+      });
       return {
         entries: materializeNeutralEntries(projection, plan.representations),
         diagnostics: plan.diagnostics,
@@ -182,23 +182,14 @@ export function ConversationContext(graph: ConversationGraphApi<unknown>) {
       const inputTokenCount =
         fixedTokenCount + history.tokens + currentInputTokenCount;
 
+      const messages = [
+        ...fixedMessages.map(toModelInputMessage),
+        ...history.entries.map(toModelInputMessage),
+        toModelInputMessage(options.currentInput),
+      ];
+
       return {
-        entries: [
-          ...fixedMessages.map((message): ConversationContextEntry => ({
-            kind: "fixed",
-            message,
-          })),
-          ...history.entries,
-          {
-            kind: "current",
-            message: options.currentInput,
-          } satisfies ConversationContextEntry,
-        ],
-        diagnostics: history.diagnostics,
-        inputTokenCount,
-        fixedTokenCount,
-        historyTokenCount: history.tokens,
-        availableHistoryTokens,
+        messages,
         effectiveMaxOutputTokens: getEffectiveMaxOutputTokens(
           options.budget.contextWindowTokens,
           options.budget.requestedOutputTokens,

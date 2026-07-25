@@ -10,10 +10,15 @@ import { ConversationSummary, type ConversationSummaryApi } from "./summary";
 export type {
   ChatMessage,
   ChatMessageTool,
+  ConversationContent,
+  ConversationMessageInput,
+  ConversationMultimodalContent,
   ConversationNode,
+  ConversationRole,
   NodeSummaryKind,
 } from "./node";
 export {
+  CONVERSATION_ROLES,
   createConversationNode,
   createMessage,
   createSourceDigest,

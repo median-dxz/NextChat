@@ -169,34 +169,6 @@
   align-items: center;
 }
 
-.summary-item {
-  .summary-content {
-    color: var(--black);
-    font-size: 13px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .summary-meta {
-    margin-top: 6px;
-    color: var(--black);
-    font-size: 11px;
-    opacity: 0.6;
-  }
-
-  .summary-expired {
-    font-weight: 600;
-  }
-}
-
-.summary-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  margin-left: 12px;
-}
-
 .context-prompt {
   .context-prompt-insert {
     display: flex;

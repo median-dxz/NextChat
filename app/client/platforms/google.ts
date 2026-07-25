@@ -7,13 +7,7 @@ import {
   LLMUsage,
   SpeechOptions,
 } from "../api";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  usePluginStore,
-  ChatMessageTool,
-} from "@/app/store";
+import { useAccessStore, usePluginStore, ChatMessageTool } from "@/app/store";
 import { stream } from "@/app/utils/chat";
 import { getClientConfig } from "@/app/config/client";
 import { GEMINI_BASE_URL } from "@/app/constant";
@@ -28,6 +22,7 @@ import { preProcessImageContent } from "@/app/utils/chat";
 import { nanoid } from "nanoid";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { toGeminiRole } from "./roles";
 
 export class GeminiProApi implements LLMApi {
   path(path: string, shouldStream = false): string {
@@ -119,7 +114,7 @@ export class GeminiProApi implements LLMApi {
         }
       }
       return {
-        role: v.role.replace("assistant", "model").replace("system", "user"),
+        role: toGeminiRole(v.role),
         parts: parts,
       };
     });
@@ -143,11 +138,7 @@ export class GeminiProApi implements LLMApi {
 
     const accessStore = useAccessStore.getState();
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...options.config,
-    };
+    const modelConfig = options.config;
     const requestPayload = {
       contents: messages,
       generationConfig: {
@@ -193,7 +184,7 @@ export class GeminiProApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: getHeaders(modelConfig.providerName),
       };
 
       const isThinking = options.config.model.includes("-thinking");
@@ -206,13 +197,11 @@ export class GeminiProApi implements LLMApi {
       if (shouldStream) {
         const [tools, funcs] = usePluginStore
           .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+          .getAsTools(options.pluginIds);
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          getHeaders(modelConfig.providerName),
           // @ts-ignore
           tools.length > 0
             ? // @ts-ignore
