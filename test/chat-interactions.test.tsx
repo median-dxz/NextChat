@@ -20,7 +20,9 @@ import {
   isMessageInStreamingTurn,
   PromptHints,
   shouldShowMessageActions,
+  useSyncGlobalModelConfig,
 } from "../app/components/chat";
+import { useAppConfig, useChatStore } from "../app/store";
 import {
   getChatScrollUpdate,
   useScrollToBottom,
@@ -38,6 +40,27 @@ afterEach(() => {
 });
 
 describe("chat interaction regressions", () => {
+  test("settles after syncing an already-current global model config", () => {
+    const config = useAppConfig.getState();
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = true;
+    session.mask.modelConfig = { ...config.modelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+
+    expect(() =>
+      renderHook(() => {
+        const currentChatStore = useChatStore();
+        const currentConfig = useAppConfig();
+        const currentSession = currentChatStore.currentSession();
+        useSyncGlobalModelConfig(
+          currentChatStore,
+          currentSession,
+          currentConfig.modelConfig,
+        );
+      }),
+    ).not.toThrow();
+  });
+
   test("locks a streaming turn and exposes actions after reasoning stops", () => {
     const messages = [
       { id: "u1", date: "", role: "user" as const, content: "question" },

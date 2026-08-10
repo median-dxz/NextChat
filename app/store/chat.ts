@@ -280,11 +280,11 @@ export const useChatStore = createPersistStore(
         const index = state.sessions.findIndex(
           (session) => session.id === sessionId,
         );
-        if (index < 0) return {};
+        if (index < 0) return state;
 
         const current = state.sessions[index];
         const next = updater(current);
-        if (!next || next === current) return {};
+        if (!next || next === current) return state;
 
         const sessions = state.sessions.slice();
         sessions[index] = next;

@@ -49,11 +49,13 @@ import HeadphoneIcon from "../icons/headphone.svg";
 import {
   BOT_HELLO,
   ChatMessage,
+  ChatSession,
   createConversationNode,
   createMessage,
   DEFAULT_TOPIC,
   getSessionActiveMessages,
   ModelType,
+  ModelConfig,
   SubmitKey,
   useAccessStore,
   useAppConfig,
@@ -78,6 +80,7 @@ import {
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
 
 import dynamic from "next/dynamic";
+import isEqual from "lodash-es/isEqual";
 
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { Prompt, usePromptStore } from "../store/prompt";
@@ -526,7 +529,7 @@ export function ChatActions(props: {
   }, [models, currentModel, currentProviderName]);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showPluginSelector, setShowPluginSelector] = useState(false);
-  const [showUploadImage, setShowUploadImage] = useState(false);
+  const showUploadImage = isVisionModel(currentModel);
 
   const [showSizeSelector, setShowSizeSelector] = useState(false);
   const [showQualitySelector, setShowQualitySelector] = useState(false);
@@ -542,13 +545,13 @@ export function ChatActions(props: {
   const isMobileScreen = useMobileScreen();
 
   useEffect(() => {
-    const show = isVisionModel(currentModel);
-    setShowUploadImage(show);
-    if (!show) {
+    if (!showUploadImage) {
       setAttachImages([]);
       setUploading(false);
     }
+  }, [showUploadImage, setAttachImages, setUploading]);
 
+  useEffect(() => {
     // if current model is not available
     // switch to first available model
     const isUnavailableModel = !models.some((m) => m.name === currentModel);
@@ -566,7 +569,7 @@ export function ChatActions(props: {
           : nextModel.name,
       );
     }
-  }, [chatStore, currentModel, models, session, setAttachImages, setUploading]);
+  }, [chatStore, currentModel, models, session.id]);
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -1580,6 +1583,41 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
   );
 }
 
+export function useSyncGlobalModelConfig(
+  chatStore: Pick<
+    ReturnType<typeof useChatStore.getState>,
+    "updateSessionMetadata"
+  >,
+  session: ChatSession,
+  modelConfig: ModelConfig,
+) {
+  useEffect(() => {
+    if (
+      !session.mask.syncGlobalConfig ||
+      isEqual(session.mask.modelConfig, modelConfig)
+    ) {
+      return;
+    }
+
+    chatStore.updateSessionMetadata(session.id, (session) => {
+      if (
+        !session.mask.syncGlobalConfig ||
+        isEqual(session.mask.modelConfig, modelConfig)
+      ) {
+        return false;
+      }
+
+      session.mask.modelConfig = { ...modelConfig };
+    });
+  }, [
+    chatStore,
+    modelConfig,
+    session.id,
+    session.mask.modelConfig,
+    session.mask.syncGlobalConfig,
+  ]);
+}
+
 function ChatView() {
   type RenderMessage = ChatMessage & { preview?: boolean };
 
@@ -1731,16 +1769,7 @@ function ChatView() {
     chatStore.cancelChatRun(session.id, messageId);
   };
 
-  useEffect(() => {
-    // auto sync mask config from global config
-    chatStore.updateSessionMetadata(session.id, (session) => {
-      if (session.mask.syncGlobalConfig) {
-        console.log("[Mask] syncing from global, name = ", session.mask.name);
-        session.mask.modelConfig = { ...config.modelConfig };
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  useSyncGlobalModelConfig(chatStore, session, config.modelConfig);
 
   // check if should send message
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -201,6 +201,21 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(useChatStore.getState().sessions).not.toBe(previousSessions);
   });
 
+  test("does not publish a store update when a metadata update is rejected", () => {
+    const session = setSession([message("user", "question")]);
+    const previousState = useChatStore.getState();
+    const listener = vi.fn();
+    const unsubscribe = useChatStore.subscribe(listener);
+
+    useChatStore
+      .getState()
+      .updateSessionMetadata(session.id, () => false);
+    unsubscribe();
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(useChatStore.getState()).toBe(previousState);
+  });
+
   test("keeps invalid remote conversations out while merging other sessions", () => {
     const template = setSession([message("user", "valid")]);
     const local = getLocalAppState();
