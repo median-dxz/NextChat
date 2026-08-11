@@ -6,6 +6,7 @@ import {
   renderHook,
   waitFor,
 } from "@testing-library/react";
+import { useMemo } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../app/store/prompt", () => ({
@@ -20,6 +21,7 @@ import {
   isMessageInStreamingTurn,
   PromptHints,
   shouldShowMessageActions,
+  useEnsureAvailableModel,
   useSyncGlobalModelConfig,
 } from "../app/components/chat";
 import { useAppConfig, useChatStore } from "../app/store";
@@ -28,8 +30,11 @@ import {
   useScrollToBottom,
 } from "../app/components/chat-scroll";
 import { ReasoningDisclosure } from "../app/components/reasoning";
+import { useAllModels } from "../app/utils/hooks";
 
 const originalScrollTo = HTMLElement.prototype.scrollTo;
+const originalChatState = useChatStore.getState();
+const originalConfigState = useAppConfig.getState();
 
 afterEach(() => {
   cleanup();
@@ -37,6 +42,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
   HTMLElement.prototype.scrollTo = originalScrollTo;
   vi.restoreAllMocks();
+  useChatStore.setState({
+    sessions: structuredClone(originalChatState.sessions),
+    currentSessionIndex: originalChatState.currentSessionIndex,
+  });
+  useAppConfig.setState({
+    customModels: originalConfigState.customModels,
+    modelConfig: structuredClone(originalConfigState.modelConfig),
+  });
 });
 
 describe("chat interaction regressions", () => {
@@ -59,6 +72,104 @@ describe("chat interaction regressions", () => {
         );
       }),
     ).not.toThrow();
+  });
+
+  test("settles on an available global model when sync is enabled", async () => {
+    const fallbackModel = "fallback-model";
+    const globalModelConfig = {
+      ...structuredClone(useAppConfig.getState().modelConfig),
+      model: "gpt-5",
+    };
+    // `-all` makes the persisted global model unavailable and reproduces the
+    // conflict between availability repair and session synchronization.
+    useAppConfig.setState({
+      customModels: `-all,+${fallbackModel}@OpenAI`,
+      modelConfig: globalModelConfig,
+    });
+
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = true;
+    session.mask.modelConfig = { ...globalModelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+
+    expect(() =>
+      renderHook(() => {
+        const chatStore = useChatStore();
+        const config = useAppConfig();
+        const currentSession = chatStore.currentSession();
+        const allModels = useAllModels();
+        const availableModels = useMemo(
+          () => allModels.filter((model) => model.available),
+          [allModels],
+        );
+
+        useEnsureAvailableModel(
+          chatStore,
+          config,
+          currentSession,
+          availableModels,
+        );
+        useSyncGlobalModelConfig(
+          chatStore,
+          currentSession,
+          config.modelConfig,
+        );
+      }),
+    ).not.toThrow();
+
+    await waitFor(() => {
+      expect(useAppConfig.getState().modelConfig.model).toBe(fallbackModel);
+      expect(
+        useChatStore.getState().currentSession().mask.modelConfig.model,
+      ).toBe(fallbackModel);
+    });
+  });
+
+  test("repairs only the session model when global sync is disabled", async () => {
+    const fallbackModel = "fallback-model";
+    const globalModelConfig = {
+      ...structuredClone(useAppConfig.getState().modelConfig),
+      model: "gpt-5",
+    };
+    useAppConfig.setState({
+      customModels: `-all,+${fallbackModel}@OpenAI`,
+      modelConfig: globalModelConfig,
+    });
+
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = false;
+    session.mask.modelConfig = { ...globalModelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+
+    renderHook(() => {
+      const chatStore = useChatStore();
+      const config = useAppConfig();
+      const currentSession = chatStore.currentSession();
+      const allModels = useAllModels();
+      const availableModels = useMemo(
+        () => allModels.filter((model) => model.available),
+        [allModels],
+      );
+
+      useEnsureAvailableModel(
+        chatStore,
+        config,
+        currentSession,
+        availableModels,
+      );
+      useSyncGlobalModelConfig(
+        chatStore,
+        currentSession,
+        config.modelConfig,
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        useChatStore.getState().currentSession().mask.modelConfig.model,
+      ).toBe(fallbackModel);
+    });
+    expect(useAppConfig.getState().modelConfig.model).toBe("gpt-5");
   });
 
   test("locks a streaming turn and exposes actions after reasoning stops", () => {

@@ -551,25 +551,7 @@ export function ChatActions(props: {
     }
   }, [showUploadImage, setAttachImages, setUploading]);
 
-  useEffect(() => {
-    // if current model is not available
-    // switch to first available model
-    const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
-      // show next model to default model if exist
-      let nextModel = models.find((model) => model.isDefault) || models[0];
-      chatStore.updateSessionMetadata(session.id, (session) => {
-        session.mask.modelConfig.model = nextModel.name;
-        session.mask.modelConfig.providerName = nextModel?.provider
-          ?.providerName as ServiceProvider;
-      });
-      showToast(
-        nextModel?.provider?.providerName == "ByteDance"
-          ? nextModel.displayName
-          : nextModel.name,
-      );
-    }
-  }, [chatStore, currentModel, models, session.id]);
+  useEnsureAvailableModel(chatStore, config, session, models);
 
   return (
     <div className={styles["chat-input-actions"]}>
@@ -1581,6 +1563,80 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
       </Modal>
     </div>
   );
+}
+
+export function useEnsureAvailableModel(
+  chatStore: Pick<
+    ReturnType<typeof useChatStore.getState>,
+    "updateSessionMetadata"
+  >,
+  config: Pick<
+    ReturnType<typeof useAppConfig.getState>,
+    "modelConfig" | "update"
+  >,
+  session: ChatSession,
+  models: ReadonlyArray<ReturnType<typeof useAllModels>[number]>,
+) {
+  const currentModel = session.mask.modelConfig.model;
+  const syncGlobalConfig = session.mask.syncGlobalConfig;
+  const globalModel = config.modelConfig.model;
+  const globalProviderName = config.modelConfig.providerName;
+  const updateConfig = config.update;
+
+  useEffect(() => {
+    const isUnavailableModel = !models.some((model) => {
+      return model.name === currentModel;
+    });
+    if (!isUnavailableModel || models.length === 0) return;
+
+    const nextModel = models.find((model) => model.isDefault) ?? models[0];
+    if (!nextModel) return;
+
+    const nextProviderName = (nextModel.provider?.providerName ??
+      ServiceProvider.OpenAI) as ServiceProvider;
+
+    if (syncGlobalConfig) {
+      // Global config owns synced sessions; repair it once and let
+      // useSyncGlobalModelConfig propagate the valid model downstream.
+      if (
+        globalModel === nextModel.name &&
+        globalProviderName === nextProviderName
+      ) {
+        return;
+      }
+      updateConfig((config) => {
+        config.modelConfig.model = nextModel.name;
+        config.modelConfig.providerName = nextProviderName;
+      });
+    } else {
+      // A detached session owns its model and must not rewrite global config.
+      chatStore.updateSessionMetadata(session.id, (session) => {
+        if (
+          session.mask.syncGlobalConfig ||
+          (session.mask.modelConfig.model === nextModel.name &&
+            session.mask.modelConfig.providerName === nextProviderName)
+        ) {
+          return false;
+        }
+        session.mask.modelConfig.model = nextModel.name;
+        session.mask.modelConfig.providerName = nextProviderName;
+      });
+    }
+    showToast(
+      nextModel.provider?.providerName == "ByteDance"
+        ? (nextModel.displayName ?? nextModel.name)
+        : nextModel.name,
+    );
+  }, [
+    chatStore,
+    currentModel,
+    globalModel,
+    globalProviderName,
+    models,
+    session.id,
+    syncGlobalConfig,
+    updateConfig,
+  ]);
 }
 
 export function useSyncGlobalModelConfig(
