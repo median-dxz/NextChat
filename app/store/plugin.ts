@@ -3,7 +3,7 @@ import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
 import { getClientConfig } from "../config/client";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
 
@@ -49,8 +49,8 @@ export const FunctionToolService = {
       plugin?.authType == "basic"
         ? `Basic ${plugin?.authToken}`
         : plugin?.authType == "bearer"
-        ? `Bearer ${plugin?.authToken}`
-        : plugin?.authToken;
+          ? `Bearer ${plugin?.authToken}`
+          : plugin?.authToken;
     const authLocation = plugin?.authLocation || "header";
     const definition = yaml.load(plugin.content) as any;
     const serverURL = definition?.servers?.[0]?.url;

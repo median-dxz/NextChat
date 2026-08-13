@@ -1,6 +1,6 @@
 import { useDebouncedCallback } from "use-debounce";
 import OpenAPIClientAxios from "openapi-client-axios";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { PLUGINS_REPO_URL } from "../constant";
 import { IconButton } from "./button";
 import { ErrorBoundary } from "./error";
