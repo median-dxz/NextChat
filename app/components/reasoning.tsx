@@ -3,28 +3,32 @@ import Locale from "../locales";
 import { Markdown } from "./markdown";
 import styles from "./chat.module.scss";
 
-export function ReasoningDisclosure(props: {
+export interface ReasoningDisclosureProps {
   reasoning?: string;
   content: string;
   streaming?: boolean;
   reasoningDurationMs?: number;
-}) {
-  const reasoning = props.reasoning ?? "";
+}
+
+export function ReasoningDisclosure({
+  content,
+  reasoning = "",
+  streaming,
+  reasoningDurationMs,
+}: ReasoningDisclosureProps) {
   const isThinking =
-    reasoning.length > 0 &&
-    Boolean(props.streaming) &&
-    props.content.trim().length === 0;
+    reasoning.length > 0 && Boolean(streaming) && content.trim().length === 0;
   const [open, setOpen] = useState(
-    reasoning.length > 0 && props.content.trim().length === 0,
+    reasoning.length > 0 && content.trim().length === 0,
   );
   const [liveDurationMs, setLiveDurationMs] = useState(0);
   const timerStartedAt = useRef<number | null>(null);
   const hadReasoning = useRef(reasoning.length > 0);
-  const hadContent = useRef(props.content.trim().length > 0);
+  const hadContent = useRef(content.trim().length > 0);
 
   useEffect(() => {
     const hasReasoning = reasoning.length > 0;
-    const hasContent = props.content.trim().length > 0;
+    const hasContent = content.trim().length > 0;
 
     if (!hadReasoning.current && hasReasoning) {
       setOpen(true);
@@ -35,7 +39,7 @@ export function ReasoningDisclosure(props: {
 
     hadReasoning.current = hasReasoning;
     hadContent.current = hasContent;
-  }, [props.content, reasoning]);
+  }, [content, reasoning]);
 
   useEffect(() => {
     if (!isThinking) {
@@ -66,9 +70,9 @@ export function ReasoningDisclosure(props: {
               formatReasoningDuration(liveDurationMs),
             )
           : Locale.Chat.ReasoningThought(
-              props.reasoningDurationMs === undefined
+              reasoningDurationMs === undefined
                 ? undefined
-                : formatReasoningDuration(props.reasoningDurationMs),
+                : formatReasoningDuration(reasoningDurationMs),
             )}
       </summary>
       <div className={styles["chat-message-reasoning-content"]}>

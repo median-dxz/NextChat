@@ -12,7 +12,7 @@ import {
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./stream";
-import { createThinkingContentParser } from "./thinking";
+import { ThinkingContentParser } from "./thinking";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -418,7 +418,7 @@ export function streamWithThink(
   let running = false;
   let runTools: any[] = [];
   let responseRes: Response;
-  const thinkingParser = createThinkingContentParser();
+  const thinkingParser = new ThinkingContentParser();
 
   // animate response to make it looks smooth
   function animateResponseText() {
@@ -431,14 +431,6 @@ export function streamWithThink(
       return;
     }
 
-    if (remainText.length > 0) {
-      const fetchCount = Math.max(1, Math.round(remainText.length / 60));
-      const fetchText = remainText.slice(0, fetchCount);
-      responseText += fetchText;
-      remainText = remainText.slice(fetchCount);
-      options.onUpdate?.(responseText, fetchText);
-    }
-
     if (reasoningRemainText.length > 0) {
       const fetchCount = Math.max(
         1,
@@ -448,6 +440,14 @@ export function streamWithThink(
       reasoningText += fetchText;
       reasoningRemainText = reasoningRemainText.slice(fetchCount);
       options.onReasoningUpdate?.(reasoningText, fetchText);
+    }
+
+    if (remainText.length > 0) {
+      const fetchCount = Math.max(1, Math.round(remainText.length / 60));
+      const fetchText = remainText.slice(0, fetchCount);
+      responseText += fetchText;
+      remainText = remainText.slice(fetchCount);
+      options.onUpdate?.(responseText, fetchText);
     }
 
     requestAnimationFrame(animateResponseText);
@@ -527,7 +527,7 @@ export function streamWithThink(
         return;
       }
       for (const segment of thinkingParser.finish()) {
-        if (segment.isThinking) {
+        if (segment.kind === "reasoning") {
           reasoningRemainText += segment.content;
         } else {
           remainText += segment.content;
@@ -623,11 +623,8 @@ export function streamWithThink(
             return;
           }
 
-          for (const segment of thinkingParser.push(
-            chunk.content,
-            chunk.isThinking,
-          )) {
-            if (segment.isThinking) {
+          for (const segment of thinkingParser.push(chunk)) {
+            if (segment.kind === "reasoning") {
               reasoningRemainText += segment.content;
             } else {
               remainText += segment.content;

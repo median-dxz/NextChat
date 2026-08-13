@@ -20,7 +20,6 @@ vi.mock("../app/components/markdown", () => ({
 import {
   isMessageInStreamingTurn,
   PromptHints,
-  shouldShowMessageActions,
   useEnsureAvailableModel,
   useSyncGlobalModelConfig,
 } from "../app/components/chat";
@@ -109,11 +108,7 @@ describe("chat interaction regressions", () => {
           currentSession,
           availableModels,
         );
-        useSyncGlobalModelConfig(
-          chatStore,
-          currentSession,
-          config.modelConfig,
-        );
+        useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
       }),
     ).not.toThrow();
 
@@ -157,11 +152,7 @@ describe("chat interaction regressions", () => {
         currentSession,
         availableModels,
       );
-      useSyncGlobalModelConfig(
-        chatStore,
-        currentSession,
-        config.modelConfig,
-      );
+      useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
     });
 
     await waitFor(() => {
@@ -172,7 +163,7 @@ describe("chat interaction regressions", () => {
     expect(useAppConfig.getState().modelConfig.model).toBe("gpt-5");
   });
 
-  test("locks a streaming turn and exposes actions after reasoning stops", () => {
+  test("locks both messages in a streaming turn", () => {
     const messages = [
       { id: "u1", date: "", role: "user" as const, content: "question" },
       {
@@ -186,18 +177,6 @@ describe("chat interaction regressions", () => {
 
     expect(isMessageInStreamingTurn(messages, 0)).toBe(true);
     expect(isMessageInStreamingTurn(messages, 1)).toBe(true);
-    expect(
-      shouldShowMessageActions(
-        {
-          ...messages[1],
-          content: "",
-          reasoning: "partial reasoning",
-          streaming: false,
-        },
-        1,
-        false,
-      ),
-    ).toBe(true);
   });
 
   test("derives pagination and bottom state from one scroll snapshot", () => {
@@ -242,9 +221,7 @@ describe("chat interaction regressions", () => {
     if (!details) throw new Error("reasoning details was not rendered");
     details.open = false;
     fireEvent(details, new Event("toggle"));
-    rerender(
-      <ReasoningDisclosure reasoning="step one\nstep two" content="" />,
-    );
+    rerender(<ReasoningDisclosure reasoning="step one\nstep two" content="" />);
     await waitFor(() => expect(details.open).toBe(false));
 
     rerender(

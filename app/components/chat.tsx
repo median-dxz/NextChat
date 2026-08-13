@@ -459,19 +459,6 @@ export function isMessageInStreamingTurn(
   );
 }
 
-export function shouldShowMessageActions(
-  message: ChatMessage & { preview?: boolean },
-  index: number,
-  isContext: boolean,
-) {
-  return (
-    index > 0 &&
-    !message.preview &&
-    (message.content.length > 0 || Boolean(message.reasoning)) &&
-    !isContext
-  );
-}
-
 export function ChatActions(props: {
   uploadImage: () => void;
   setAttachImages: (images: string[]) => void;
@@ -2341,12 +2328,15 @@ function ChatView() {
                       renderMessages,
                       absoluteIndex,
                     );
+                    const hasMessageOutput =
+                      message.content.length > 0 || Boolean(message.reasoning);
+                    const isActionCandidate =
+                      absoluteIndex > 0 &&
+                      !message.preview &&
+                      !isContext &&
+                      hasMessageOutput;
                     const showActions =
-                      shouldShowMessageActions(
-                        message,
-                        absoluteIndex,
-                        isContext,
-                      ) &&
+                      isActionCandidate &&
                       (!isActiveTurn || Boolean(message.streaming));
                     const showTyping = message.preview || message.streaming;
                     const renderActions =
@@ -2526,7 +2516,7 @@ function ChatView() {
                             <div className={styles["chat-message-item"]}>
                               {!isUser && (
                                 <ReasoningDisclosure
-                                  reasoning={message.reasoning}
+                                  reasoning={message.reasoning ?? ""}
                                   streaming={message.streaming}
                                   reasoningDurationMs={
                                     message.reasoningDurationMs
