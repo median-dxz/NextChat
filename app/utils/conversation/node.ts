@@ -77,11 +77,9 @@ export function createConversationNode(
   override: Partial<ConversationNode>,
 ): ConversationNode {
   return {
+    outlineLevel: 1,
     ...createMessage(override),
-    outlineLevel: override.outlineLevel ?? 1,
-    parentId: override.parentId,
-    activeBranchRootId: override.activeBranchRootId,
-    nodeSummaries: override.nodeSummaries,
+    // 在 createMessage 内本来就会展开 override, 不需要再显式覆盖 ConversationNode 的独有字段
   };
 }
 

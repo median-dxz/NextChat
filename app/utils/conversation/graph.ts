@@ -585,31 +585,23 @@ function clone(graph: ConversationGraphState, createId: () => string) {
     ids.set(node.id, createId());
   }
 
+  const remapId = (id?: string) => (id === undefined ? undefined : ids.get(id));
+
   for (const node of cloned.messages) {
-    node.id = ids.get(node.id)!;
-
-    if (node.parentId) {
-      node.parentId = ids.get(node.parentId);
-    }
-
-    if (node.activeBranchRootId) {
-      node.activeBranchRootId = ids.get(node.activeBranchRootId);
-    }
+    node.id = remapId(node.id)!;
+    node.parentId = remapId(node.parentId);
+    node.activeBranchRootId = remapId(node.activeBranchRootId);
 
     for (const summary of Object.values(node.nodeSummaries ?? {})) {
       if (!summary) continue;
       summary.sourceNodeIds = summary.sourceNodeIds
-        .map((id) => ids.get(id))
+        .map(remapId)
         .filter((id): id is string => Boolean(id));
     }
   }
 
-  cloned.rootNodeId = cloned.rootNodeId
-    ? ids.get(cloned.rootNodeId)
-    : undefined;
-  cloned.activeCursorId = cloned.activeCursorId
-    ? ids.get(cloned.activeCursorId)
-    : undefined;
+  cloned.rootNodeId = remapId(cloned.rootNodeId);
+  cloned.activeCursorId = remapId(cloned.activeCursorId);
 
   const nodesById = new Map(cloned.messages.map((node) => [node.id, node]));
   for (const node of cloned.messages) {
