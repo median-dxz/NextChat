@@ -141,9 +141,9 @@ const da: PartialLocaleType = {
     Clear: "Ryd alt",
   },
   Memory: {
-    Title: "Huskesætning",
+    Title: "Samtaleresuméer",
     EmptyContent: "Ingenting lige nu.",
-    Send: "Send huskesætning",
+    Send: "Opsummér automatisk chathistorikken, og medtag den i konteksten",
     Copy: "Kopiér huskesætning",
     Reset: "Nulstil chat",
     ResetConfirm:

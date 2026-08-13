@@ -123,9 +123,9 @@ const pt: PartialLocaleType = {
     Clear: "Limpar",
   },
   Memory: {
-    Title: "Prompt de Memória",
+    Title: "Resumos da conversa",
     EmptyContent: "Nada ainda.",
-    Send: "Enviar Memória",
+    Send: "Resumir automaticamente o histórico do chat e incluí-lo no contexto",
     Copy: "Copiar Memória",
     Reset: "Resetar Sessão",
     ResetConfirm:

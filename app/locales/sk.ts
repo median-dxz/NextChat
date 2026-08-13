@@ -124,9 +124,9 @@ const sk: PartialLocaleType = {
     Clear: "Vymazať",
   },
   Memory: {
-    Title: "Výzva pamäti",
+    Title: "Súhrny konverzácie",
     EmptyContent: "Zatiaľ nič.",
-    Send: "Odoslať pamäť",
+    Send: "Automaticky zhrnúť históriu chatu a zahrnúť ju do kontextu",
     Copy: "Kopírovať pamäť",
     Reset: "Resetovať reláciu",
     ResetConfirm:

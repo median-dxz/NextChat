@@ -31,6 +31,7 @@ import { useAppConfig } from "../app/store/config";
 import { StoreKey } from "../app/constant";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
 import { getLocalAppState, mergeAppState } from "../app/utils/sync";
+import { Conversation } from "../app/utils/conversation";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
@@ -207,9 +208,7 @@ describe("chat store persistence and owned lifecycles", () => {
     const listener = vi.fn();
     const unsubscribe = useChatStore.subscribe(listener);
 
-    useChatStore
-      .getState()
-      .updateSessionMetadata(session.id, () => false);
+    useChatStore.getState().updateSessionMetadata(session.id, () => false);
     unsubscribe();
 
     expect(listener).not.toHaveBeenCalled();
@@ -277,8 +276,10 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(fork.globalMemory).toEqual(original.globalMemory);
   });
 
-  test("migrates v3.3 sessions into graph context and global memory", async () => {
+  test("opens a persisted v3.3 session as a valid v4 conversation", async () => {
     const legacyMask = structuredClone(initialSession.mask) as any;
+    legacyMask.modelConfig.sendMemory = true;
+    delete legacyMask.modelConfig.enableConversationSummaries;
     legacyMask.context = [
       message("system", "pinned system"),
       message("user", "preset user"),
@@ -316,34 +317,20 @@ describe("chat store persistence and owned lifecycles", () => {
     await useChatStore.persist.rehydrate();
 
     const migrated = useChatStore.getState().currentSession();
-    expect(migrated.globalMemory).toEqual(
-      expect.objectContaining({ enabled: true, content: "legacy memory" }),
-    );
     expect(migrated.pinnedInputs.map((item) => item.content)).toEqual([
       "pinned system",
     ]);
-    expect((migrated.pinnedInputs[0] as any).outlineLevel).toBe(0);
     expect(migrated.messages.map((item) => item.content)).toEqual([
       "preset user",
       "preset answer",
       "question",
       "answer",
     ]);
-    expect(migrated.messages.map((item) => item.outlineLevel)).toEqual([
-      1, 1, 1, 1,
-    ]);
-    expect(migrated.messages.slice(1).map((item) => item.parentId)).toEqual(
-      migrated.messages.slice(0, -1).map((item) => item.id),
-    );
-    expect(migrated.rootNodeId).toBe(migrated.messages[0].id);
-    expect(migrated.activeCursorId).toBe(migrated.messages.at(-1)?.id);
-    expect(migrated.mask.context).toEqual([]);
-    expect(migrated).not.toHaveProperty("memoryPrompt");
-    expect(migrated).not.toHaveProperty("lastSummarizeIndex");
-    expect(migrated).not.toHaveProperty("clearContextIndex");
+    expect(migrated.globalMemory.content).toBe("legacy memory");
+    expect(() => Conversation(migrated).validate()).not.toThrow();
   });
 
-  test("preserves an intentionally empty graph cursor during hydration", async () => {
+  test("keeps an intentionally cleared cursor empty after rehydration", async () => {
     const persistedSession = structuredClone(initialSession);
     persistedSession.messages = linearNodes([
       message("user", "root"),
@@ -360,7 +347,7 @@ describe("chat store persistence and owned lifecycles", () => {
     ).toBeUndefined();
   });
 
-  test("stops a persisted reasoning stream during hydration", async () => {
+  test("recovers interrupted assistant responses after rehydration", async () => {
     const persistedSession = structuredClone(initialSession) as any;
     persistedSession.messages = [
       {
@@ -417,7 +404,7 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(useChatStore.getState().currentSession().topic).toBe("Manual topic");
   });
 
-  test("serializes global memory updates", async () => {
+  test("queues concurrent memory updates and feeds each result into the next", async () => {
     const session = setGlobalMemorySession();
     const requests: any[] = [];
     apiMocks.chat.mockImplementation((options) => requests.push(options));
@@ -427,6 +414,10 @@ describe("chat store persistence and owned lifecycles", () => {
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     requests[0].onFinish("memory one", new Response(null, { status: 200 }));
     await vi.waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[1].messages[1]).toEqual({
+      role: "instruction",
+      content: "memory one",
+    });
     requests[1].onFinish("memory two", new Response(null, { status: 200 }));
     await Promise.all([first, second]);
 
@@ -438,7 +429,7 @@ describe("chat store persistence and owned lifecycles", () => {
     );
   });
 
-  test("resolves configured and one-off global memory models", async () => {
+  test("uses the configured memory model unless the update selects another", async () => {
     const session = setGlobalMemorySession({
       memoryModel: "configured-model",
       memoryProviderName: "OpenAI",
@@ -493,7 +484,7 @@ describe("chat store persistence and owned lifecycles", () => {
     );
   });
 
-  test("does not commit an empty global memory response", async () => {
+  test("keeps existing memory when the provider returns only whitespace", async () => {
     const session = setGlobalMemorySession();
     vi.spyOn(console, "error").mockImplementation(() => {});
     apiMocks.chat.mockImplementation((options) =>

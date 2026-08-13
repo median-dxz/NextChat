@@ -191,6 +191,8 @@ function migrateSessionToConversation(session: any) {
       }
     : (session.globalMemory ?? Conversation.createMemory());
   session.mask.context = [];
+  session.mask.modelConfig.enableConversationSummaries =
+    session.mask.modelConfig.sendMemory ?? true;
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
   session.mask.modelConfig.titleModel ??= "";
   session.mask.modelConfig.titleProviderName ??= "";
@@ -206,6 +208,7 @@ function migrateSessionToConversation(session: any) {
   );
   delete session.mask.modelConfig.historyMessageCount;
   delete session.mask.modelConfig.compressMessageLengthThreshold;
+  delete session.mask.modelConfig.sendMemory;
   delete session.memoryPrompt;
   delete session.lastSummarizeIndex;
   delete session.clearContextIndex;
@@ -786,7 +789,6 @@ export const useChatStore = createPersistStore(
         get().updateConversation(sessionId, (conversation) =>
           conversation.updateNodeData(messageId, (message) => {
             message.content = content;
-            if (message.role === "assistant") message.reasoning = undefined;
           }),
         );
       },
@@ -806,7 +808,9 @@ export const useChatStore = createPersistStore(
         updateSession(sessionId, (current) => {
           const conversation = Conversation(current);
           const next = updater(conversation);
+
           if (!next || next === conversation) return;
+
           return {
             ...current,
             ...sessionPatch,
@@ -829,13 +833,16 @@ export const useChatStore = createPersistStore(
             lastUpdate: current.lastUpdate,
             mask: deepClone(current.mask),
           };
+
           if (updater(metadata) === false) return;
+
           return {
             ...current,
             ...metadata,
           };
         });
       },
+
       async clearAllData() {
         await indexedDBStorage.clear();
         localStorage.clear();
@@ -895,17 +902,7 @@ export const useChatStore = createPersistStore(
 
     chatOrchestrator = createChatOrchestrator({
       getSession(sessionId) {
-        const session = get().sessions.find(
-          (session) => session.id === sessionId,
-        );
-        if (!session) return;
-        return {
-          ...session,
-          mask: {
-            ...session.mask,
-            plugin: session.mask.plugin ?? [],
-          },
-        };
+        return get().sessions.find((session) => session.id === sessionId);
       },
       updateConversation(sessionId, updater, sessionPatch) {
         get().updateConversation(sessionId, updater, sessionPatch);
@@ -927,7 +924,7 @@ export const useChatStore = createPersistStore(
           get().updateStat(message, session.id);
           get().checkMcpJson(message, session.id);
           get().generateSessionTitle(session);
-          if (session.mask.modelConfig.sendMemory) {
+          if (session.mask.modelConfig.enableConversationSummaries) {
             void get()
               .generateNodeSummary(session.id, message.id)
               .catch((error) => console.error("[Node Summary]", error));
@@ -944,6 +941,7 @@ export const useChatStore = createPersistStore(
   {
     name: StoreKey.Chat,
     version: 4,
+
     merge(persistedState, currentState) {
       const restoredState = persistedState as
         Partial<typeof DEFAULT_CHAT_STATE> | undefined;
@@ -964,8 +962,9 @@ export const useChatStore = createPersistStore(
         }
         session.messages.forEach((message) => {
           const wasStreaming = message.streaming === true;
-          const isStale = new Date(message.date).getTime() < stopTiming;
           if (wasStreaming) message.streaming = false;
+
+          const isStale = new Date(message.date).getTime() < stopTiming;
           if (
             message.content.length === 0 &&
             !message.reasoning &&
@@ -987,19 +986,80 @@ export const useChatStore = createPersistStore(
         sessions,
       };
     },
+
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
         JSON.stringify(state),
       ) as typeof DEFAULT_CHAT_STATE;
 
-      if (version !== 3.3) {
-        throw new Error(`Unsupported chat store version: ${version}`);
+      if (version < 2) {
+        newState.sessions = [];
+
+        const oldSessions = state.sessions;
+        for (const oldSession of oldSessions) {
+          const newSession = createEmptySession();
+          const legacyModelConfig = newSession.mask.modelConfig as any;
+          newSession.topic = oldSession.topic;
+          newSession.messages = [...oldSession.messages];
+          legacyModelConfig.sendMemory = true;
+          legacyModelConfig.historyMessageCount = 4;
+          legacyModelConfig.compressMessageLengthThreshold = 1000;
+          newState.sessions.push(newSession);
+        }
       }
 
-      newState.sessions.forEach((session: any) => {
-        migrateSessionToConversation(session);
-      });
+      if (version < 3) {
+        // migrate id to nanoid
+        newState.sessions.forEach((session) => {
+          session.id = nanoid();
+          session.messages.forEach((message) => (message.id = nanoid()));
+        });
+      }
+
+      // Enable `enableInjectSystemPrompts` attribute for old sessions.
+      // Resolve issue of old sessions not automatically enabling.
+      if (version < 3.1) {
+        newState.sessions.forEach((session) => {
+          if (
+            // Exclude those already set by user
+            !session.mask.modelConfig.hasOwnProperty(
+              "enableInjectSystemPrompts",
+            )
+          ) {
+            // Because users may have changed this configuration,
+            // the user's current configuration is used instead of the default.
+            const config = useAppConfig.getState();
+            session.mask.modelConfig.enableInjectSystemPrompts =
+              config.modelConfig.enableInjectSystemPrompts;
+          }
+        });
+      }
+
+      // add default summarize model for every session
+      if (version < 3.2) {
+        newState.sessions.forEach((session) => {
+          const config = useAppConfig.getState();
+          session.mask.modelConfig.compressModel =
+            config.modelConfig.compressModel;
+          session.mask.modelConfig.compressProviderName =
+            config.modelConfig.compressProviderName;
+        });
+      }
+
+      // revert default summarize model for every session
+      if (version < 3.3) {
+        newState.sessions.forEach((session) => {
+          session.mask.modelConfig.compressModel = "";
+          session.mask.modelConfig.compressProviderName = "";
+        });
+      }
+
+      if (version < 4) {
+        newState.sessions.forEach((session: any) => {
+          migrateSessionToConversation(session);
+        });
+      }
 
       return newState as any;
     },

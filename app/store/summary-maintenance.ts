@@ -10,10 +10,11 @@ import {
   type NodeSummaryKind,
 } from "../utils/conversation";
 import type { ModelConfig } from "./config";
+import { Mask } from "./mask";
 
 export interface SummaryMaintenanceSession extends ConversationGraphState {
   id: string;
-  mask: { modelConfig: ModelConfig; plugin?: string[] };
+  mask: Pick<Mask, "modelConfig" | "plugin">;
 }
 
 export interface SummaryMaintenanceCommand {

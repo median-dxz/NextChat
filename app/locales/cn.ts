@@ -189,18 +189,6 @@ const cn = {
     Copy: "复制摘要",
     Reset: "[unused]",
     ResetConfirm: "确认清空历史摘要？",
-    SummaryRange: (
-      kind: "segment" | "checkpoint",
-      start: number,
-      end: number,
-    ) =>
-      kind === "checkpoint"
-        ? `截至第 ${end} 条消息`
-        : `第 ${start}–${end} 条消息`,
-    Expired: "内容已变化，不会发送",
-    Locate: "定位",
-    Recompress: "重新生成",
-    DeleteSummary: "删除摘要",
     CompactFailed: "无法将聊天历史整理到上下文窗口内",
   },
   Home: {

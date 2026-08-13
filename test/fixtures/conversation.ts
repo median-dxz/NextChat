@@ -18,7 +18,7 @@ export const TEST_MODEL_CONFIG: ModelConfig = {
   contextWindowTokens: 32000,
   presence_penalty: 0,
   frequency_penalty: 0,
-  sendMemory: true,
+  enableConversationSummaries: true,
   recentRawNodeCount: 4,
   segmentTargetSourceTokens: 1000,
   segmentMaxSourceNodes: 16,

@@ -184,25 +184,13 @@ const en: LocaleType = {
     Clear: "Clear",
   },
   Memory: {
-    Title: "Memory Prompt",
+    Title: "Conversation Summaries",
     EmptyContent: "Nothing yet.",
-    Send: "Send Memory",
+    Send: "Automatically summarize chat history and include it in context",
     Copy: "Copy Memory",
     Reset: "Reset Session",
     ResetConfirm:
       "Resetting will clear the current conversation history and historical memory. Are you sure you want to reset?",
-    SummaryRange: (
-      kind: "segment" | "checkpoint",
-      start: number,
-      end: number,
-    ) =>
-      kind === "checkpoint"
-        ? `Through message ${end}`
-        : `Messages ${start}–${end}`,
-    Expired: "Content changed; this will not be sent",
-    Locate: "Locate",
-    Recompress: "Regenerate",
-    DeleteSummary: "Delete Summary",
     CompactFailed: "Unable to compact chat history into the context window",
   },
   Home: {

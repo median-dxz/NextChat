@@ -19,15 +19,22 @@ export function ModelConfigList(props: {
     "provider.providerName",
   );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
-  const compressModelValue = props.modelConfig.compressModel
-    ? `${props.modelConfig.compressModel}@${props.modelConfig.compressProviderName}`
-    : "@";
-  const titleModelValue = props.modelConfig.titleModel
-    ? `${props.modelConfig.titleModel}@${props.modelConfig.titleProviderName}`
-    : "@";
-  const memoryModelValue = props.modelConfig.memoryModel
-    ? `${props.modelConfig.memoryModel}@${props.modelConfig.memoryProviderName}`
-    : "@";
+
+  const getModelValue = (model?: string, providerName?: string) =>
+    model ? `${model}@${providerName ?? ""}` : "@";
+
+  const compressModelValue = getModelValue(
+    props.modelConfig.compressModel,
+    props.modelConfig.compressProviderName,
+  );
+  const titleModelValue = getModelValue(
+    props.modelConfig.titleModel,
+    props.modelConfig.titleProviderName,
+  );
+  const memoryModelValue = getModelValue(
+    props.modelConfig.memoryModel,
+    props.modelConfig.memoryProviderName,
+  );
 
   return (
     <>
@@ -125,7 +132,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.ContextWindow.Title}
           type="number"
           min={1024}
-          max={2000000}
+          max={2_000_000}
           value={props.modelConfig.contextWindowTokens}
           onChange={(e) =>
             props.updateConfig(
@@ -262,10 +269,11 @@ export function ModelConfigList(props: {
         <input
           aria-label={Locale.Memory.Title}
           type="checkbox"
-          checked={props.modelConfig.sendMemory}
+          checked={props.modelConfig.enableConversationSummaries}
           onChange={(e) =>
             props.updateConfig(
-              (config) => (config.sendMemory = e.currentTarget.checked),
+              (config) =>
+                (config.enableConversationSummaries = e.currentTarget.checked),
             )
           }
         ></input>

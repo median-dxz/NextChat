@@ -131,10 +131,10 @@ const tw = {
     Clear: "清除選取",
   },
   Memory: {
-    Title: "上下文記憶 Prompt",
+    Title: "對話摘要",
     EmptyContent: "尚未記憶",
     Copy: "複製全部",
-    Send: "傳送記憶",
+    Send: "自動摘要聊天記錄並納入上下文",
     Reset: "重設對話",
     ResetConfirm: "重設後將清除目前對話記錄以及歷史記憶，確認重設？",
   },

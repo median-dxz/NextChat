@@ -23,13 +23,14 @@ import {
   type GlobalMemory,
 } from "../utils/conversation";
 import type { ModelConfig } from "./config";
+import { Mask } from "./mask";
 
 export interface ChatOrchestratorSession extends ConversationGraphState {
   id: string;
   pendingOutlineDelta?: -1 | 1;
   pinnedInputs: ConversationMessageInput[];
   globalMemory: GlobalMemory;
-  mask: { modelConfig: ModelConfig; plugin: string[] };
+  mask: Pick<Mask, "modelConfig" | "plugin">;
 }
 
 export interface ChatRunCommand {
@@ -96,6 +97,7 @@ export interface ChatOrchestratorDependencies {
 type ConversationNodeUpdater = Parameters<ConversationApi["updateNodeData"]>[1];
 
 export interface ChatOrchestrator {
+  /** Starts a new chat run based on the provided command. */
   start(command: ChatRunCommand): Promise<ChatRunHandle>;
   activeRuns(): readonly ChatRunHandle[];
   cancel(sessionId: string, assistantNodeId: string): void;
@@ -363,8 +365,11 @@ export function createChatOrchestrator(
           requestedOutputTokens: modelConfig.max_tokens,
         },
         recentRawNodeCount: modelConfig.recentRawNodeCount,
-        summaries: modelConfig.sendMemory ? "enabled" : "disabled",
+        summaries: modelConfig.enableConversationSummaries
+          ? "enabled"
+          : "disabled",
       });
+
       let committedConversation: ConversationApi | undefined;
       dependencies.updateConversation(
         command.sessionId,
@@ -418,7 +423,7 @@ export function createChatOrchestrator(
           max_tokens: assembly.effectiveMaxOutputTokens,
           stream: true,
         },
-        pluginIds: session.mask.plugin,
+        pluginIds: session.mask.plugin ?? [],
         onUpdate(message) {
           if (message) finishReasoningTiming();
           updateNode(command.sessionId, committedAssistant.id, (node) => {
@@ -506,6 +511,7 @@ export function createChatOrchestrator(
           error: providerResult.error,
         };
       });
+
       const handle: ChatRunHandle = {
         runId,
         sessionId: command.sessionId,

@@ -6,11 +6,7 @@ import {
   type SummaryMaintenanceSession,
 } from "../app/store/summary-maintenance";
 import { Conversation } from "../app/utils/conversation";
-import {
-  chatSession,
-  generatedSummary,
-  linearConversation,
-} from "./fixtures/conversation";
+import { chatSession, linearConversation } from "./fixtures/conversation";
 import { createDeferredClientApi } from "./helpers/deferred-client-api";
 import { createSessionRepository } from "./helpers/session-repository";
 
@@ -138,5 +134,4 @@ describe("summary maintenance", () => {
         ?.nodeSummaries?.segment?.content,
     ).toBe("second segment");
   });
-
 });

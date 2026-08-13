@@ -19,11 +19,13 @@ describe("config store persistence", () => {
   test("migrates the formal v4.1 baseline directly to v4.2", async () => {
     const legacyState = structuredClone(DEFAULT_CONFIG) as any;
     const legacyModelConfig = legacyState.modelConfig;
+    legacyModelConfig.sendMemory = false;
     legacyModelConfig.historyMessageCount = 7;
     legacyModelConfig.compressMessageLengthThreshold = 1800;
 
     for (const key of [
       "contextWindowTokens",
+      "enableConversationSummaries",
       "recentRawNodeCount",
       "segmentTargetSourceTokens",
       "segmentMaxSourceNodes",
@@ -52,6 +54,7 @@ describe("config store persistence", () => {
     const migrated = useAppConfig.getState().modelConfig;
     expect(migrated).toMatchObject({
       contextWindowTokens: DEFAULT_CONFIG.modelConfig.contextWindowTokens,
+      enableConversationSummaries: false,
       recentRawNodeCount: 7,
       segmentTargetSourceTokens: 1800,
       segmentMaxSourceNodes: DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes,
@@ -65,6 +68,6 @@ describe("config store persistence", () => {
     });
     expect(migrated).not.toHaveProperty("historyMessageCount");
     expect(migrated).not.toHaveProperty("compressMessageLengthThreshold");
+    expect(migrated).not.toHaveProperty("sendMemory");
   });
-
 });

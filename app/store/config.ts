@@ -73,7 +73,7 @@ export const DEFAULT_CONFIG = {
     contextWindowTokens: 32000,
     presence_penalty: 0,
     frequency_penalty: 0,
-    sendMemory: true,
+    enableConversationSummaries: true,
     recentRawNodeCount: 4,
     segmentTargetSourceTokens: 1000,
     segmentMaxSourceNodes: 16,
@@ -218,36 +218,79 @@ export const useAppConfig = createPersistStore(
 
     migrate(persistedState, version) {
       const state = persistedState as ChatConfig;
+      const legacyModelConfig = state.modelConfig as any;
 
-      if (version !== 4.1) {
-        throw new Error(`Unsupported config store version: ${version}`);
+      if (version < 3.4) {
+        legacyModelConfig.sendMemory = true;
+        legacyModelConfig.historyMessageCount = 4;
+        legacyModelConfig.compressMessageLengthThreshold = 1000;
+        legacyModelConfig.frequency_penalty = 0;
+        legacyModelConfig.top_p = 1;
+        legacyModelConfig.template = DEFAULT_INPUT_TEMPLATE;
+        state.dontShowMaskSplashScreen = false;
+        state.hideBuiltinMasks = false;
       }
 
-      state.modelConfig.contextWindowTokens =
-        DEFAULT_CONFIG.modelConfig.contextWindowTokens;
-      state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
-      state.modelConfig.titleProviderName =
-        DEFAULT_CONFIG.modelConfig.titleProviderName;
-      state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
-      state.modelConfig.memoryProviderName =
-        DEFAULT_CONFIG.modelConfig.memoryProviderName;
-      const legacyModelConfig = state.modelConfig as any;
-      state.modelConfig.recentRawNodeCount =
-        legacyModelConfig.historyMessageCount ??
-        DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
-      state.modelConfig.segmentTargetSourceTokens =
-        legacyModelConfig.compressMessageLengthThreshold ??
-        DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
-      state.modelConfig.segmentMaxSourceNodes =
-        DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
-      state.modelConfig.checkpointTargetSegments =
-        DEFAULT_CONFIG.modelConfig.checkpointTargetSegments;
-      state.modelConfig.checkpointMergeTargetTokens = Math.max(
-        DEFAULT_CONFIG.modelConfig.checkpointMergeTargetTokens,
-        state.modelConfig.segmentTargetSourceTokens,
-      );
-      delete legacyModelConfig.historyMessageCount;
-      delete legacyModelConfig.compressMessageLengthThreshold;
+      if (version < 3.5) {
+        state.customModels = "claude,claude-100k";
+      }
+
+      if (version < 3.6) {
+        legacyModelConfig.enableInjectSystemPrompts = true;
+      }
+
+      if (version < 3.7) {
+        state.enableAutoGenerateTitle = true;
+      }
+
+      if (version < 3.8) {
+        state.lastUpdate = Date.now();
+      }
+
+      if (version < 3.9) {
+        legacyModelConfig.template =
+          legacyModelConfig.template !== DEFAULT_INPUT_TEMPLATE
+            ? legacyModelConfig.template
+            : (config?.template ?? DEFAULT_INPUT_TEMPLATE);
+      }
+
+      if (version < 4.1) {
+        legacyModelConfig.compressModel =
+          DEFAULT_CONFIG.modelConfig.compressModel;
+        legacyModelConfig.compressProviderName =
+          DEFAULT_CONFIG.modelConfig.compressProviderName;
+      }
+
+      if (version < 4.2) {
+        state.modelConfig.enableConversationSummaries =
+          legacyModelConfig.sendMemory ??
+          DEFAULT_CONFIG.modelConfig.enableConversationSummaries;
+        state.modelConfig.contextWindowTokens =
+          DEFAULT_CONFIG.modelConfig.contextWindowTokens;
+        state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
+        state.modelConfig.titleProviderName =
+          DEFAULT_CONFIG.modelConfig.titleProviderName;
+        state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
+        state.modelConfig.memoryProviderName =
+          DEFAULT_CONFIG.modelConfig.memoryProviderName;
+        state.modelConfig.recentRawNodeCount =
+          legacyModelConfig.historyMessageCount ??
+          DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
+        state.modelConfig.segmentTargetSourceTokens =
+          legacyModelConfig.compressMessageLengthThreshold ??
+          DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
+        state.modelConfig.segmentMaxSourceNodes =
+          DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
+        state.modelConfig.checkpointTargetSegments =
+          DEFAULT_CONFIG.modelConfig.checkpointTargetSegments;
+        state.modelConfig.checkpointMergeTargetTokens = Math.max(
+          DEFAULT_CONFIG.modelConfig.checkpointMergeTargetTokens,
+          state.modelConfig.segmentTargetSourceTokens,
+        );
+        delete legacyModelConfig.historyMessageCount;
+        delete legacyModelConfig.compressMessageLengthThreshold;
+        delete legacyModelConfig.sendMemory;
+      }
 
       return state as any;
     },
