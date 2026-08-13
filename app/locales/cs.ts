@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const cs: PartialLocaleType = {
-  WIP: "V přípravě...",
   Error: {
     Unauthorized: isApp
       ? `😆 Rozhovor narazil na nějaké problémy, nebojte se:
@@ -23,7 +22,6 @@ const cs: PartialLocaleType = {
     SubTips: "nebo zadejte svůj OpenAI nebo Google API klíč",
     Input: "Zadejte přístupový kód zde",
     Confirm: "Potvrdit",
-    Later: "Později",
     Return: "Návrat",
     SaasTips: "Konfigurace je příliš složitá, chci okamžitě začít používat",
     TopTips:
@@ -43,12 +41,10 @@ const cs: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Zobrazit seznam zpráv",
-      CompressedHistory: "Zobrazit komprimovanou historii Prompt",
       Export: "Exportovat konverzace",
       Copy: "Kopírovat",
       Stop: "Zastavit",
       Retry: "Zkusit znovu",
-      Pin: "Připnout",
       PinToastContent: "1 konverzace byla připnuta k přednastaveným promptům",
       PinToastAction: "Zobrazit",
       Delete: "Smazat",
@@ -73,11 +69,9 @@ const cs: PartialLocaleType = {
       },
       Prompt: "Rychlé příkazy",
       Masks: "Všechny masky",
-      Clear: "Vymazat konverzaci",
       Settings: "Nastavení konverzace",
       UploadImage: "Nahrát obrázek",
     },
-    Rename: "Přejmenovat konverzaci",
     Typing: "Píše se…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} odeslat`;
@@ -88,7 +82,6 @@ const cs: PartialLocaleType = {
     },
     Send: "Odeslat",
     Config: {
-      Reset: "Vymazat paměť",
       SaveAs: "Uložit jako masku",
     },
     IsContext: "Přednastavené prompty",
@@ -124,11 +117,7 @@ const cs: PartialLocaleType = {
   },
   Memory: {
     Title: "Historie shrnutí",
-    EmptyContent: "Obsah konverzace je příliš krátký, není třeba shrnovat",
     Send: "Automaticky komprimovat konverzace a odeslat jako kontext",
-    Copy: "Kopírovat shrnutí",
-    Reset: "[nepoužívá se]",
-    ResetConfirm: "Opravdu chcete vymazat historii shrnutí?",
   },
   Home: {
     NewChat: "Nová konverzace",
@@ -189,7 +178,6 @@ const cs: PartialLocaleType = {
     },
     SendKey: "Klávesa pro odeslání",
     Theme: "Téma",
-    TightBorder: "Režim bez okrajů",
     SendPreviewBubble: {
       Title: "Náhledová bublina",
       SubTitle: "Náhled Markdown obsahu v náhledové bublině",
@@ -469,10 +457,7 @@ const cs: PartialLocaleType = {
   Store: {
     DefaultTopic: "Nový chat",
     BotHello: "Jak vám mohu pomoci?",
-    Error: "Došlo k chybě, zkuste to prosím znovu později.",
     Prompt: {
-      History: (content: string) =>
-        "Toto je shrnutí historie chatu jako kontext: " + content,
       Topic:
         "Použijte čtyři až pět slov pro stručné téma této věty, bez vysvětlení, interpunkce, citoslovcí, nadbytečného textu, bez tučného písma. Pokud téma neexistuje, vraťte pouze 'neformální chat'.",
       Summarize:
@@ -499,13 +484,9 @@ const cs: PartialLocaleType = {
     Sysmessage: "Jste asistent",
   },
   SearchChat: {
-    Name: "Hledat",
     Page: {
       Title: "Hledat v historii chatu",
       Search: "Zadejte hledané klíčové slovo",
-      NoResult: "Nebyly nalezeny žádné výsledky",
-      NoData: "Žádná data",
-      Loading: "Načítání",
 
       SubTitle: (count: number) => `Nalezeno ${count} výsledků`,
     },
@@ -577,8 +558,6 @@ const cs: PartialLocaleType = {
     Confirm: "Potvrdit",
     Cancel: "Zrušit",
     Close: "Zavřít",
-    Create: "Nový",
-    Edit: "Upravit",
     Export: "Exportovat",
     Import: "Importovat",
     Sync: "Synchronizovat",

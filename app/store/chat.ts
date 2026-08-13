@@ -95,14 +95,6 @@ type ConversationSessionPatch = Partial<
   Pick<ChatSessionMetadata, "pendingOutlineDelta" | "globalMemory">
 >;
 
-export function getSessionActiveMessages(session: ChatSession) {
-  return Conversation(session).projectActive();
-}
-
-export function getSessionMessagesToCursor(session: ChatSession) {
-  return Conversation(session).projectToCursor();
-}
-
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
 export const BOT_HELLO: ChatMessage = createMessage({
   role: "assistant",
@@ -168,9 +160,6 @@ function migrateSessionToConversation(session: any) {
     (message: ChatMessage) =>
       message.role === "user" || message.role === "assistant",
   );
-  const pinnedInputs = Array.isArray(session.pinnedInputs)
-    ? session.pinnedInputs
-    : [];
   const nodes = migrateMessagesToConversationNodes([
     ...presetNodes,
     ...oldMessages,
@@ -178,10 +167,9 @@ function migrateSessionToConversation(session: any) {
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
-  session.pinnedInputs = [
-    ...pinnedInputs,
-    ...maskContext.filter((message: ChatMessage) => message.role === "system"),
-  ].map((message) => ({ ...message, outlineLevel: 0 }));
+  session.pinnedInputs = maskContext
+    .filter((message: ChatMessage) => message.role === "system")
+    .map((message: ChatMessage) => ({ ...message, outlineLevel: 0 }));
   const oldMemory = String(session.memoryPrompt ?? "").trim();
   session.globalMemory = oldMemory
     ? {
@@ -189,11 +177,13 @@ function migrateSessionToConversation(session: any) {
         enabled: true,
         content: oldMemory,
       }
-    : (session.globalMemory ?? Conversation.createMemory());
+    : Conversation.createMemory();
   session.mask.context = [];
   session.mask.modelConfig.enableConversationSummaries =
     session.mask.modelConfig.sendMemory ?? true;
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
+  session.mask.modelConfig.memoryModel ??= "";
+  session.mask.modelConfig.memoryProviderName ??= "";
   session.mask.modelConfig.titleModel ??= "";
   session.mask.modelConfig.titleProviderName ??= "";
   session.mask.modelConfig.recentRawNodeCount =
@@ -212,8 +202,6 @@ function migrateSessionToConversation(session: any) {
   delete session.memoryPrompt;
   delete session.lastSummarizeIndex;
   delete session.clearContextIndex;
-  delete session.pendingOutlineDelta;
-
   Conversation(session).validate();
 }
 
@@ -509,7 +497,7 @@ export const useChatStore = createPersistStore(
               session.mask.modelConfig.providerName,
             );
         // remove error messages if any
-        const messages = getSessionMessagesToCursor(session);
+        const messages = Conversation(session).projectToCursor();
 
         // should summarize topic after chating more than 50 words
         const SUMMARIZE_MIN_LEN = 50;
@@ -726,7 +714,9 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         const activeIds = new Set(
-          getSessionActiveMessages(session).map((node) => node.id),
+          Conversation(session)
+            .projectActive()
+            .map((node) => node.id),
         );
         if (!activeIds.has(nodeId)) return;
         get().updateConversation(sessionId, (conversation) =>
@@ -750,7 +740,9 @@ export const useChatStore = createPersistStore(
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
         const activeIds = new Set(
-          getSessionActiveMessages(session).map((node) => node.id),
+          Conversation(session)
+            .projectActive()
+            .map((node) => node.id),
         );
         if (!activeIds.has(parentId)) return;
         get().updateConversation(
@@ -949,17 +941,6 @@ export const useChatStore = createPersistStore(
       const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
 
       sessions.forEach((session) => {
-        session.pinnedInputs ??= [];
-        session.pinnedInputs = session.pinnedInputs.map((message) => ({
-          ...message,
-          outlineLevel: 0,
-        }));
-        session.globalMemory ??= Conversation.createMemory();
-        session.mask.modelConfig.memoryModel ??= "";
-        session.mask.modelConfig.memoryProviderName ??= "";
-        if (session.messages.length > 0) {
-          session.rootNodeId ??= session.messages[0]?.id;
-        }
         session.messages.forEach((message) => {
           const wasStreaming = message.streaming === true;
           if (wasStreaming) message.streaming = false;
@@ -1033,17 +1014,6 @@ export const useChatStore = createPersistStore(
             session.mask.modelConfig.enableInjectSystemPrompts =
               config.modelConfig.enableInjectSystemPrompts;
           }
-        });
-      }
-
-      // add default summarize model for every session
-      if (version < 3.2) {
-        newState.sessions.forEach((session) => {
-          const config = useAppConfig.getState();
-          session.mask.modelConfig.compressModel =
-            config.modelConfig.compressModel;
-          session.mask.modelConfig.compressProviderName =
-            config.modelConfig.compressProviderName;
         });
       }
 

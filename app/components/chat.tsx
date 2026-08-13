@@ -53,7 +53,6 @@ import {
   createConversationNode,
   createMessage,
   DEFAULT_TOPIC,
-  getSessionActiveMessages,
   ModelType,
   ModelConfig,
   SubmitKey,
@@ -786,7 +785,7 @@ export function ChatActions(props: {
 export function EditMessageModal(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const messages = getSessionActiveMessages(session);
+  const messages = Conversation(session).projectActive();
   const [editingMessageId, setEditingMessageId] = useState<string>();
   const runGraphAction = (action: () => void) => {
     try {
@@ -1836,6 +1835,11 @@ function ChatView() {
   };
 
   const onResend = (message: ChatMessage) => {
+    // when it is resending a message
+    // 1. for a user's message, find the next bot response
+    // 2. for a bot's message, find the last user's input
+    // 3. delete original user input and bot's message
+    // 4. resend the user's input
     setIsLoading(true);
     chatStore
       .retryMessage(session.id, message.id)
@@ -1935,7 +1939,7 @@ function ChatView() {
   }
 
   // preview messages
-  const visibleSessionMessages = getSessionActiveMessages(session);
+  const visibleSessionMessages = Conversation(session).projectActive();
   const renderMessages = context
     .concat(visibleSessionMessages as RenderMessage[])
     .concat(
@@ -2726,7 +2730,6 @@ function ChatView() {
           </div>
           <div
             className={clsx(styles["chat-side-panel"], {
-              [styles["mobile"]]: isMobileScreen,
               [styles["chat-side-panel-show"]]: showChatSidePanel,
             })}
           >

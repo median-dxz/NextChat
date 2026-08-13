@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const pt: PartialLocaleType = {
-  WIP: "Em breve...",
   Error: {
     Unauthorized: isApp
       ? `😆 A conversa encontrou alguns problemas, não se preocupe:
@@ -23,7 +22,6 @@ const pt: PartialLocaleType = {
     SubTips: "Ou insira sua Chave API OpenAI",
     Input: "código de acesso",
     Confirm: "Confirmar",
-    Later: "Depois",
     Return: "Voltar",
     SaasTips: "A configuração é muito complicada, quero usá-la imediatamente",
     TopTips:
@@ -43,12 +41,10 @@ const pt: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Ir Para Lista de Chat",
-      CompressedHistory: "Prompt de Memória Histórica Comprimida",
       Export: "Exportar Todas as Mensagens como Markdown",
       Copy: "Copiar",
       Stop: "Parar",
       Retry: "Tentar Novamente",
-      Pin: "Fixar",
       PinToastContent: "Fixada 1 mensagem para prompts contextuais",
       PinToastAction: "Visualizar",
       Delete: "Deletar",
@@ -73,10 +69,8 @@ const pt: PartialLocaleType = {
       },
       Prompt: "Prompts",
       Masks: "Máscaras",
-      Clear: "Limpar Contexto",
       Settings: "Configurações",
     },
-    Rename: "Renomear Chat",
     Typing: "Digitando…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} para enviar`;
@@ -87,7 +81,6 @@ const pt: PartialLocaleType = {
     },
     Send: "Enviar",
     Config: {
-      Reset: "Redefinir para Padrão",
       SaveAs: "Salvar como Máscara",
     },
     IsContext: "Prompt Contextual",
@@ -124,12 +117,7 @@ const pt: PartialLocaleType = {
   },
   Memory: {
     Title: "Resumos da conversa",
-    EmptyContent: "Nada ainda.",
     Send: "Resumir automaticamente o histórico do chat e incluí-lo no contexto",
-    Copy: "Copiar Memória",
-    Reset: "Resetar Sessão",
-    ResetConfirm:
-      "Resetar irá limpar o histórico de conversa atual e a memória histórica. Você tem certeza que quer resetar?",
   },
   Home: {
     NewChat: "Novo Chat",
@@ -188,7 +176,6 @@ const pt: PartialLocaleType = {
     },
     SendKey: "Tecla de Envio",
     Theme: "Tema",
-    TightBorder: "Borda Ajustada",
     SendPreviewBubble: {
       Title: "Bolha de Pré-visualização de Envio",
       SubTitle: "Pré-visualizar markdown na bolha",
@@ -405,11 +392,7 @@ const pt: PartialLocaleType = {
   Store: {
     DefaultTopic: "Nova Conversa",
     BotHello: "Olá! Como posso ajudá-lo hoje?",
-    Error: "Algo deu errado, por favor tente novamente mais tarde.",
     Prompt: {
-      History: (content: string) =>
-        "Este é um resumo do histórico de chat como um recapitulativo: " +
-        content,
       Topic:
         "Por favor, gere um título de quatro a cinco palavras resumindo nossa conversa sem qualquer introdução, pontuação, aspas, períodos, símbolos ou texto adicional. Remova as aspas que o envolvem.",
       Summarize:
@@ -437,13 +420,9 @@ const pt: PartialLocaleType = {
     Sysmessage: "Você é um assistente que",
   },
   SearchChat: {
-    Name: "Pesquisar",
     Page: {
       Title: "Pesquisar histórico de chat",
       Search: "Digite palavras-chave para pesquisa",
-      NoResult: "Nenhum resultado encontrado",
-      NoData: "Sem dados",
-      Loading: "Carregando",
 
       SubTitle: (count: number) => `Encontrado ${count} resultados`,
     },
@@ -508,8 +487,6 @@ const pt: PartialLocaleType = {
     Confirm: "Confirmar",
     Cancel: "Cancelar",
     Close: "Fechar",
-    Create: "Criar",
-    Edit: "Editar",
     Export: "Exportar",
     Import: "Importar",
     Sync: "Sincronizar",

@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const vi: PartialLocaleType = {
-  WIP: "Sắp ra mắt...",
   Error: {
     Unauthorized: isApp
       ? `😆 Cuộc trò chuyện gặp một số vấn đề, đừng lo lắng:
@@ -23,7 +22,6 @@ const vi: PartialLocaleType = {
     SubTips: "Hoặc nhập khóa API OpenAI hoặc Google của bạn",
     Input: "Nhập mã truy cập tại đây",
     Confirm: "Xác nhận",
-    Later: "Để sau",
     Return: "Trở lại",
     SaasTips: "Cấu hình quá phức tạp, tôi muốn sử dụng ngay lập tức",
     TopTips:
@@ -43,12 +41,10 @@ const vi: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Xem danh sách tin nhắn",
-      CompressedHistory: "Xem lịch sử Prompt đã nén",
       Export: "Xuất khẩu ghi chép trò chuyện",
       Copy: "Sao chép",
       Stop: "Dừng lại",
       Retry: "Thử lại",
-      Pin: "Ghim",
       PinToastContent: "Đã ghim 1 cuộc trò chuyện vào lời nhắc đã đặt sẵn",
       PinToastAction: "Xem",
       Delete: "Xóa",
@@ -73,11 +69,9 @@ const vi: PartialLocaleType = {
       },
       Prompt: "Lệnh tắt",
       Masks: "Tất cả mặt nạ",
-      Clear: "Xóa cuộc trò chuyện",
       Settings: "Cài đặt trò chuyện",
       UploadImage: "Tải lên hình ảnh",
     },
-    Rename: "Đổi tên cuộc trò chuyện",
     Typing: "Đang nhập…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} gửi`;
@@ -88,7 +82,6 @@ const vi: PartialLocaleType = {
     },
     Send: "Gửi",
     Config: {
-      Reset: "Xóa trí nhớ",
       SaveAs: "Lưu dưới dạng mặt nạ",
     },
     IsContext: "Lời nhắc đã đặt sẵn",
@@ -124,11 +117,7 @@ const vi: PartialLocaleType = {
   },
   Memory: {
     Title: "Tóm tắt lịch sử",
-    EmptyContent: "Nội dung trò chuyện quá ngắn, không cần tóm tắt",
     Send: "Tự động nén ghi chép trò chuyện và gửi dưới dạng ngữ cảnh",
-    Copy: "Sao chép tóm tắt",
-    Reset: "[unused]",
-    ResetConfirm: "Xác nhận xóa tóm tắt lịch sử?",
   },
   Home: {
     NewChat: "Cuộc trò chuyện mới",
@@ -189,7 +178,6 @@ const vi: PartialLocaleType = {
     },
     SendKey: "Phím gửi",
     Theme: "Giao diện",
-    TightBorder: "Chế độ không viền",
     SendPreviewBubble: {
       Title: "Bong bóng xem trước",
       SubTitle: "Xem nội dung Markdown trong bong bóng xem trước",
@@ -468,10 +456,7 @@ const vi: PartialLocaleType = {
   Store: {
     DefaultTopic: "Trò chuyện mới",
     BotHello: "Có thể giúp gì cho bạn?",
-    Error: "Đã xảy ra lỗi, vui lòng thử lại sau",
     Prompt: {
-      History: (content: string) =>
-        "Đây là tóm tắt cuộc trò chuyện lịch sử như tiền đề: " + content,
       Topic:
         'Sử dụng bốn đến năm từ để trả lại chủ đề tóm tắt của câu này, không giải thích, không dấu câu, không từ cảm thán, không văn bản thừa, không in đậm, nếu không có chủ đề, hãy trả lại "Tán gẫu"',
       Summarize:
@@ -498,13 +483,9 @@ const vi: PartialLocaleType = {
     Sysmessage: "Bạn là một trợ lý",
   },
   SearchChat: {
-    Name: "Tìm kiếm",
     Page: {
       Title: "Tìm kiếm lịch sử trò chuyện",
       Search: "Nhập từ khóa tìm kiếm",
-      NoResult: "Không tìm thấy kết quả",
-      NoData: "Không có dữ liệu",
-      Loading: "Đang tải",
 
       SubTitle: (count: number) => `Tìm thấy ${count} kết quả`,
     },
@@ -577,8 +558,6 @@ const vi: PartialLocaleType = {
     Confirm: "Xác nhận",
     Cancel: "Hủy",
     Close: "Đóng",
-    Create: "Tạo mới",
-    Edit: "Chỉnh sửa",
     Export: "Xuất",
     Import: "Nhập",
     Sync: "Đồng bộ",

@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const ru: PartialLocaleType = {
-  WIP: "Скоро...",
   Error: {
     Unauthorized: isApp
       ? `😆 В разговоре возникли некоторые проблемы, не переживайте:
@@ -23,7 +22,6 @@ const ru: PartialLocaleType = {
     SubTips: "Или введите ваш API-ключ OpenAI или Google",
     Input: "Введите код доступа здесь",
     Confirm: "Подтвердить",
-    Later: "Позже",
     Return: "Назад",
     SaasTips: "Настройка слишком сложна, я хочу использовать это немедленно",
     TopTips:
@@ -43,12 +41,10 @@ const ru: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Просмотреть список сообщений",
-      CompressedHistory: "Просмотреть сжатую историю подсказок",
       Export: "Экспортировать чат",
       Copy: "Копировать",
       Stop: "Остановить",
       Retry: "Повторить",
-      Pin: "Закрепить",
       PinToastContent: "1 беседа закреплена в предустановленных подсказках",
       PinToastAction: "Просмотреть",
       Delete: "Удалить",
@@ -73,11 +69,9 @@ const ru: PartialLocaleType = {
       },
       Prompt: "Быстрая команда",
       Masks: "Все маски",
-      Clear: "Очистить чат",
       Settings: "Настройки чата",
       UploadImage: "Загрузить изображение",
     },
-    Rename: "Переименовать чат",
     Typing: "Печатает…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} Отправить`;
@@ -88,7 +82,6 @@ const ru: PartialLocaleType = {
     },
     Send: "Отправить",
     Config: {
-      Reset: "Очистить память",
       SaveAs: "Сохранить как маску",
     },
     IsContext: "Предустановленные подсказки",
@@ -124,11 +117,7 @@ const ru: PartialLocaleType = {
   },
   Memory: {
     Title: "Историческое резюме",
-    EmptyContent: "Содержимое чата слишком короткое, чтобы суммировать",
     Send: "Автоматически сжать историю чата и отправить как контекст",
-    Copy: "Копировать резюме",
-    Reset: "[не используется]",
-    ResetConfirm: "Подтвердить очистку исторического резюме?",
   },
   Home: {
     NewChat: "Новый чат",
@@ -190,7 +179,6 @@ const ru: PartialLocaleType = {
     },
     SendKey: "Кнопка отправки",
     Theme: "Тема",
-    TightBorder: "Режим без границ",
     SendPreviewBubble: {
       Title: "Предварительный просмотр пузырьков",
       SubTitle:
@@ -473,10 +461,7 @@ const ru: PartialLocaleType = {
   Store: {
     DefaultTopic: "Новый чат",
     BotHello: "Чем могу помочь?",
-    Error: "Произошла ошибка, попробуйте позже",
     Prompt: {
-      History: (content: string) =>
-        "Это резюме истории чата как предыстория: " + content,
       Topic:
         "Укажите краткую тему этого сообщения в четырех-пяти словах, без объяснений, знаков препинания, междометий, лишнего текста или выделения. Если темы нет, просто напишите 'Болтовня'",
       Summarize:
@@ -503,13 +488,9 @@ const ru: PartialLocaleType = {
     Sysmessage: "Вы - помощник",
   },
   SearchChat: {
-    Name: "Поиск",
     Page: {
       Title: "Поиск в истории чатов",
       Search: "Введите ключевые слова для поиска",
-      NoResult: "Результатов не найдено",
-      NoData: "Нет данных",
-      Loading: "Загрузка",
 
       SubTitle: (count: number) => `Найдено ${count} результатов`,
     },
@@ -584,8 +565,6 @@ const ru: PartialLocaleType = {
     Confirm: "Подтвердить",
     Cancel: "Отмена",
     Close: "Закрыть",
-    Create: "Создать",
-    Edit: "Редактировать",
     Export: "Экспортировать",
     Import: "Импортировать",
     Sync: "Синхронизировать",

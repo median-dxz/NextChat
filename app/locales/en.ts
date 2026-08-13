@@ -1,12 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
-import { LocaleType } from "./index";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 // if you are adding a new translation, please use PartialLocaleType instead of LocaleType
 
 const isApp = !!getClientConfig()?.isApp;
-const en: LocaleType = {
-  WIP: "Coming Soon...",
+const en = {
   Error: {
     Unauthorized: isApp
       ? `😆 Oops, there's an issue. No worries:
@@ -25,7 +23,6 @@ const en: LocaleType = {
     SubTips: "Or enter your OpenAI or Google API Key",
     Input: "access code",
     Confirm: "Confirm",
-    Later: "Later",
     SaasTips: "Too Complex, Use Immediately Now",
     TopTips:
       "🥳 NextChat AI launch promotion: Instantly unlock the latest models like OpenAI o1, GPT-4o, Claude-3.5!",
@@ -52,12 +49,10 @@ const en: LocaleType = {
     },
     Actions: {
       ChatList: "Go To Chat List",
-      CompressedHistory: "Compressed History Memory Prompt",
       Export: "Export All Messages as Markdown",
       Copy: "Copy",
       Stop: "Stop",
       Retry: "Retry",
-      Pin: "Pin",
       PinToastContent: "Pinned 1 messages to contextual prompts",
       PinToastAction: "View",
       Delete: "Delete",
@@ -86,7 +81,6 @@ const en: LocaleType = {
       },
       Prompt: "Prompts",
       Masks: "Masks",
-      Clear: "Clear Context",
       Settings: "Settings",
       UploadImage: "Upload Images",
       OutlineIn: "Increase outline for next message",
@@ -97,7 +91,6 @@ const en: LocaleType = {
       Branch: "Select Branch",
       Continue: "Set Continue Point",
       OutlineLevel: "Outline Level",
-      Parent: "Parent Node",
       Segment: "Segment Summary",
       Checkpoint: "Checkpoint Summary",
       Save: "Save Node",
@@ -115,12 +108,9 @@ const en: LocaleType = {
       UpdateMemory: "Update Now",
       SaveMemory: "Save Memory",
       Insert: "Insert Here",
-      MoveUp: "Swap Up",
-      MoveDown: "Swap Down",
       Drag: "Drag message",
       Role: "Message role",
     },
-    Rename: "Rename Chat",
     Typing: "Typing…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} to send`;
@@ -130,10 +120,7 @@ const en: LocaleType = {
       return inputHints + ", / to search prompts, : to use commands";
     },
     Send: "Send",
-    StartSpeak: "Start Speak",
-    StopSpeak: "Stop Speak",
     Config: {
-      Reset: "Reset to Default",
       SaveAs: "Save as Mask",
     },
     IsContext: "Contextual Prompt",
@@ -185,12 +172,7 @@ const en: LocaleType = {
   },
   Memory: {
     Title: "Conversation Summaries",
-    EmptyContent: "Nothing yet.",
     Send: "Automatically summarize chat history and include it in context",
-    Copy: "Copy Memory",
-    Reset: "Reset Session",
-    ResetConfirm:
-      "Resetting will clear the current conversation history and historical memory. Are you sure you want to reset?",
     CompactFailed: "Unable to compact chat history into the context window",
   },
   Home: {
@@ -253,7 +235,6 @@ const en: LocaleType = {
     },
     SendKey: "Send Key",
     Theme: "Theme",
-    TightBorder: "Tight Border",
     SendPreviewBubble: {
       Title: "Send Preview Bubble",
       SubTitle: "Preview markdown in bubble",
@@ -695,10 +676,7 @@ const en: LocaleType = {
   Store: {
     DefaultTopic: "New Conversation",
     BotHello: "Hello! How can I assist you today?",
-    Error: "Something went wrong, please try again later.",
     Prompt: {
-      History: (content: string) =>
-        "This is a summary of the chat history as a recap: " + content,
       Topic:
         "Please generate a four to five word title summarizing our conversation without any lead-in, punctuation, quotation marks, periods, symbols, bold text, or additional text. Remove enclosing quotation marks.",
       Summarize:
@@ -729,13 +707,9 @@ const en: LocaleType = {
     Sysmessage: "You are an assistant that",
   },
   SearchChat: {
-    Name: "Search",
     Page: {
       Title: "Search Chat History",
       Search: "Enter search query to search chat history",
-      NoResult: "No results found",
-      NoData: "No data",
-      Loading: "Loading...",
 
       SubTitle: (count: number) => `Found ${count} results`,
     },
@@ -754,7 +728,6 @@ const en: LocaleType = {
     },
     Item: {
       Info: (count: number) => `${count} method`,
-      View: "View",
       Edit: "Edit",
       Delete: "Delete",
       DeleteConfirm: "Confirm to delete?",
@@ -766,8 +739,6 @@ const en: LocaleType = {
       Custom: "Custom",
       CustomHeader: "Parameter Name",
       Token: "Token",
-      Proxy: "Using Proxy",
-      ProxyDescription: "Using proxies to solve CORS error",
       Location: "Location",
       LocationHeader: "Header",
       LocationQuery: "Query",
@@ -776,11 +747,9 @@ const en: LocaleType = {
     EditModal: {
       Title: (readonly: boolean) =>
         `Edit Plugin ${readonly ? "(readonly)" : ""}`,
-      Download: "Download",
       Auth: "Authentication Type",
       Content: "OpenAPI Schema",
       Load: "Load From URL",
-      Method: "Method",
       Error: "OpenAPI Schema Error",
     },
   },
@@ -850,8 +819,6 @@ const en: LocaleType = {
     Close: "Close",
     Maximize: "Maximize",
     Restore: "Restore",
-    Create: "Create",
-    Edit: "Edit",
     Export: "Export",
     Import: "Import",
     Sync: "Sync",
@@ -926,5 +893,14 @@ const en: LocaleType = {
     Detail: "Detail",
   },
 };
+
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+export type LocaleType = typeof en;
+export type PartialLocaleType = DeepPartial<typeof en>;
 
 export default en;

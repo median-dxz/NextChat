@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const it: PartialLocaleType = {
-  WIP: "Work in progress...",
   Error: {
     Unauthorized: isApp
       ? `😆 La conversazione ha incontrato alcuni problemi, non preoccuparti:
@@ -23,7 +22,6 @@ const it: PartialLocaleType = {
     SubTips: "O inserisci la tua chiave API OpenAI o Google",
     Input: "Inserisci il codice di accesso qui",
     Confirm: "Conferma",
-    Later: "Più tardi",
     Return: "Ritorna",
     SaasTips:
       "La configurazione è troppo complicata, voglio usarlo immediatamente",
@@ -44,12 +42,10 @@ const it: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Visualizza l'elenco dei messaggi",
-      CompressedHistory: "Visualizza la cronologia Prompt compressa",
       Export: "Esporta la cronologia chat",
       Copy: "Copia",
       Stop: "Interrompi",
       Retry: "Riprova",
-      Pin: "Fissa",
       PinToastContent: "1 conversazione fissata ai suggerimenti predefiniti",
       PinToastAction: "Visualizza",
       Delete: "Elimina",
@@ -74,11 +70,9 @@ const it: PartialLocaleType = {
       },
       Prompt: "Comandi rapidi",
       Masks: "Tutte le maschere",
-      Clear: "Pulisci chat",
       Settings: "Impostazioni conversazione",
       UploadImage: "Carica immagine",
     },
-    Rename: "Rinomina conversazione",
     Typing: "Digitazione in corso…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} per inviare`;
@@ -92,7 +86,6 @@ const it: PartialLocaleType = {
     },
     Send: "Invia",
     Config: {
-      Reset: "Pulisci memoria",
       SaveAs: "Salva come maschera",
     },
     IsContext: "Suggerimenti predefiniti",
@@ -129,12 +122,7 @@ const it: PartialLocaleType = {
   },
   Memory: {
     Title: "Riassunto storico",
-    EmptyContent:
-      "Il contenuto della conversazione è troppo breve, nessun riassunto necessario",
     Send: "Comprimi automaticamente la cronologia chat e inviala come contesto",
-    Copy: "Copia riassunto",
-    Reset: "[unused]",
-    ResetConfirm: "Confermi la cancellazione del riassunto storico?",
   },
   Home: {
     NewChat: "Nuova chat",
@@ -197,7 +185,6 @@ const it: PartialLocaleType = {
     },
     SendKey: "Tasto di invio",
     Theme: "Tema",
-    TightBorder: "Modalità senza bordi",
     SendPreviewBubble: {
       Title: "Bolla di anteprima",
       SubTitle: "Anteprima del contenuto Markdown nella bolla di anteprima",
@@ -484,10 +471,7 @@ const it: PartialLocaleType = {
   Store: {
     DefaultTopic: "Nuova chat",
     BotHello: "Come posso aiutarti?",
-    Error: "Si è verificato un errore, riprova più tardi",
     Prompt: {
-      History: (content: string) =>
-        "Questo è un riassunto della chat storica come contesto: " + content,
       Topic:
         "Riporta il tema di questa frase in modo conciso con quattro o cinque parole, senza spiegazioni, punteggiatura, interiezioni, testo superfluo e senza grassetto. Se non c'è un tema, rispondi direttamente con 'chit-chat'",
       Summarize:
@@ -514,13 +498,9 @@ const it: PartialLocaleType = {
     Sysmessage: "Sei un assistente",
   },
   SearchChat: {
-    Name: "Cerca",
     Page: {
       Title: "Cerca nei messaggi",
       Search: "Inserisci parole chiave per la ricerca",
-      NoResult: "Nessun risultato trovato",
-      NoData: "Nessun dato",
-      Loading: "Caricamento in corso",
 
       SubTitle: (count: number) => `Trovati ${count} risultati`,
     },
@@ -593,8 +573,6 @@ const it: PartialLocaleType = {
     Confirm: "Conferma",
     Cancel: "Annulla",
     Close: "Chiudi",
-    Create: "Crea",
-    Edit: "Modifica",
     Export: "Esporta",
     Import: "Importa",
     Sync: "Sincronizza",

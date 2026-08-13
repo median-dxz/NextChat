@@ -1,10 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+import type { PartialLocaleType } from "./en";
 const isApp = !!getClientConfig()?.isApp;
 
-const tw = {
-  WIP: "此功能仍在開發中……",
+const tw: PartialLocaleType = {
   Error: {
     Unauthorized: isApp
       ? `😆 對話遇到了一些問題，不用慌:
@@ -23,7 +23,6 @@ const tw = {
     SubTips: "或者輸入你的 OpenAI 或 Google API 金鑰",
     Input: "在此處填寫存取密碼",
     Confirm: "確認",
-    Later: "稍候再說",
     Return: "返回",
     SaasTips: "設定太麻煩，想要立即使用",
     TopTips:
@@ -43,12 +42,10 @@ const tw = {
     },
     Actions: {
       ChatList: "檢視訊息列表",
-      CompressedHistory: "檢視壓縮後的歷史 Prompt",
       Export: "匯出聊天紀錄",
       Copy: "複製",
       Stop: "停止",
       Retry: "重試",
-      Pin: "固定",
       PinToastContent: "已將 1 條對話固定至預設提示詞",
       PinToastAction: "檢視",
       Delete: "刪除",
@@ -73,11 +70,9 @@ const tw = {
       },
       Prompt: "快捷指令",
       Masks: "所有角色範本",
-      Clear: "清除聊天",
       Settings: "對話設定",
       UploadImage: "上傳圖片",
     },
-    Rename: "重新命名對話",
     Typing: "正在輸入…",
     Input: (submitKey: string) => {
       var inputHints = `輸入訊息後，按下 ${submitKey} 鍵即可傳送`;
@@ -88,7 +83,6 @@ const tw = {
     },
     Send: "傳送",
     Config: {
-      Reset: "重設",
       SaveAs: "另存新檔",
     },
     IsContext: "預設提示詞",
@@ -132,11 +126,7 @@ const tw = {
   },
   Memory: {
     Title: "對話摘要",
-    EmptyContent: "尚未記憶",
-    Copy: "複製全部",
     Send: "自動摘要聊天記錄並納入上下文",
-    Reset: "重設對話",
-    ResetConfirm: "重設後將清除目前對話記錄以及歷史記憶，確認重設？",
   },
   Home: {
     NewChat: "開新對話",
@@ -195,7 +185,6 @@ const tw = {
     },
     SendKey: "傳送鍵",
     Theme: "主題",
-    TightBorder: "緊湊邊框",
     SendPreviewBubble: {
       Title: "預覽氣泡",
       SubTitle: "在預覽氣泡中預覽 Markdown 內容",
@@ -425,10 +414,7 @@ const tw = {
   Store: {
     DefaultTopic: "新的對話",
     BotHello: "請問需要我的協助嗎？",
-    Error: "出錯了，請稍後再嘗試",
     Prompt: {
-      History: (content: string) =>
-        "這是 AI 與使用者的歷史聊天總結，作為前情提要：" + content,
       Topic:
         "Use the language used by the user (e.g. en for english conversation, zh-hant for chinese conversation, etc.) to generate a title (at most 6 words) summarizing our conversation without any lead-in, quotation marks, preamble like 'Title:', direct text copies, single-word replies, quotation marks, translations, or brackets. Remove enclosing quotation marks. The title should make third-party grasp the essence of the conversation in first sight.",
       Summarize:
@@ -492,13 +478,9 @@ const tw = {
     },
   },
   SearchChat: {
-    Name: "搜尋聊天記錄",
     Page: {
       Title: "搜尋聊天記錄",
       Search: "輸入搜尋關鍵詞",
-      NoResult: "沒有找到結果",
-      NoData: "沒有資料",
-      Loading: "載入中",
 
       SubTitle: (count: number) => `找到 ${count} 條結果`,
     },
@@ -523,8 +505,6 @@ const tw = {
     Confirm: "確認",
     Cancel: "取消",
     Close: "關閉",
-    Create: "新增",
-    Edit: "編輯",
     Export: "匯出",
     Import: "匯入",
     Sync: "同步",
@@ -540,15 +520,6 @@ const tw = {
     Time: "時間",
   },
 };
-
-type DeepPartial<T> = T extends object
-  ? {
-      [P in keyof T]?: DeepPartial<T[P]>;
-    }
-  : T;
-
-export type LocaleType = typeof tw;
-export type PartialLocaleType = DeepPartial<typeof tw>;
 
 export default tw;
 // Translated by @chunkiuuu, feel free the submit new pr if there are typo/incorrect translations :D

@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const no: PartialLocaleType = {
-  WIP: "Arbeid pågår ...",
   Error: {
     Unauthorized: isApp
       ? `😆 Samtalen har støtt på noen problemer, ikke bekymre deg:
@@ -23,7 +22,6 @@ const no: PartialLocaleType = {
     SubTips: "Eller skriv inn din OpenAI eller Google API-nøkkel",
     Input: "Skriv tilgangskoden her",
     Confirm: "Bekreft",
-    Later: "Kom tilbake senere",
     Return: "Tilbake",
     SaasTips:
       "Konfigurasjonen er for komplisert, jeg vil bruke det med en gang",
@@ -44,12 +42,10 @@ const no: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Vis meldingsliste",
-      CompressedHistory: "Vis komprimert historikk",
       Export: "Eksporter samtaler",
       Copy: "Kopier",
       Stop: "Stopp",
       Retry: "Prøv igjen",
-      Pin: "Fest",
       PinToastContent:
         "1 samtale er festet til forhåndsdefinerte oppfordringer",
       PinToastAction: "Se",
@@ -75,11 +71,9 @@ const no: PartialLocaleType = {
       },
       Prompt: "Hurtigkommando",
       Masks: "Alle masker",
-      Clear: "Rydd samtale",
       Settings: "Samtaleinnstillinger",
       UploadImage: "Last opp bilde",
     },
-    Rename: "Gi nytt navn til samtale",
     Typing: "Skriver…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} send`;
@@ -92,7 +86,6 @@ const no: PartialLocaleType = {
     },
     Send: "Send",
     Config: {
-      Reset: "Fjern minne",
       SaveAs: "Lagre som maske",
     },
     IsContext: "Forhåndsdefinerte oppfordringer",
@@ -128,11 +121,7 @@ const no: PartialLocaleType = {
   },
   Memory: {
     Title: "Historisk sammendrag",
-    EmptyContent: "Samtaleinnholdet er for kort, ingen oppsummering nødvendig",
     Send: "Automatisk komprimere samtalehistorikk og sende som kontekst",
-    Copy: "Kopier sammendrag",
-    Reset: "[unused]",
-    ResetConfirm: "Er du sikker på at du vil tømme historisk sammendrag?",
   },
   Home: {
     NewChat: "Ny samtale",
@@ -195,7 +184,6 @@ const no: PartialLocaleType = {
     },
     SendKey: "Send-knapp",
     Theme: "Tema",
-    TightBorder: "Ingen ramme-modus",
     SendPreviewBubble: {
       Title: "Forhåndsvisningsboble",
       SubTitle: "Forhåndsvis Markdown-innhold i en forhåndsvisningsboble",
@@ -476,11 +464,7 @@ const no: PartialLocaleType = {
   Store: {
     DefaultTopic: "Ny samtale",
     BotHello: "Hva kan jeg hjelpe deg med?",
-    Error: "Noe gikk galt, prøv igjen senere",
     Prompt: {
-      History: (content: string) =>
-        "Dette er oppsummeringen av historiske samtaler som bakgrunn:" +
-        content,
       Topic:
         'Bruk fire til fem ord for å returnere en kort oppsummering av temaet, uten forklaring, uten tegnsetting, uten fyllord, uten ekstra tekst, uten fet skrift. Hvis det ikke er noe tema, returner bare "sladder".',
       Summarize:
@@ -507,13 +491,9 @@ const no: PartialLocaleType = {
     Sysmessage: "Du er en assistent",
   },
   SearchChat: {
-    Name: "Søk",
     Page: {
       Title: "Søk i chatthistorikk",
       Search: "Skriv inn søkeord",
-      NoResult: "Ingen resultater funnet",
-      NoData: "Ingen data",
-      Loading: "Laster inn",
 
       SubTitle: (count: number) => `Fant ${count} resultater`,
     },
@@ -586,8 +566,6 @@ const no: PartialLocaleType = {
     Confirm: "Bekreft",
     Cancel: "Avbryt",
     Close: "Lukk",
-    Create: "Opprett",
-    Edit: "Rediger",
     Export: "Eksporter",
     Import: "Importer",
     Sync: "Synkroniser",

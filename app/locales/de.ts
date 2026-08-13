@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const de: PartialLocaleType = {
-  WIP: "In Bearbeitung...",
   Error: {
     Unauthorized: isApp
       ? `😆 Das Gespräch hatte einige Probleme, keine Sorge:
@@ -23,7 +22,6 @@ const de: PartialLocaleType = {
     SubTips: "Oder geben Sie Ihren OpenAI oder Google API-Schlüssel ein.",
     Input: "Geben Sie hier den Zugangscode ein",
     Confirm: "Bestätigen",
-    Later: "Später",
     Return: "Zurück",
     SaasTips:
       "Die Konfiguration ist zu kompliziert, ich möchte es sofort nutzen",
@@ -44,12 +42,10 @@ const de: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Nachrichtliste anzeigen",
-      CompressedHistory: "Komprimierte Historie anzeigen",
       Export: "Chatverlauf exportieren",
       Copy: "Kopieren",
       Stop: "Stoppen",
       Retry: "Erneut versuchen",
-      Pin: "Anheften",
       PinToastContent: "1 Gespräch an den voreingestellten Prompt angeheftet",
       PinToastAction: "Ansehen",
       Delete: "Löschen",
@@ -74,11 +70,9 @@ const de: PartialLocaleType = {
       },
       Prompt: "Schnellbefehle",
       Masks: "Alle Masken",
-      Clear: "Chat löschen",
       Settings: "Gesprächseinstellungen",
       UploadImage: "Bild hochladen",
     },
-    Rename: "Gespräch umbenennen",
     Typing: "Tippt…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} senden`;
@@ -89,7 +83,6 @@ const de: PartialLocaleType = {
     },
     Send: "Senden",
     Config: {
-      Reset: "Erinnerung löschen",
       SaveAs: "Als Maske speichern",
     },
     IsContext: "Voreingestellter Prompt",
@@ -125,12 +118,7 @@ const de: PartialLocaleType = {
   },
   Memory: {
     Title: "Historische Zusammenfassung",
-    EmptyContent:
-      "Gesprächsinhalte sind zu kurz, keine Zusammenfassung erforderlich",
     Send: "Chatverlauf automatisch komprimieren und als Kontext senden",
-    Copy: "Zusammenfassung kopieren",
-    Reset: "[nicht verwendet]",
-    ResetConfirm: "Zusammenfassung löschen bestätigen?",
   },
   Home: {
     NewChat: "Neues Gespräch",
@@ -193,7 +181,6 @@ const de: PartialLocaleType = {
     },
     SendKey: "Sende-Taste",
     Theme: "Thema",
-    TightBorder: "Randloser Modus",
     SendPreviewBubble: {
       Title: "Vorschau-Bubble",
       SubTitle: "Markdown-Inhalt in der Vorschau-Bubble anzeigen",
@@ -483,12 +470,7 @@ const de: PartialLocaleType = {
   Store: {
     DefaultTopic: "Neuer Chat",
     BotHello: "Wie kann ich Ihnen helfen?",
-    Error:
-      "Ein Fehler ist aufgetreten, bitte versuchen Sie es später noch einmal",
     Prompt: {
-      History: (content: string) =>
-        "Dies ist eine Zusammenfassung des bisherigen Chats als Hintergrundinformation: " +
-        content,
       Topic:
         "Geben Sie ein kurzes Thema in vier bis fünf Wörtern zurück, ohne Erklärungen, ohne Satzzeichen, ohne Füllwörter, ohne zusätzliche Texte und ohne Fettdruck. Wenn kein Thema vorhanden ist, geben Sie bitte „Allgemeines Gespräch“ zurück.",
       Summarize:
@@ -516,13 +498,9 @@ const de: PartialLocaleType = {
     Sysmessage: "Du bist ein Assistent",
   },
   SearchChat: {
-    Name: "Suche",
     Page: {
       Title: "Chatverlauf durchsuchen",
       Search: "Suchbegriff eingeben",
-      NoResult: "Keine Ergebnisse gefunden",
-      NoData: "Keine Daten",
-      Loading: "Laden",
 
       SubTitle: (count: number) => `${count} Ergebnisse gefunden`,
     },
@@ -597,8 +575,6 @@ const de: PartialLocaleType = {
     Confirm: "Bestätigen",
     Cancel: "Abbrechen",
     Close: "Schließen",
-    Create: "Neu erstellen",
-    Edit: "Bearbeiten",
     Export: "Exportieren",
     Import: "Importieren",
     Sync: "Synchronisieren",

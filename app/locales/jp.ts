@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const jp: PartialLocaleType = {
-  WIP: "この機能は開発中です",
   Error: {
     Unauthorized: isApp
       ? `😆 会話中に問題が発生しましたが、心配しないでください:
@@ -23,7 +22,6 @@ const jp: PartialLocaleType = {
     SubTips: "または、OpenAIまたはGoogle APIキーを入力してください",
     Input: "ここにアクセスコードを入力",
     Confirm: "確認",
-    Later: "後で",
     Return: "戻る",
     SaasTips: "設定が面倒すぎる、すぐに使いたい",
     TopTips:
@@ -43,12 +41,10 @@ const jp: PartialLocaleType = {
     },
     Actions: {
       ChatList: "メッセージリストを見る",
-      CompressedHistory: "圧縮された履歴プロンプトを見る",
       Export: "チャット履歴をエクスポート",
       Copy: "コピー",
       Stop: "停止",
       Retry: "再試行",
-      Pin: "固定",
       PinToastContent: "1件の会話をプリセットプロンプトに固定しました",
       PinToastAction: "見る",
       Delete: "削除",
@@ -73,11 +69,9 @@ const jp: PartialLocaleType = {
       },
       Prompt: "クイックコマンド",
       Masks: "すべてのマスク",
-      Clear: "チャットをクリア",
       Settings: "チャット設定",
       UploadImage: "画像をアップロード",
     },
-    Rename: "チャットの名前を変更",
     Typing: "入力中…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey}で送信`;
@@ -88,7 +82,6 @@ const jp: PartialLocaleType = {
     },
     Send: "送信",
     Config: {
-      Reset: "メモリをクリア",
       SaveAs: "マスクとして保存",
     },
     IsContext: "プリセットプロンプト",
@@ -124,11 +117,7 @@ const jp: PartialLocaleType = {
   },
   Memory: {
     Title: "履歴の要約",
-    EmptyContent: "対話内容が短いため、要約は不要です",
     Send: "チャット履歴を自動的に圧縮し、コンテキストとして送信",
-    Copy: "要約をコピー",
-    Reset: "[unused]",
-    ResetConfirm: "履歴の要約をリセットしてもよろしいですか？",
   },
   Home: {
     NewChat: "新しいチャット",
@@ -189,7 +178,6 @@ const jp: PartialLocaleType = {
     },
     SendKey: "送信キー",
     Theme: "テーマ",
-    TightBorder: "ボーダーレスモード",
     SendPreviewBubble: {
       Title: "プレビューバブル",
       SubTitle: "プレビューバブルでMarkdownコンテンツをプレビュー",
@@ -465,10 +453,7 @@ const jp: PartialLocaleType = {
   Store: {
     DefaultTopic: "新しいチャット",
     BotHello: "何かお手伝いできますか？",
-    Error: "エラーが発生しました。後でもう一度試してください",
     Prompt: {
-      History: (content: string) =>
-        "これは前提としての履歴チャットの要約です：" + content,
       Topic:
         "この文の簡潔なテーマを四から五文字で返してください。説明、句読点、感嘆詞、余計なテキストは不要です。太字も不要です。テーマがない場合は「雑談」と返してください",
       Summarize:
@@ -498,13 +483,9 @@ const jp: PartialLocaleType = {
     Sysmessage: "あなたはアシスタントです",
   },
   SearchChat: {
-    Name: "検索",
     Page: {
       Title: "チャット履歴を検索",
       Search: "検索キーワードを入力",
-      NoResult: "結果が見つかりませんでした",
-      NoData: "データがありません",
-      Loading: "読み込み中",
 
       SubTitle: (count: number) => `${count} 件の結果が見つかりました`,
     },
@@ -575,8 +556,6 @@ const jp: PartialLocaleType = {
     Confirm: "確認",
     Cancel: "キャンセル",
     Close: "閉じる",
-    Create: "新規作成",
-    Edit: "編集",
     Export: "エクスポート",
     Import: "インポート",
     Sync: "同期",

@@ -5,7 +5,6 @@ import { PartialLocaleType } from "./index";
 
 const isApp = !!getClientConfig()?.isApp;
 const da: PartialLocaleType = {
-  WIP: "Der kommer snart mere...",
   Error: {
     Unauthorized: isApp
       ? `Hov, der skete en fejl. Sådan kan du komme videre:
@@ -24,7 +23,6 @@ const da: PartialLocaleType = {
     SubTips: "Eller brug din egen OpenAI- eller Google-nøgle",
     Input: "Adgangskode",
     Confirm: "OK",
-    Later: "Senere",
     SaasTips: "Hvis det er for svært, kan du starte nu",
   },
   ChatItem: {
@@ -41,12 +39,10 @@ const da: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Gå til chatliste",
-      CompressedHistory: "Komprimeret historie",
       Export: "Eksporter alle beskeder som Markdown",
       Copy: "Kopiér",
       Stop: "Stop",
       Retry: "Prøv igen",
-      Pin: "Fastgør",
       PinToastContent: "1 besked er nu fastgjort",
       PinToastAction: "Se",
       Delete: "Slet",
@@ -75,11 +71,9 @@ const da: PartialLocaleType = {
       },
       Prompt: "Prompts",
       Masks: "Personaer",
-      Clear: "Ryd kontekst",
       Settings: "Indstillinger",
       UploadImage: "Upload billeder",
     },
-    Rename: "Omdøb chat",
     Typing: "Skriver…",
     Input: (submitKey: string) => {
       let inputHints = `${submitKey} for at sende`;
@@ -91,10 +85,7 @@ const da: PartialLocaleType = {
       );
     },
     Send: "Send",
-    StartSpeak: "Start oplæsning",
-    StopSpeak: "Stop oplæsning",
     Config: {
-      Reset: "Nulstil til standard",
       SaveAs: "Gem som persona",
     },
     IsContext: "Ekstra prompt til baggrund",
@@ -142,12 +133,7 @@ const da: PartialLocaleType = {
   },
   Memory: {
     Title: "Samtaleresuméer",
-    EmptyContent: "Ingenting lige nu.",
     Send: "Opsummér automatisk chathistorikken, og medtag den i konteksten",
-    Copy: "Kopiér huskesætning",
-    Reset: "Nulstil chat",
-    ResetConfirm:
-      "Dette sletter nuværende samtale og hukommelse. Er du sikker?",
   },
   Home: {
     NewChat: "Ny Chat",
@@ -207,7 +193,6 @@ const da: PartialLocaleType = {
     },
     SendKey: "Tast for send",
     Theme: "Tema",
-    TightBorder: "Stram kant",
     SendPreviewBubble: {
       Title: "Forhåndsvisnings-boble",
       SubTitle: "Vis tekst, før den sendes",
@@ -608,10 +593,7 @@ const da: PartialLocaleType = {
   Store: {
     DefaultTopic: "Ny samtale",
     BotHello: "Hej! Hvordan kan jeg hjælpe dig i dag?",
-    Error: "Noget gik galt. Prøv igen senere.",
     Prompt: {
-      History: (content: string) =>
-        "Her er et kort resume af, hvad vi har snakket om: " + content,
       Topic:
         "Find en kort overskrift med 4-5 ord om emnet. Ingen tegnsætning eller anførselstegn.",
       Summarize:
@@ -641,13 +623,9 @@ const da: PartialLocaleType = {
     Sysmessage: "Du er en hjælper, der skal...",
   },
   SearchChat: {
-    Name: "Søg",
     Page: {
       Title: "Søg i tidligere chats",
       Search: "Skriv her for at søge",
-      NoResult: "Ingen resultater",
-      NoData: "Ingen data",
-      Loading: "Henter...",
       SubTitle: (count: number) => `Fandt ${count} resultater`,
     },
     Item: {
@@ -665,7 +643,6 @@ const da: PartialLocaleType = {
     },
     Item: {
       Info: (count: number) => `${count} metode`,
-      View: "Vis",
       Edit: "Rediger",
       Delete: "Slet",
       DeleteConfirm: "Vil du slette?",
@@ -677,8 +654,6 @@ const da: PartialLocaleType = {
       Custom: "Tilpasset",
       CustomHeader: "Parameternavn",
       Token: "Token",
-      Proxy: "Brug Proxy",
-      ProxyDescription: "Løs CORS-problemer med Proxy",
       Location: "Sted",
       LocationHeader: "Header",
       LocationQuery: "Query",
@@ -687,11 +662,9 @@ const da: PartialLocaleType = {
     EditModal: {
       Title: (readonly: boolean) =>
         `Rediger Plugin ${readonly ? "(skrivebeskyttet)" : ""}`,
-      Download: "Download",
       Auth: "Godkendelsestype",
       Content: "OpenAPI Schema",
       Load: "Hent fra URL",
-      Method: "Metode",
       Error: "Fejl i OpenAPI Schema",
     },
   },
@@ -758,8 +731,6 @@ const da: PartialLocaleType = {
     Confirm: "OK",
     Cancel: "Fortryd",
     Close: "Luk",
-    Create: "Opret",
-    Edit: "Rediger",
     Export: "Eksporter",
     Import: "Importér",
     Sync: "Synk",

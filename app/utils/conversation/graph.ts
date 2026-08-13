@@ -186,13 +186,14 @@ function shiftLevel(
 
   visit(target.id);
 
-  return completeGraphMutation(graph, {
+  return {
+    ...graph,
     messages: graph.messages.map((node) =>
       subtreeIds.has(node.id)
         ? { ...node, outlineLevel: node.outlineLevel + outlineDelta }
         : node,
     ),
-  });
+  };
 }
 
 function projectActive(
@@ -228,13 +229,6 @@ function projectToCursor(
   return cursorIndex < 0 ? [] : projection.slice(0, cursorIndex + 1);
 }
 
-function completeGraphMutation(
-  graph: ConversationGraphState,
-  override?: Partial<ConversationGraphState>,
-) {
-  return { ...graph, ...override };
-}
-
 function replaceNodes(
   nodes: ConversationNode[],
   replacements: Map<string, ConversationNode>,
@@ -261,20 +255,21 @@ function setBranch(
     }
   }
 
-  const candidate = completeGraphMutation(graph, {
+  const candidate = {
+    ...graph,
     messages: graph.messages.map((node) =>
       node.id === parentId
         ? { ...node, activeBranchRootId: branchRootId }
         : node,
     ),
-  });
+  };
 
   if (projectToCursor(candidate, buildIndex(candidate.messages)).length > 0) {
     return candidate;
   }
 
   if (!branchRootId) {
-    return completeGraphMutation(candidate, { activeCursorId: undefined });
+    return { ...candidate, activeCursorId: undefined };
   }
 
   let branchTail = index.nodesById.get(branchRootId)!;
@@ -283,7 +278,7 @@ function setBranch(
     branchTail = successor;
     successor = index.sameLevelChildByParentId.get(branchTail.id);
   }
-  return completeGraphMutation(candidate, { activeCursorId: branchTail.id });
+  return { ...candidate, activeCursorId: branchTail.id };
 }
 
 function insert(
@@ -303,11 +298,12 @@ function insert(
     }
 
     const root = { ...input, parentId: undefined, outlineLevel: 1 };
-    return completeGraphMutation(graph, {
+    return {
+      ...graph,
       messages: [root],
       rootNodeId: root.id,
       activeCursorId: root.id,
-    });
+    };
   }
 
   if (!anchorId) throw new Error("Select a continuation node first");
@@ -357,10 +353,11 @@ function insert(
     }
   }
 
-  return completeGraphMutation(graph, {
+  return {
+    ...graph,
     messages: [...replaceNodes(graph.messages, replacements), node],
     activeCursorId: node.id,
-  });
+  };
 }
 
 function insertProjected(
@@ -393,14 +390,15 @@ function insertProjected(
     }
     const root = { ...input, parentId: undefined, outlineLevel: 1 };
     const oldRoot = { ...next, parentId: root.id };
-    return completeGraphMutation(graph, {
+    return {
+      ...graph,
       messages: [
         ...graph.messages.map((node) => (node.id === next.id ? oldRoot : node)),
         root,
       ],
       rootNodeId: root.id,
       activeCursorId: root.id,
-    });
+    };
   }
   if (!previousId) return insert(graph, index, input);
 
@@ -425,7 +423,8 @@ function insertProjected(
     attachmentParent.id,
   );
   if (next && next.outlineLevel > targetLevel) {
-    inserted = completeGraphMutation(inserted, {
+    inserted = {
+      ...inserted,
       messages: inserted.messages.map((node) => {
         if (node.id === attachmentParent.id) {
           return { ...node, activeBranchRootId: undefined };
@@ -437,7 +436,7 @@ function insertProjected(
         return node;
       }),
       activeCursorId: input.id,
-    });
+    };
   }
   return inserted;
 }
@@ -509,10 +508,11 @@ function swap(
     }
   }
 
-  return completeGraphMutation(graph, {
+  return {
+    ...graph,
     messages: replaceNodes(graph.messages, replacements),
     rootNodeId,
-  });
+  };
 }
 
 function collectSubtreeIds(index: ConversationGraphIndex, rootId: string) {
@@ -534,8 +534,10 @@ function remove(
 ): ConversationGraphState {
   const node = index.nodesById.get(nodeId);
   if (!node) return graph;
+
   const parent = node.parentId ? index.nodesById.get(node.parentId) : undefined;
   const isBranchRoot = parent && node.outlineLevel === parent.outlineLevel + 1;
+
   const removed = isBranchRoot
     ? collectSubtreeIds(index, node.id)
     : new Set([node.id]);
@@ -574,7 +576,7 @@ function remove(
     graph.activeCursorId && removed.has(graph.activeCursorId)
       ? undefined
       : graph.activeCursorId;
-  return completeGraphMutation(graph, { messages, rootNodeId, activeCursorId });
+  return { ...graph, messages, rootNodeId, activeCursorId };
 }
 
 function clone(graph: ConversationGraphState, createId: () => string) {

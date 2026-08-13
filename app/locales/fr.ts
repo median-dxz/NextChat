@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const fr: PartialLocaleType = {
-  WIP: "Prochainement...",
   Error: {
     Unauthorized: isApp
       ? `😆 La conversation a rencontré quelques problèmes, pas de panique :
@@ -23,7 +22,6 @@ const fr: PartialLocaleType = {
     SubTips: "Ou entrez votre clé API OpenAI ou Google",
     Input: "Entrez le code d'accès ici",
     Confirm: "Confirmer",
-    Later: "Plus tard",
     Return: "Retour",
     SaasTips:
       "La configuration est trop compliquée, je veux l'utiliser immédiatement",
@@ -44,12 +42,10 @@ const fr: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Voir la liste des messages",
-      CompressedHistory: "Voir l'historique des prompts compressés",
       Export: "Exporter l'historique de la discussion",
       Copy: "Copier",
       Stop: "Arrêter",
       Retry: "Réessayer",
-      Pin: "Épingler",
       PinToastContent: "1 conversation épinglée aux prompts prédéfinis",
       PinToastAction: "Voir",
       Delete: "Supprimer",
@@ -74,11 +70,9 @@ const fr: PartialLocaleType = {
       },
       Prompt: "Commandes rapides",
       Masks: "Tous les masques",
-      Clear: "Effacer la discussion",
       Settings: "Paramètres de la discussion",
       UploadImage: "Télécharger une image",
     },
-    Rename: "Renommer la discussion",
     Typing: "En train d'écrire…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} pour envoyer`;
@@ -89,7 +83,6 @@ const fr: PartialLocaleType = {
     },
     Send: "Envoyer",
     Config: {
-      Reset: "Effacer la mémoire",
       SaveAs: "Enregistrer comme masque",
     },
     IsContext: "Prompt prédéfini",
@@ -126,11 +119,7 @@ const fr: PartialLocaleType = {
   },
   Memory: {
     Title: "Résumé historique",
-    EmptyContent: "Le contenu de la discussion est trop court pour être résumé",
     Send: "Compresser automatiquement l'historique des discussions et l'envoyer comme contexte",
-    Copy: "Copier le résumé",
-    Reset: "[unused]",
-    ResetConfirm: "Confirmer la suppression du résumé historique ?",
   },
   Home: {
     NewChat: "Nouvelle discussion",
@@ -195,7 +184,6 @@ const fr: PartialLocaleType = {
     },
     SendKey: "Touche d'envoi",
     Theme: "Thème",
-    TightBorder: "Mode sans bordure",
     SendPreviewBubble: {
       Title: "Bulle d'aperçu",
       SubTitle: "Aperçu du contenu Markdown dans la bulle d'aperçu",
@@ -483,10 +471,7 @@ const fr: PartialLocaleType = {
   Store: {
     DefaultTopic: "Nouvelle discussion",
     BotHello: "Comment puis-je vous aider ?",
-    Error: "Une erreur est survenue, veuillez réessayer plus tard",
     Prompt: {
-      History: (content: string) =>
-        "Voici le résumé de la discussion précédente : " + content,
       Topic:
         "Utilisez quatre à cinq mots pour retourner le sujet succinct de cette phrase, sans explication, sans ponctuation, sans interjections, sans texte superflu, sans gras. Si aucun sujet, retournez simplement « discussion informelle »",
       Summarize:
@@ -513,13 +498,9 @@ const fr: PartialLocaleType = {
     Sysmessage: "Vous êtes un assistant",
   },
   SearchChat: {
-    Name: "Recherche",
     Page: {
       Title: "Rechercher dans l'historique des discussions",
       Search: "Entrez le mot-clé de recherche",
-      NoResult: "Aucun résultat trouvé",
-      NoData: "Aucune donnée",
-      Loading: "Chargement",
 
       SubTitle: (count: number) => `${count} résultats trouvés`,
     },
@@ -592,8 +573,6 @@ const fr: PartialLocaleType = {
     Confirm: "Confirmer",
     Cancel: "Annuler",
     Close: "Fermer",
-    Create: "Créer",
-    Edit: "Modifier",
     Export: "Exporter",
     Import: "Importer",
     Sync: "Synchroniser",

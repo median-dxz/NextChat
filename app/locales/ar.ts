@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const ar: PartialLocaleType = {
-  WIP: "قريبًا...",
   Error: {
     Unauthorized: isApp
       ? `😆 واجهت المحادثة بعض المشكلات، لا داعي للقلق:
@@ -23,7 +22,6 @@ const ar: PartialLocaleType = {
     SubTips: "أو إدخال مفتاح API الخاص بـ OpenAI أو Google",
     Input: "أدخل رمز الوصول هنا",
     Confirm: "تأكيد",
-    Later: "في وقت لاحق",
     Return: "عودة",
     SaasTips: "الإعدادات معقدة، أريد استخدامه على الفور",
     TopTips:
@@ -43,12 +41,10 @@ const ar: PartialLocaleType = {
     },
     Actions: {
       ChatList: "عرض قائمة الرسائل",
-      CompressedHistory: "عرض التاريخ المضغوط",
       Export: "تصدير سجل الدردشة",
       Copy: "نسخ",
       Stop: "إيقاف",
       Retry: "إعادة المحاولة",
-      Pin: "تثبيت",
       PinToastContent: "تم تثبيت 1 محادثة في الإشعارات المسبقة",
       PinToastAction: "عرض",
       Delete: "حذف",
@@ -73,11 +69,9 @@ const ar: PartialLocaleType = {
       },
       Prompt: "الأوامر السريعة",
       Masks: "جميع الأقنعة",
-      Clear: "مسح الدردشة",
       Settings: "إعدادات الدردشة",
       UploadImage: "تحميل صورة",
     },
-    Rename: "إعادة تسمية الدردشة",
     Typing: "يكتب…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} إرسال`;
@@ -88,7 +82,6 @@ const ar: PartialLocaleType = {
     },
     Send: "إرسال",
     Config: {
-      Reset: "مسح الذاكرة",
       SaveAs: "حفظ كقناع",
     },
     IsContext: "الإشعارات المسبقة",
@@ -124,11 +117,7 @@ const ar: PartialLocaleType = {
   },
   Memory: {
     Title: "ملخص التاريخ",
-    EmptyContent: "محتوى المحادثة قصير جداً، لا حاجة للتلخيص",
     Send: "ضغط تلقائي لسجل الدردشة كـ سياق",
-    Copy: "نسخ الملخص",
-    Reset: "[غير مستخدم]",
-    ResetConfirm: "تأكيد مسح ملخص التاريخ؟",
   },
   Home: {
     NewChat: "دردشة جديدة",
@@ -188,7 +177,6 @@ const ar: PartialLocaleType = {
     },
     SendKey: "زر الإرسال",
     Theme: "السمة",
-    TightBorder: "وضع بدون حدود",
     SendPreviewBubble: {
       Title: "فقاعة المعاينة",
       SubTitle: "معاينة محتوى Markdown في فقاعة المعاينة",
@@ -460,10 +448,7 @@ const ar: PartialLocaleType = {
   Store: {
     DefaultTopic: "دردشة جديدة",
     BotHello: "كيف يمكنني مساعدتك؟",
-    Error: "حدث خطأ، يرجى المحاولة مرة أخرى لاحقًا",
     Prompt: {
-      History: (content: string) =>
-        "هذا ملخص للدردشة السابقة كنقطة انطلاق: " + content,
       Topic:
         "استخدم أربع إلى خمس كلمات لإرجاع ملخص مختصر لهذه الجملة، بدون شرح، بدون علامات ترقيم، بدون كلمات تعبيرية، بدون نص إضافي، بدون تنسيق عريض، إذا لم يكن هناك موضوع، يرجى العودة إلى 'دردشة عامة'",
       Summarize:
@@ -490,13 +475,9 @@ const ar: PartialLocaleType = {
     Sysmessage: "أنت مساعد",
   },
   SearchChat: {
-    Name: "بحث",
     Page: {
       Title: "البحث في سجلات الدردشة",
       Search: "أدخل كلمات البحث",
-      NoResult: "لم يتم العثور على نتائج",
-      NoData: "لا توجد بيانات",
-      Loading: "جارٍ التحميل",
 
       SubTitle: (count: number) => `تم العثور على ${count} نتائج`,
     },
@@ -566,8 +547,6 @@ const ar: PartialLocaleType = {
     Confirm: "تأكيد",
     Cancel: "إلغاء",
     Close: "إغلاق",
-    Create: "إنشاء",
-    Edit: "تحرير",
     Export: "تصدير",
     Import: "استيراد",
     Sync: "مزامنة",

@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const tr: PartialLocaleType = {
-  WIP: "Çalışma devam ediyor...",
   Error: {
     Unauthorized: isApp
       ? `😆 Sohbet bazı sorunlarla karşılaştı, endişelenmeyin:
@@ -23,7 +22,6 @@ const tr: PartialLocaleType = {
     SubTips: "Veya OpenAI veya Google API anahtarınızı girin",
     Input: "Erişim kodunu buraya girin",
     Confirm: "Onayla",
-    Later: "Sonra",
     Return: "Geri",
     SaasTips: "Ayarlar çok karmaşık, hemen kullanmak istiyorum",
     TopTips:
@@ -43,12 +41,10 @@ const tr: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Mesaj listesine bak",
-      CompressedHistory: "Sıkıştırılmış geçmişi gör",
       Export: "Sohbet kayıtlarını dışa aktar",
       Copy: "Kopyala",
       Stop: "Durdur",
       Retry: "Yeniden dene",
-      Pin: "Sabitlenmiş",
       PinToastContent: "1 konuşma varsayılan ifadeye sabitlendi",
       PinToastAction: "Görünüm",
       Delete: "Sil",
@@ -73,11 +69,9 @@ const tr: PartialLocaleType = {
       },
       Prompt: "Kısayol komutu",
       Masks: "Tüm maskeler",
-      Clear: "Sohbeti temizle",
       Settings: "Sohbet ayarları",
       UploadImage: "Resim yükle",
     },
-    Rename: "Sohbeti yeniden adlandır",
     Typing: "Yazıyor…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} gönder`;
@@ -88,7 +82,6 @@ const tr: PartialLocaleType = {
     },
     Send: "Gönder",
     Config: {
-      Reset: "Hafızayı temizle",
       SaveAs: "Maske olarak kaydet",
     },
     IsContext: "Varsayılan ifade",
@@ -124,11 +117,7 @@ const tr: PartialLocaleType = {
   },
   Memory: {
     Title: "Geçmiş Özeti",
-    EmptyContent: "Sohbet içeriği çok kısa, özetleme gerek yok",
     Send: "Sohbet kayıtlarını otomatik olarak sıkıştır ve bağlam olarak gönder",
-    Copy: "Özeti kopyala",
-    Reset: "[kullanılmadı]",
-    ResetConfirm: "Geçmiş özetini temizlemek istediğinize emin misiniz?",
   },
   Home: {
     NewChat: "Yeni sohbet",
@@ -189,7 +178,6 @@ const tr: PartialLocaleType = {
     },
     SendKey: "Gönderme Tuşu",
     Theme: "Tema",
-    TightBorder: "Sınır Yok Modu",
     SendPreviewBubble: {
       Title: "Önizleme Balonu",
       SubTitle: "Markdown içeriğini önizleme balonunda görüntüle",
@@ -473,9 +461,7 @@ const tr: PartialLocaleType = {
   Store: {
     DefaultTopic: "Yeni Sohbet",
     BotHello: "Size nasıl yardımcı olabilirim?",
-    Error: "Bir hata oluştu, lütfen daha sonra tekrar deneyin",
     Prompt: {
-      History: (content: string) => "Bu, geçmiş sohbetin özeti: " + content,
       Topic:
         "Bu cümlenin dört ila beş kelimelik kısa başlığını doğrudan verin, açıklama yapmayın, noktalama işareti, duygu kelimesi veya fazla metin eklemeyin, kalın yapmayın. Başlık yoksa, doğrudan 'Sohbet' yanıtını verin.",
       Summarize:
@@ -502,13 +488,9 @@ const tr: PartialLocaleType = {
     Sysmessage: "Sen bir asistansın",
   },
   SearchChat: {
-    Name: "Ara",
     Page: {
       Title: "Sohbet geçmişini ara",
       Search: "Arama anahtar kelimelerini girin",
-      NoResult: "Sonuç bulunamadı",
-      NoData: "Veri yok",
-      Loading: "Yükleniyor",
 
       SubTitle: (count: number) => `${count} sonuç bulundu`,
     },
@@ -582,8 +564,6 @@ const tr: PartialLocaleType = {
     Confirm: "Onayla",
     Cancel: "İptal et",
     Close: "Kapat",
-    Create: "Yeni oluştur",
-    Edit: "Düzenle",
     Export: "Dışa Aktar",
     Import: "İçe Aktar",
     Sync: "Senkronize et",

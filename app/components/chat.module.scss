@@ -226,20 +226,6 @@
   }
 }
 
-.memory-prompt {
-  margin: 20px 0;
-
-  .memory-prompt-content {
-    background-color: var(--white);
-    color: var(--black);
-    border: var(--border-in-light);
-    border-radius: 10px;
-    padding: 10px;
-    font-size: 12px;
-    user-select: text;
-  }
-}
-
 .chat {
   display: flex;
   flex-direction: column;
@@ -406,8 +392,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  width: fit-content;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--second);
   font-size: 13px;
+  font-weight: 600;
 }
 
 .node-viewer-content,
@@ -499,15 +490,6 @@
   gap: 8px;
   padding: 8px 10px;
   border-top: var(--border-in-light);
-}
-
-.global-memory-toggle {
-  width: fit-content;
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--second);
-  font-weight: 600;
 }
 
 .global-memory-model select {
@@ -727,7 +709,9 @@
   margin: 2px 0;
   border-radius: 6px;
   opacity: 0.3;
-  transition: opacity ease 0.2s, background-color ease 0.2s;
+  transition:
+    opacity ease 0.2s,
+    background-color ease 0.2s;
 
   svg {
     width: 16px;
@@ -774,10 +758,6 @@
 
   .graph-editor-role select {
     width: 102px;
-  }
-
-  .node-viewer-properties {
-    align-items: center;
   }
 
   .node-viewer-role > span {
@@ -969,9 +949,6 @@
 
 .chat-message-item-image-multi {
   object-fit: cover;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
 }
 
 .chat-message-item-image,
@@ -1050,7 +1027,9 @@
   pointer-events: none;
   transform: scale(0.92);
   transform-origin: left center;
-  transition: opacity ease 0.2s, transform ease 0.2s;
+  transition:
+    opacity ease 0.2s,
+    transform ease 0.2s;
 
   &.chat-message-node-actions-active,
   &:focus-within {
@@ -1089,7 +1068,6 @@
   padding: 20px;
   padding-top: 10px;
   box-sizing: border-box;
-  flex-direction: column;
   border-top: var(--border-in-light);
   box-shadow: var(--card-shadow);
 
@@ -1185,9 +1163,6 @@
   box-sizing: border-box;
   min-height: 68px;
 }
-
-// .chat-input:focus {
-// }
 
 .chat-input-send {
   background-color: var(--primary);

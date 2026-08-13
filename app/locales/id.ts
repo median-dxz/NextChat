@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const id: PartialLocaleType = {
-  WIP: "Coming Soon...",
   Error: {
     Unauthorized: isApp
       ? `😆 Percakapan mengalami beberapa masalah, tidak perlu khawatir:
@@ -23,7 +22,6 @@ const id: PartialLocaleType = {
     SubTips: "Atau masukkan kunci API OpenAI atau Google Anda",
     Input: "Masukkan kode akses di sini",
     Confirm: "Konfirmasi",
-    Later: "Nanti",
     Return: "Kembali",
     SaasTips: "Konfigurasi terlalu rumit, saya ingin menggunakannya segera",
     TopTips:
@@ -43,12 +41,10 @@ const id: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Lihat daftar pesan",
-      CompressedHistory: "Lihat riwayat Prompt yang dikompresi",
       Export: "Ekspor riwayat obrolan",
       Copy: "Salin",
       Stop: "Berhenti",
       Retry: "Coba lagi",
-      Pin: "Sematkan",
       PinToastContent: "1 percakapan telah disematkan ke prompt default",
       PinToastAction: "Lihat",
       Delete: "Hapus",
@@ -73,11 +69,9 @@ const id: PartialLocaleType = {
       },
       Prompt: "Perintah Cepat",
       Masks: "Semua Masker",
-      Clear: "Hapus Obrolan",
       Settings: "Pengaturan Obrolan",
       UploadImage: "Unggah Gambar",
     },
-    Rename: "Ganti Nama Obrolan",
     Typing: "Sedang Mengetik…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} kirim`;
@@ -88,7 +82,6 @@ const id: PartialLocaleType = {
     },
     Send: "Kirim",
     Config: {
-      Reset: "Hapus Memori",
       SaveAs: "Simpan sebagai Masker",
     },
     IsContext: "Prompt Default",
@@ -124,11 +117,7 @@ const id: PartialLocaleType = {
   },
   Memory: {
     Title: "Ringkasan Sejarah",
-    EmptyContent: "Isi percakapan terlalu pendek, tidak perlu dirangkum",
     Send: "Otomatis kompres riwayat obrolan dan kirim sebagai konteks",
-    Copy: "Salin Ringkasan",
-    Reset: "[unused]",
-    ResetConfirm: "Konfirmasi untuk menghapus ringkasan sejarah?",
   },
   Home: {
     NewChat: "Obrolan Baru",
@@ -190,7 +179,6 @@ const id: PartialLocaleType = {
     },
     SendKey: "Kunci Kirim",
     Theme: "Tema",
-    TightBorder: "Mode Tanpa Border",
     SendPreviewBubble: {
       Title: "Preview Bubble",
       SubTitle: "Pratinjau konten Markdown di bubble pratinjau",
@@ -471,11 +459,7 @@ const id: PartialLocaleType = {
   Store: {
     DefaultTopic: "Obrolan Baru",
     BotHello: "Ada yang bisa saya bantu?",
-    Error: "Terjadi kesalahan, coba lagi nanti",
     Prompt: {
-      History: (content: string) =>
-        "Ini adalah ringkasan obrolan sebelumnya sebagai latar belakang: " +
-        content,
       Topic:
         "Gunakan empat hingga lima kata untuk langsung memberikan ringkasan topik kalimat ini, tanpa penjelasan, tanpa tanda baca, tanpa kata pengisi, tanpa teks tambahan, tanpa menebalkan. Jika tidak ada topik, langsung jawab 'Obrolan Santai'",
       Summarize:
@@ -502,13 +486,9 @@ const id: PartialLocaleType = {
     Sysmessage: "Anda adalah seorang asisten",
   },
   SearchChat: {
-    Name: "Cari",
     Page: {
       Title: "Cari riwayat obrolan",
       Search: "Masukkan kata kunci pencarian",
-      NoResult: "Tidak ada hasil ditemukan",
-      NoData: "Tidak ada data",
-      Loading: "Memuat",
 
       SubTitle: (count: number) => `Ditemukan ${count} hasil`,
     },
@@ -581,8 +561,6 @@ const id: PartialLocaleType = {
     Confirm: "Konfirmasi",
     Cancel: "Batal",
     Close: "Tutup",
-    Create: "Buat Baru",
-    Edit: "Edit",
     Export: "Ekspor",
     Import: "Impor",
     Sync: "Sinkronkan",

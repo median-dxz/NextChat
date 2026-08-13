@@ -6,7 +6,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 
 const isApp = !!getClientConfig()?.isApp;
 const sk: PartialLocaleType = {
-  WIP: "Už čoskoro...",
   Error: {
     Unauthorized: isApp
       ? `😆 Rozhovor narazil na nejaké problémy, nebojte sa:
@@ -24,7 +23,6 @@ const sk: PartialLocaleType = {
     SubTips: "Alebo zadajte váš OpenAI alebo Google API kľúč",
     Input: "prístupový kód",
     Confirm: "Potvrdiť",
-    Later: "Neskôr",
     Return: "Návrat",
     SaasTips: "Nastavenie je príliš zložité, chcem to okamžite použiť",
     TopTips:
@@ -44,12 +42,10 @@ const sk: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Prejsť na zoznam chatov",
-      CompressedHistory: "Komprimovaná história výziev",
       Export: "Exportovať všetky správy ako Markdown",
       Copy: "Kopírovať",
       Stop: "Zastaviť",
       Retry: "Skúsiť znova",
-      Pin: "Pripnúť",
       PinToastContent: "Pripnuté 1 správy do kontextových výziev",
       PinToastAction: "Zobraziť",
       Delete: "Vymazať",
@@ -74,10 +70,8 @@ const sk: PartialLocaleType = {
       },
       Prompt: "Výzvy",
       Masks: "Masky",
-      Clear: "Vymazať kontext",
       Settings: "Nastavenia",
     },
-    Rename: "Premenovať Chat",
     Typing: "Písanie…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} na odoslanie`;
@@ -88,7 +82,6 @@ const sk: PartialLocaleType = {
     },
     Send: "Odoslať",
     Config: {
-      Reset: "Resetovať na predvolené",
       SaveAs: "Uložiť ako masku",
     },
     IsContext: "Kontextová výzva",
@@ -125,12 +118,7 @@ const sk: PartialLocaleType = {
   },
   Memory: {
     Title: "Súhrny konverzácie",
-    EmptyContent: "Zatiaľ nič.",
     Send: "Automaticky zhrnúť históriu chatu a zahrnúť ju do kontextu",
-    Copy: "Kopírovať pamäť",
-    Reset: "Resetovať reláciu",
-    ResetConfirm:
-      "Resetovaním sa vymaže aktuálna história konverzácie a historická pamäť. Ste si istí, že chcete resetovať?",
   },
   Home: {
     NewChat: "Nový Chat",
@@ -189,7 +177,6 @@ const sk: PartialLocaleType = {
     },
     SendKey: "Odoslať kľúč",
     Theme: "Motív",
-    TightBorder: "Tesný okraj",
     SendPreviewBubble: {
       Title: "Bublina náhľadu odoslania",
       SubTitle: "Náhľad markdownu v bubline",
@@ -423,10 +410,7 @@ const sk: PartialLocaleType = {
   Store: {
     DefaultTopic: "Nová konverzácia",
     BotHello: "Ahoj! Ako vám dnes môžem pomôcť?",
-    Error: "Niečo sa pokazilo, skúste to prosím neskôr znova.",
     Prompt: {
-      History: (content: string) =>
-        "Toto je zhrnutie histórie chatu ako rekapitulácia: " + content,
       Topic:
         "Prosím, vygenerujte štvor- až päťslovný titul, ktorý zhrnie našu konverzáciu bez akéhokoľvek úvodu, interpunkcie, úvodzoviek, bodiek, symbolov, tučného textu alebo ďalšieho textu. Odstráňte uzatváracie úvodzovky.",
       Summarize:
@@ -454,13 +438,9 @@ const sk: PartialLocaleType = {
     Sysmessage: "Ste asistent, ktorý",
   },
   SearchChat: {
-    Name: "Hľadať",
     Page: {
       Title: "Hľadať v histórii chatu",
       Search: "Zadajte kľúčové slová na vyhľadávanie",
-      NoResult: "Nenašli sa žiadne výsledky",
-      NoData: "Žiadne údaje",
-      Loading: "Načítava sa",
 
       SubTitle: (count: number) => `Nájdených ${count} výsledkov`,
     },
@@ -524,8 +504,6 @@ const sk: PartialLocaleType = {
     Confirm: "Potvrdiť",
     Cancel: "Zrušiť",
     Close: "Zavrieť",
-    Create: "Vytvoriť",
-    Edit: "Upraviť",
     Export: "Exportovať",
     Import: "Importovať",
     Sync: "Synchronizovať",

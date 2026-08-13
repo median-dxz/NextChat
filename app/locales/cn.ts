@@ -1,11 +1,11 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+import type { PartialLocaleType } from "./en";
 
 const isApp = !!getClientConfig()?.isApp;
 
-const cn = {
-  WIP: "该功能仍在开发中……",
+const cn: PartialLocaleType = {
   Error: {
     Unauthorized: isApp
       ? `😆 对话遇到了一些问题，不用慌:
@@ -24,7 +24,6 @@ const cn = {
     SubTips: "或者输入你的 OpenAI 或 Google AI 密钥",
     Input: "在此处填写访问码",
     Confirm: "确认",
-    Later: "稍后再说",
     SaasTips: "配置太麻烦，想要立即使用",
     TopTips:
       "🥳 NextChat AI 首发优惠，立刻解锁 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
@@ -51,12 +50,10 @@ const cn = {
     },
     Actions: {
       ChatList: "查看消息列表",
-      CompressedHistory: "查看压缩后的历史 Prompt",
       Export: "导出聊天记录",
       Copy: "复制",
       Stop: "停止",
       Retry: "重试",
-      Pin: "固定",
       PinToastContent: "已将 1 条对话固定至预设提示词",
       PinToastAction: "查看",
       Delete: "删除",
@@ -85,7 +82,6 @@ const cn = {
       },
       Prompt: "快捷指令",
       Masks: "所有面具",
-      Clear: "清除聊天",
       Settings: "对话设置",
       UploadImage: "上传图片",
       OutlineIn: "下一条增加大纲等级",
@@ -96,7 +92,6 @@ const cn = {
       Branch: "选择分支",
       Continue: "设为续写位置",
       OutlineLevel: "大纲等级",
-      Parent: "父节点",
       Segment: "片段摘要",
       Checkpoint: "检查点摘要",
       Save: "保存节点",
@@ -114,12 +109,9 @@ const cn = {
       UpdateMemory: "立即更新",
       SaveMemory: "保存记忆",
       Insert: "在此处插入",
-      MoveUp: "向上交换",
-      MoveDown: "向下交换",
       Drag: "拖动消息",
       Role: "消息角色",
     },
-    Rename: "重命名对话",
     Typing: "正在输入…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} 发送`;
@@ -129,10 +121,7 @@ const cn = {
       return inputHints + "，/ 触发补全，: 触发命令";
     },
     Send: "发送",
-    StartSpeak: "说话",
-    StopSpeak: "停止",
     Config: {
-      Reset: "清除记忆",
       SaveAs: "存为面具",
     },
     IsContext: "预设提示词",
@@ -184,11 +173,7 @@ const cn = {
   },
   Memory: {
     Title: "历史摘要",
-    EmptyContent: "对话内容过短，无需总结",
     Send: "自动压缩聊天记录并作为上下文发送",
-    Copy: "复制摘要",
-    Reset: "[unused]",
-    ResetConfirm: "确认清空历史摘要？",
     CompactFailed: "无法将聊天历史整理到上下文窗口内",
   },
   Home: {
@@ -251,7 +236,6 @@ const cn = {
     },
     SendKey: "发送键",
     Theme: "主题",
-    TightBorder: "无边框模式",
     SendPreviewBubble: {
       Title: "预览气泡",
       SubTitle: "在预览气泡中预览 Markdown 内容",
@@ -686,9 +670,7 @@ const cn = {
   Store: {
     DefaultTopic: "新的聊天",
     BotHello: "有什么可以帮你的吗",
-    Error: "出错了，稍后重试吧",
     Prompt: {
-      History: (content: string) => "这是历史聊天总结作为前情提要：" + content,
       Topic:
         "使用四到五个字直接返回这句话的简要主题，不要解释、不要标点、不要语气词、不要多余文本，不要加粗，如果没有主题，请直接返回“闲聊”",
       Summarize:
@@ -719,13 +701,9 @@ const cn = {
     Sysmessage: "你是一个助手",
   },
   SearchChat: {
-    Name: "搜索聊天记录",
     Page: {
       Title: "搜索聊天记录",
       Search: "输入搜索关键词",
-      NoResult: "没有找到结果",
-      NoData: "没有数据",
-      Loading: "加载中",
 
       SubTitle: (count: number) => `搜索到 ${count} 条结果`,
     },
@@ -744,7 +722,6 @@ const cn = {
     },
     Item: {
       Info: (count: number) => `${count} 方法`,
-      View: "查看",
       Edit: "编辑",
       Delete: "删除",
       DeleteConfirm: "确认删除？",
@@ -756,8 +733,6 @@ const cn = {
       Custom: "自定义",
       CustomHeader: "自定义参数名称",
       Token: "Token",
-      Proxy: "使用代理",
-      ProxyDescription: "使用代理解决 CORS 错误",
       Location: "位置",
       LocationHeader: "Header",
       LocationQuery: "Query",
@@ -765,11 +740,9 @@ const cn = {
     },
     EditModal: {
       Title: (readonly: boolean) => `编辑插件 ${readonly ? "（只读）" : ""}`,
-      Download: "下载",
       Auth: "授权方式",
       Content: "OpenAPI Schema",
       Load: "从网页加载",
-      Method: "方法",
       Error: "格式错误",
     },
   },
@@ -843,8 +816,6 @@ const cn = {
     Close: "关闭",
     Maximize: "最大化",
     Restore: "还原",
-    Create: "新建",
-    Edit: "编辑",
     Export: "导出",
     Import: "导入",
     Sync: "同步",
@@ -915,14 +886,5 @@ const cn = {
     Detail: "详情",
   },
 };
-
-type DeepPartial<T> = T extends object
-  ? {
-      [P in keyof T]?: DeepPartial<T[P]>;
-    }
-  : T;
-
-export type LocaleType = typeof cn;
-export type PartialLocaleType = DeepPartial<typeof cn>;
 
 export default cn;

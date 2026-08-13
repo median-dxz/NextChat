@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const bn: PartialLocaleType = {
-  WIP: "শীঘ্রই আসছে...",
   Error: {
     Unauthorized: isApp
       ? `😆 কথোপকথনে কিছু সমস্যা হয়েছে, চিন্তার কিছু নেই:
@@ -23,7 +22,6 @@ const bn: PartialLocaleType = {
     SubTips: "অথবা আপনার OpenAI অথবা Google API কী প্রবেশ করান",
     Input: "এখানে অ্যাক্সেস কোড লিখুন",
     Confirm: "নিশ্চিত করুন",
-    Later: "পরে বলুন",
     Return: "ফিরে আসা",
     SaasTips: "কনফিগারেশন খুব কঠিন, আমি অবিলম্বে ব্যবহার করতে চাই",
     TopTips:
@@ -43,12 +41,10 @@ const bn: PartialLocaleType = {
     },
     Actions: {
       ChatList: "বার্তা তালিকা দেখুন",
-      CompressedHistory: "সংকুচিত ইতিহাস দেখুন",
       Export: "চ্যাট ইতিহাস রপ্তানী করুন",
       Copy: "অনুলিপি করুন",
       Stop: "থামান",
       Retry: "পুনরায় চেষ্টা করুন",
-      Pin: "পিন করুন",
       PinToastContent: "1 টি চ্যাট পূর্বনির্ধারিত প্রম্পটে পিন করা হয়েছে",
       PinToastAction: "দেখুন",
       Delete: "মুছে ফেলুন",
@@ -73,11 +69,9 @@ const bn: PartialLocaleType = {
       },
       Prompt: "সংক্ষিপ্ত নির্দেশনা",
       Masks: "সমস্ত মাস্ক",
-      Clear: "চ্যাট পরিষ্কার করুন",
       Settings: "চ্যাট সেটিংস",
       UploadImage: "চিত্র আপলোড করুন",
     },
-    Rename: "চ্যাট নাম পরিবর্তন করুন",
     Typing: "লিখছে…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} পাঠান`;
@@ -88,7 +82,6 @@ const bn: PartialLocaleType = {
     },
     Send: "পাঠান",
     Config: {
-      Reset: "মেমরি মুছে ফেলুন",
       SaveAs: "মাস্ক হিসাবে সংরক্ষণ করুন",
     },
     IsContext: "পূর্বনির্ধারিত প্রম্পট",
@@ -124,11 +117,7 @@ const bn: PartialLocaleType = {
   },
   Memory: {
     Title: "ইতিহাস সারাংশ",
-    EmptyContent: "চ্যাটের বিষয়বস্তু খুব সংক্ষিপ্ত, সারাংশ প্রয়োজন নেই",
     Send: "অটোমেটিক চ্যাট ইতিহাস সংকুচিত করুন এবং প্রসঙ্গ হিসেবে পাঠান",
-    Copy: "সারাংশ কপি করুন",
-    Reset: "[unused]",
-    ResetConfirm: "ইতিহাস সারাংশ মুছে ফেলার নিশ্চিত করুন?",
   },
   Home: {
     NewChat: "নতুন চ্যাট",
@@ -189,7 +178,6 @@ const bn: PartialLocaleType = {
     },
     SendKey: "পাঠানোর কী",
     Theme: "থিম",
-    TightBorder: "বর্ডার-বিহীন মোড",
     SendPreviewBubble: {
       Title: "প্রিভিউ বুদবুদ",
       SubTitle: "প্রিভিউ বুদবুদে Markdown কনটেন্ট প্রিভিউ করুন",
@@ -468,10 +456,7 @@ const bn: PartialLocaleType = {
   Store: {
     DefaultTopic: "নতুন চ্যাট",
     BotHello: "আপনার জন্য কিছু করতে পারি?",
-    Error: "একটি ত্রুটি ঘটেছে, পরে আবার চেষ্টা করুন",
     Prompt: {
-      History: (content: string) =>
-        "এটি পূর্বের চ্যাটের সারাংশ হিসেবে ব্যবহৃত হবে: " + content,
       Topic:
         "চার থেকে পাঁচটি শব্দ ব্যবহার করে এই বাক্যের সংক্ষিপ্ত থিম দিন, ব্যাখ্যা, বিরাম চিহ্ন, ভাষা, অতিরিক্ত টেক্সট বা বোল্ড না ব্যবহার করুন। যদি কোনো থিম না থাকে তবে সরাসরি 'বেকার' বলুন",
       Summarize:
@@ -498,13 +483,9 @@ const bn: PartialLocaleType = {
     Sysmessage: "আপনি একজন সহকারী",
   },
   SearchChat: {
-    Name: "অনুসন্ধান",
     Page: {
       Title: "চ্যাট রেকর্ড অনুসন্ধান করুন",
       Search: "অনুসন্ধান কীওয়ার্ড লিখুন",
-      NoResult: "কোন ফলাফল পাওয়া যায়নি",
-      NoData: "কোন তথ্য নেই",
-      Loading: "লোড হচ্ছে",
 
       SubTitle: (count: number) => `${count} টি ফলাফল পাওয়া গেছে`,
     },
@@ -576,8 +557,6 @@ const bn: PartialLocaleType = {
     Confirm: "নিশ্চিত করুন",
     Cancel: "বাতিল করুন",
     Close: "বন্ধ করুন",
-    Create: "নতুন তৈরি করুন",
-    Edit: "সম্পাদনা করুন",
     Export: "রপ্তানি করুন",
     Import: "আমদানি করুন",
     Sync: "সিঙ্ক",
