@@ -23,8 +23,7 @@ const no: PartialLocaleType = {
     Input: "Skriv tilgangskoden her",
     Confirm: "Bekreft",
     Return: "Tilbake",
-    SaasTips:
-      "Konfigurasjonen er for komplisert, jeg vil bruke det med en gang",
+    SaasTips: "Konfigurasjonen er for komplisert, jeg vil bruke det med en gang",
     TopTips:
       "🥳 NextChat AI lanseringstilbud, lås opp OpenAI o1, GPT-4o, Claude-3.5 og de nyeste store modellene nå",
   },
@@ -46,8 +45,7 @@ const no: PartialLocaleType = {
       Copy: "Kopier",
       Stop: "Stopp",
       Retry: "Prøv igjen",
-      PinToastContent:
-        "1 samtale er festet til forhåndsdefinerte oppfordringer",
+      PinToastContent: "1 samtale er festet til forhåndsdefinerte oppfordringer",
       PinToastAction: "Se",
       Delete: "Slett",
       Edit: "Rediger",
@@ -80,9 +78,7 @@ const no: PartialLocaleType = {
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += "，Shift + Enter for linjeskift";
       }
-      return (
-        inputHints + "，/ for å utløse autoutfylling, : for å utløse kommando"
-      );
+      return inputHints + "，/ for å utløse autoutfylling, : for å utløse kommando";
     },
     Send: "Send",
     Config: {
@@ -136,8 +132,7 @@ const no: PartialLocaleType = {
     Danger: {
       Reset: {
         Title: "Tilbakestill alle innstillinger",
-        SubTitle:
-          "Tilbakestill alle innstillingsalternativer til standardverdier",
+        SubTitle: "Tilbakestill alle innstillingsalternativer til standardverdier",
         Action: "Tilbakestill nå",
         Confirm: "Bekreft tilbakestilling av alle innstillinger?",
       },
@@ -159,19 +154,16 @@ const no: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Chat-skrifttype",
-      SubTitle:
-        "Skrifttypen for chatinnhold, la stå tom for å bruke global standardskrifttype",
+      SubTitle: "Skrifttypen for chatinnhold, la stå tom for å bruke global standardskrifttype",
       Placeholder: "Skriftnavn",
     },
     InjectSystemPrompts: {
       Title: "Injiser systemprompter",
-      SubTitle:
-        "Tving inn et systemprompt som simulerer ChatGPT i starten av hver forespørsel",
+      SubTitle: "Tving inn et systemprompt som simulerer ChatGPT i starten av hver forespørsel",
     },
     InputTemplate: {
       Title: "Forhåndsbehandling av brukerinput",
-      SubTitle:
-        "Den nyeste meldingen fra brukeren vil bli fylt ut i denne malen",
+      SubTitle: "Den nyeste meldingen fra brukeren vil bli fylt ut i denne malen",
     },
 
     Update: {
@@ -309,8 +301,7 @@ const no: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert OpenAI-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert OpenAI-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "OpenAI API-nøkkel",
         },
 
@@ -322,8 +313,7 @@ const no: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert Azure-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert Azure-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "Azure API-nøkkel",
         },
 
@@ -340,8 +330,7 @@ const no: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert Anthropic-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert Anthropic-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "Anthropic API-nøkkel",
         },
 
@@ -389,8 +378,7 @@ const no: PartialLocaleType = {
         },
         Endpoint: {
           Title: "API-adresse",
-          SubTitle:
-            "Støtter ikke egendefinerte konfigurasjoner. Se .env-konfigurasjon.",
+          SubTitle: "Støtter ikke egendefinerte konfigurasjoner. Se .env-konfigurasjon.",
         },
       },
       ByteDance: {
@@ -443,8 +431,7 @@ const no: PartialLocaleType = {
     },
     TopP: {
       Title: "Kjerneprøvetaking (top_p)",
-      SubTitle:
-        "Ligner på tilfeldighet, men endre ikke sammen med tilfeldighet",
+      SubTitle: "Ligner på tilfeldighet, men endre ikke sammen med tilfeldighet",
     },
     MaxTokens: {
       Title: "Maksimalt antall tokens per svar (max_tokens)",
@@ -452,13 +439,11 @@ const no: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Emnens ferskhet (presence_penalty)",
-      SubTitle:
-        "Høyere verdi gir større sannsynlighet for å utvide til nye emner",
+      SubTitle: "Høyere verdi gir større sannsynlighet for å utvide til nye emner",
     },
     FrequencyPenalty: {
       Title: "Frekvensstraff (frequency_penalty)",
-      SubTitle:
-        "Høyere verdi gir større sannsynlighet for å redusere gjentakende ord",
+      SubTitle: "Høyere verdi gir større sannsynlighet for å redusere gjentakende ord",
     },
   },
   Store: {
@@ -505,8 +490,7 @@ const no: PartialLocaleType = {
     Name: "Maske",
     Page: {
       Title: "Forhåndsdefinerte rollemasker",
-      SubTitle: (count: number) =>
-        `${count} forhåndsdefinerte rolledefinisjoner`,
+      SubTitle: (count: number) => `${count} forhåndsdefinerte rolledefinisjoner`,
       Search: "Søk etter rollemasker",
       Create: "Opprett ny",
     },
@@ -535,8 +519,7 @@ const no: PartialLocaleType = {
       },
       HideContext: {
         Title: "Skjul forhåndsdefinerte samtaler",
-        SubTitle:
-          "Når skjult, vil forhåndsdefinerte samtaler ikke vises i chat-grensesnittet",
+        SubTitle: "Når skjult, vil forhåndsdefinerte samtaler ikke vises i chat-grensesnittet",
       },
       Share: {
         Title: "Del denne masken",

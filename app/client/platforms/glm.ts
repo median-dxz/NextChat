@@ -2,19 +2,9 @@
 import { ApiPath, CHATGLM_BASE_URL, ChatGLM } from "@/app/constant";
 import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { getMessageTextContent, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
 import { preProcessImageContent } from "@/app/utils/chat";
@@ -195,9 +185,7 @@ export class ChatGLMApi implements LLMApi {
 
       const shouldStream = !!options.config.stream;
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return stream(
           path,
           requestPayload,
@@ -236,11 +224,7 @@ export class ChatGLMApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

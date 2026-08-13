@@ -1,8 +1,6 @@
 import type { ModelInputRole } from "../api";
 
-export function toOpenAICompatibleRole(
-  role: ModelInputRole,
-): "system" | "user" | "assistant" {
+export function toOpenAICompatibleRole(role: ModelInputRole): "system" | "user" | "assistant" {
   if (role === "instruction") return "system";
   if (role === "model") return "assistant";
   return "user";

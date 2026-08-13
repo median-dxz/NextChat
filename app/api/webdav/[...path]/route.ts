@@ -17,10 +17,7 @@ const normalizeUrl = (url: string) => {
   }
 };
 
-async function handle(
-  req: NextRequest,
-  context: RouteContext<"/api/webdav/[...path]">,
-) {
+async function handle(req: NextRequest, context: RouteContext<"/api/webdav/[...path]">) {
   const params = await context.params;
   if (req.method === "OPTIONS") {
     return NextResponse.json({ body: "OK" }, { status: 200 });
@@ -42,9 +39,7 @@ async function handle(
       return (
         normalizedEndpoint &&
         normalizedEndpoint.hostname === normalizedAllowedEndpoint?.hostname &&
-        normalizedEndpoint.pathname.startsWith(
-          normalizedAllowedEndpoint.pathname,
-        )
+        normalizedEndpoint.pathname.startsWith(normalizedAllowedEndpoint.pathname)
       );
     })
   ) {
@@ -67,11 +62,7 @@ async function handle(
   const targetPath = `${endpoint}${endpointPath}`;
 
   // only allow MKCOL, GET, PUT
-  if (
-    proxy_method !== "MKCOL" &&
-    proxy_method !== "GET" &&
-    proxy_method !== "PUT"
-  ) {
+  if (proxy_method !== "MKCOL" && proxy_method !== "GET" && proxy_method !== "PUT") {
     return NextResponse.json(
       {
         error: true,
@@ -125,9 +116,7 @@ async function handle(
   const targetUrl = targetPath;
 
   const method = proxy_method || req.method;
-  const shouldNotHaveBody = ["get", "head"].includes(
-    method?.toLowerCase() ?? "",
-  );
+  const shouldNotHaveBody = ["get", "head"].includes(method?.toLowerCase() ?? "");
 
   const fetchOptions: RequestInit = {
     headers: {

@@ -140,8 +140,7 @@ const id: PartialLocaleType = {
         Title: "Hapus Semua Data",
         SubTitle: "Hapus semua data obrolan dan pengaturan",
         Action: "Hapus Sekarang",
-        Confirm:
-          "Konfirmasi untuk menghapus semua data obrolan dan pengaturan?",
+        Confirm: "Konfirmasi untuk menghapus semua data obrolan dan pengaturan?",
       },
     },
     Lang: {
@@ -155,8 +154,7 @@ const id: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Font Obrolan",
-      SubTitle:
-        "Font dari konten obrolan, biarkan kosong untuk menerapkan font default global",
+      SubTitle: "Font dari konten obrolan, biarkan kosong untuk menerapkan font default global",
       Placeholder: "Nama Font",
     },
     InjectSystemPrompts: {
@@ -244,8 +242,7 @@ const id: PartialLocaleType = {
     Prompt: {
       Disable: {
         Title: "Nonaktifkan Pelengkapan Prompt Otomatis",
-        SubTitle:
-          "Ketik / di awal kotak input untuk memicu pelengkapan otomatis",
+        SubTitle: "Ketik / di awal kotak input untuk memicu pelengkapan otomatis",
       },
       List: "Daftar Prompt Kustom",
       ListCount: (builtin: number, custom: number) =>
@@ -266,8 +263,7 @@ const id: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Ambang Batas Kompresi Pesan Sejarah",
-      SubTitle:
-        "Ketika pesan sejarah yang tidak terkompresi melebihi nilai ini, akan dikompresi",
+      SubTitle: "Ketika pesan sejarah yang tidak terkompresi melebihi nilai ini, akan dikompresi",
     },
 
     Usage: {
@@ -305,8 +301,7 @@ const id: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API Key",
-          SubTitle:
-            "Gunakan OpenAI Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan OpenAI Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "OpenAI API Key",
         },
 
@@ -318,8 +313,7 @@ const id: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "Kunci Antarmuka",
-          SubTitle:
-            "Gunakan Azure Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan Azure Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "Azure API Key",
         },
 
@@ -336,8 +330,7 @@ const id: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Kunci Antarmuka",
-          SubTitle:
-            "Gunakan Anthropic Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan Anthropic Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "Anthropic API Key",
         },
 
@@ -438,8 +431,7 @@ const id: PartialLocaleType = {
     },
     TopP: {
       Title: "Sampling Inti (top_p)",
-      SubTitle:
-        "Mirip dengan randomness, tetapi jangan ubah bersama randomness",
+      SubTitle: "Mirip dengan randomness, tetapi jangan ubah bersama randomness",
     },
     MaxTokens: {
       Title: "Batas Token Per Respons",
@@ -447,8 +439,7 @@ const id: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Kedekatan Topik (presence_penalty)",
-      SubTitle:
-        "Semakin tinggi nilainya, semakin besar kemungkinan memperluas ke topik baru",
+      SubTitle: "Semakin tinggi nilainya, semakin besar kemungkinan memperluas ke topik baru",
     },
     FrequencyPenalty: {
       Title: "Hukuman Frekuensi (frequency_penalty)",
@@ -513,8 +504,7 @@ const id: PartialLocaleType = {
       DeleteConfirm: "Konfirmasi penghapusan?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Masker Preset ${readonly ? "(Hanya Baca)" : ""}`,
+      Title: (readonly: boolean) => `Edit Masker Preset ${readonly ? "(Hanya Baca)" : ""}`,
       Download: "Unduh Preset",
       Clone: "Klon Preset",
     },
@@ -523,15 +513,13 @@ const id: PartialLocaleType = {
       Name: "Nama Karakter",
       Sync: {
         Title: "Gunakan Pengaturan Global",
-        SubTitle:
-          "Apakah obrolan saat ini akan menggunakan pengaturan model global?",
+        SubTitle: "Apakah obrolan saat ini akan menggunakan pengaturan model global?",
         Confirm:
           "Pengaturan kustom obrolan saat ini akan ditimpa secara otomatis, konfirmasi untuk mengaktifkan pengaturan global?",
       },
       HideContext: {
         Title: "Sembunyikan Obrolan Preset",
-        SubTitle:
-          "Setelah disembunyikan, obrolan preset tidak akan muncul di antarmuka obrolan",
+        SubTitle: "Setelah disembunyikan, obrolan preset tidak akan muncul di antarmuka obrolan",
       },
       Share: {
         Title: "Bagikan Masker Ini",

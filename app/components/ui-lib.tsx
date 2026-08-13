@@ -36,23 +36,14 @@ export function Popover(props: {
   return (
     <div className={styles.popover}>
       {props.children}
-      {props.open && (
-        <div className={styles["popover-mask"]} onClick={props.onClose}></div>
-      )}
-      {props.open && (
-        <div className={styles["popover-content"]}>{props.content}</div>
-      )}
+      {props.open && <div className={styles["popover-mask"]} onClick={props.onClose}></div>}
+      {props.open && <div className={styles["popover-content"]}>{props.content}</div>}
     </div>
   );
 }
 
-export function Card(props: {
-  children: React.ReactElement[];
-  className?: string;
-}) {
-  return (
-    <div className={clsx(styles.card, props.className)}>{props.children}</div>
-  );
+export function Card(props: { children: React.ReactElement[]; className?: string }) {
+  return <div className={clsx(styles.card, props.className)}>{props.children}</div>;
 }
 
 export function ListItem(props: {
@@ -79,11 +70,7 @@ export function ListItem(props: {
         {props.icon && <div className={styles["list-icon"]}>{props.icon}</div>}
         <div className={styles["list-item-title"]}>
           <div>{props.title}</div>
-          {props.subTitle && (
-            <div className={styles["list-item-sub-title"]}>
-              {props.subTitle}
-            </div>
-          )}
+          {props.subTitle && <div className={styles["list-item-sub-title"]}>{props.subTitle}</div>}
         </div>
       </div>
       {props.children}
@@ -151,9 +138,7 @@ export function Modal(props: ModalProps) {
   }, []);
 
   const [isMax, setMax] = useState(!!props.defaultMax);
-  const isBackdropPointer = (
-    event: React.PointerEvent<HTMLDialogElement>,
-  ) => {
+  const isBackdropPointer = (event: React.PointerEvent<HTMLDialogElement>) => {
     if (event.target !== event.currentTarget) return false;
     const rect = event.currentTarget.getBoundingClientRect();
     return (
@@ -176,14 +161,11 @@ export function Modal(props: ModalProps) {
         props.className,
       )}
       onPointerDown={(event) => {
-        backdropPointerRef.current = isBackdropPointer(event)
-          ? event.pointerId
-          : null;
+        backdropPointerRef.current = isBackdropPointer(event) ? event.pointerId : null;
       }}
       onPointerUp={(event) => {
         const shouldClose =
-          backdropPointerRef.current === event.pointerId &&
-          isBackdropPointer(event);
+          backdropPointerRef.current === event.pointerId && isBackdropPointer(event);
         backdropPointerRef.current = null;
         if (shouldClose) props.onClose?.();
       }}
@@ -216,11 +198,7 @@ export function Modal(props: ModalProps) {
         </div>
       </div>
 
-      <div
-        className={clsx(styles["modal-content"], props.contentClassName)}
-      >
-        {props.children}
-      </div>
+      <div className={clsx(styles["modal-content"], props.contentClassName)}>{props.children}</div>
 
       {(props.footer || props.actions?.length) && (
         <div className={styles["modal-footer"]}>
@@ -283,11 +261,7 @@ export function Toast(props: ToastProps) {
   );
 }
 
-export function showToast(
-  content: string,
-  action?: ToastProps["action"],
-  delay = 3000,
-) {
+export function showToast(content: string, action?: ToastProps["action"], delay = 3000) {
   const div = document.createElement("div");
   div.className = styles.show;
   document.body.appendChild(div);
@@ -315,17 +289,10 @@ export type InputProps = React.HTMLProps<HTMLTextAreaElement> & {
 };
 
 export function Input(props: InputProps) {
-  return (
-    <textarea
-      {...props}
-      className={clsx(styles["input"], props.className)}
-    ></textarea>
-  );
+  return <textarea {...props} className={clsx(styles["input"], props.className)}></textarea>;
 }
 
-export function PasswordInput(
-  props: HTMLProps<HTMLInputElement> & { aria?: string },
-) {
+export function PasswordInput(props: HTMLProps<HTMLInputElement> & { aria?: string }) {
   const { aria, ...inputProps } = props;
   const [visible, setVisible] = useState(false);
   function changeVisibility() {
@@ -340,11 +307,7 @@ export function PasswordInput(
         onClick={changeVisibility}
         className={"password-eye"}
       />
-      <input
-        {...inputProps}
-        type={visible ? "text" : "password"}
-        className={"password-input"}
-      />
+      <input {...inputProps} type={visible ? "text" : "password"} className={"password-input"} />
     </div>
   );
 }
@@ -427,11 +390,7 @@ export function showConfirm(content: any) {
   });
 }
 
-function PromptInput(props: {
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-}) {
+function PromptInput(props: { value: string; onChange: (value: string) => void; rows?: number }) {
   const [input, setInput] = useState(props.value);
   const onInput = (value: string) => {
     props.onChange(value);
@@ -494,11 +453,7 @@ export function showPrompt(content: any, value = "", rows = 3) {
         ]}
         onClose={closeModal}
       >
-        <PromptInput
-          onChange={(val) => (userInput = val)}
-          value={value}
-          rows={rows}
-        ></PromptInput>
+        <PromptInput onChange={(val) => (userInput = val)} value={value} rows={rows}></PromptInput>
       </Modal>,
     );
   });

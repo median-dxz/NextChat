@@ -6,11 +6,7 @@ export function toModelInputMessages(
 ): ModelInputMessage[] {
   return messages.map((message) => ({
     role:
-      message.role === "system"
-        ? "instruction"
-        : message.role === "assistant"
-          ? "model"
-          : "user",
+      message.role === "system" ? "instruction" : message.role === "assistant" ? "model" : "user",
     content: message.content,
   }));
 }

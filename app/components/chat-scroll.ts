@@ -9,24 +9,13 @@ import {
 
 export type ChatScrollState = "following" | "user-scrolling" | "detached";
 
-export type BottomRequestReason =
-  "send" | "button" | "session-switch" | "content-resize";
+export type BottomRequestReason = "send" | "button" | "session-switch" | "content-resize";
 
 const USER_SCROLL_END_DELAY_MS = 120;
-const SCROLL_KEYS = new Set([
-  "ArrowUp",
-  "ArrowDown",
-  "PageUp",
-  "PageDown",
-  "Home",
-  "End",
-  " ",
-]);
+const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
 
 export function isElementAtBottom(element: HTMLElement, threshold: number) {
-  return (
-    element.scrollHeight - element.scrollTop - element.clientHeight <= threshold
-  );
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= threshold;
 }
 
 export function useScrollToBottom(bottomThreshold = 10) {
@@ -71,10 +60,7 @@ export function useScrollToBottom(bottomThreshold = 10) {
       const generation = generationRef.current;
       pendingFrameRef.current = requestAnimationFrame(() => {
         pendingFrameRef.current = undefined;
-        if (
-          generation !== generationRef.current ||
-          stateRef.current !== "following"
-        ) {
+        if (generation !== generationRef.current || stateRef.current !== "following") {
           return;
         }
 
@@ -100,10 +86,7 @@ export function useScrollToBottom(bottomThreshold = 10) {
     if (userScrollEndTimerRef.current !== undefined) {
       window.clearTimeout(userScrollEndTimerRef.current);
     }
-    userScrollEndTimerRef.current = window.setTimeout(
-      finishUserScroll,
-      USER_SCROLL_END_DELAY_MS,
-    );
+    userScrollEndTimerRef.current = window.setTimeout(finishUserScroll, USER_SCROLL_END_DELAY_MS);
   }, [finishUserScroll]);
 
   const beginUserScroll = useCallback(() => {
@@ -221,8 +204,7 @@ export function getChatScrollUpdate({
   const isTouchBottomEdge = bottomHeight >= scrollHeight - edgeThreshold;
   let pageDirection: -1 | 0 | 1 = 0;
   if (scrollTop < previousScrollTop && isTouchTopEdge) pageDirection = -1;
-  else if (scrollTop > previousScrollTop && isTouchBottomEdge)
-    pageDirection = 1;
+  else if (scrollTop > previousScrollTop && isTouchBottomEdge) pageDirection = 1;
   else if (scrollTop === previousScrollTop) {
     if (isTouchTopEdge && !isTouchBottomEdge) pageDirection = -1;
     else if (isTouchBottomEdge && !isTouchTopEdge) pageDirection = 1;

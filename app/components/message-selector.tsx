@@ -82,8 +82,7 @@ export function MessageSelector(props: {
         (m, i) =>
           m.id && // message must have id
           isValid(m) &&
-          (i >= session.messages.length - 1 ||
-            isValid(session.messages[i + 1])),
+          (i >= session.messages.length - 1 || isValid(session.messages[i + 1])),
       ),
     [session.messages],
   );
@@ -99,9 +98,7 @@ export function MessageSelector(props: {
     const searchResults = new Set<string>();
     if (text.length > 0) {
       messages.forEach((m) =>
-        getMessageTextContent(m).includes(text)
-          ? searchResults.add(m.id!)
-          : null,
+        getMessageTextContent(m).includes(text) ? searchResults.add(m.id!) : null,
       );
     }
     setSearchIds(searchResults);
@@ -111,9 +108,7 @@ export function MessageSelector(props: {
   const { startIndex, endIndex, onClickIndex } = useShiftRange();
 
   const selectAll = () => {
-    props.updateSelection((selection) =>
-      messages.forEach((m) => selection.add(m.id!)),
-    );
+    props.updateSelection((selection) => messages.forEach((m) => selection.add(m.id!)));
   };
 
   useEffect(() => {
@@ -164,9 +159,7 @@ export function MessageSelector(props: {
             onClick={() =>
               props.updateSelection((selection) => {
                 selection.clear();
-                messages
-                  .slice(messageCount - LATEST_COUNT)
-                  .forEach((m) => selection.add(m.id!));
+                messages.slice(messageCount - LATEST_COUNT).forEach((m) => selection.add(m.id!));
               })
             }
           />
@@ -174,9 +167,7 @@ export function MessageSelector(props: {
             text={Locale.Select.Clear}
             bordered
             className={styles["filter-item"]}
-            onClick={() =>
-              props.updateSelection((selection) => selection.clear())
-            }
+            onClick={() => props.updateSelection((selection) => selection.clear())}
           />
         </div>
       </div>
@@ -211,9 +202,7 @@ export function MessageSelector(props: {
                 )}
               </div>
               <div className={styles["body"]}>
-                <div className={styles["date"]}>
-                  {new Date(m.date).toLocaleString()}
-                </div>
+                <div className={styles["date"]}>{new Date(m.date).toLocaleString()}</div>
                 <div className={clsx(styles["content"], "one-line")}>
                   {getMessageTextContent(m)}
                 </div>

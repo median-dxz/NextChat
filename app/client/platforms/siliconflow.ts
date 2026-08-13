@@ -1,20 +1,9 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
-import {
-  ApiPath,
-  SILICONFLOW_BASE_URL,
-  SiliconFlow,
-  DEFAULT_MODELS,
-} from "@/app/constant";
+import { ApiPath, SILICONFLOW_BASE_URL, SiliconFlow, DEFAULT_MODELS } from "@/app/constant";
 import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
 import { getClientConfig } from "@/app/config/client";
 import {
   getMessageTextContent,
@@ -56,10 +45,7 @@ export class SiliconflowApi implements LLMApi {
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (
-      !baseUrl.startsWith("http") &&
-      !baseUrl.startsWith(ApiPath.SiliconFlow)
-    ) {
+    if (!baseUrl.startsWith("http") && !baseUrl.startsWith(ApiPath.SiliconFlow)) {
       baseUrl = "https://" + baseUrl;
     }
 
@@ -130,9 +116,7 @@ export class SiliconflowApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
@@ -174,10 +158,7 @@ export class SiliconflowApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -202,11 +183,7 @@ export class SiliconflowApi implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

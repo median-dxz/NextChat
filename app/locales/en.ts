@@ -34,12 +34,9 @@ const en = {
     SubTitle: (count: number) => `${count} messages`,
     Reasoning: "Reasoning",
     ReasoningThinking: (duration: string) => `Thinking… (${duration})`,
-    ReasoningThought: (duration?: string) =>
-      duration ? `Thought for ${duration}` : "Thought",
+    ReasoningThought: (duration?: string) => (duration ? `Thought for ${duration}` : "Thought"),
     ReasoningDuration: (minutes: number, seconds: number) =>
-      minutes > 0
-        ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec`
-        : `${seconds} sec`,
+      minutes > 0 ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec` : `${seconds} sec`,
     EditMessage: {
       Title: "Edit All Messages",
       Topic: {
@@ -210,8 +207,7 @@ const en = {
     },
     FontFamily: {
       Title: "Chat Font Family",
-      SubTitle:
-        "Font Family of the chat content, leave empty to apply global default font",
+      SubTitle: "Font Family of the chat content, leave empty to apply global default font",
       Placeholder: "Font Family Name",
     },
     InjectSystemPrompts: {
@@ -264,8 +260,7 @@ const en = {
         },
         ProxyUrl: {
           Title: "Proxy Endpoint",
-          SubTitle:
-            "Only applicable to the built-in CORS proxy for this project",
+          SubTitle: "Only applicable to the built-in CORS proxy for this project",
         },
 
         WebDav: {
@@ -303,8 +298,7 @@ const en = {
         SubTitle: "Input / to trigger auto-completion",
       },
       List: "Prompt List",
-      ListCount: (builtin: number, custom: number) =>
-        `${builtin} built-in, ${custom} user-defined`,
+      ListCount: (builtin: number, custom: number) => `${builtin} built-in, ${custom} user-defined`,
       Edit: "Edit",
       Modal: {
         Title: "Prompt List",
@@ -321,8 +315,7 @@ const en = {
     },
     CompressThreshold: {
       Title: "Segment Source Token Target",
-      SubTitle:
-        "Create a local summary when unsegmented chain history reaches this target",
+      SubTitle: "Create a local summary when unsegmented chain history reaches this target",
     },
 
     Usage: {
@@ -388,8 +381,7 @@ const en = {
       Anthropic: {
         ApiKey: {
           Title: "Anthropic API Key",
-          SubTitle:
-            "Use a custom Anthropic Key to bypass password access restrictions",
+          SubTitle: "Use a custom Anthropic Key to bypass password access restrictions",
           Placeholder: "Anthropic API Key",
         },
 
@@ -605,18 +597,15 @@ const en = {
     },
     ContextWindow: {
       Title: "Context Window",
-      SubTitle:
-        "Total tokens accepted by the model, calculated separately from the response limit",
+      SubTitle: "Total tokens accepted by the model, calculated separately from the response limit",
     },
     PresencePenalty: {
       Title: "Presence Penalty",
-      SubTitle:
-        "A larger value increases the likelihood to talk about new topics",
+      SubTitle: "A larger value increases the likelihood to talk about new topics",
     },
     FrequencyPenalty: {
       Title: "Frequency Penalty",
-      SubTitle:
-        "A larger value decreasing the likelihood to repeat the same line",
+      SubTitle: "A larger value decreasing the likelihood to repeat the same line",
     },
     TTS: {
       Enable: {
@@ -745,8 +734,7 @@ const en = {
       LocationBody: "Body",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Plugin ${readonly ? "(readonly)" : ""}`,
+      Title: (readonly: boolean) => `Edit Plugin ${readonly ? "(readonly)" : ""}`,
       Auth: "Authentication Type",
       Content: "OpenAPI Schema",
       Load: "Load From URL",
@@ -770,8 +758,7 @@ const en = {
       DeleteConfirm: "Confirm to delete?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Prompt Template ${readonly ? "(readonly)" : ""}`,
+      Title: (readonly: boolean) => `Edit Prompt Template ${readonly ? "(readonly)" : ""}`,
       Download: "Download",
       Clone: "Clone",
     },
@@ -793,8 +780,7 @@ const en = {
       },
       CodeFold: {
         Title: "Enable CodeFold",
-        SubTitle:
-          "Automatically collapse/expand overly long code blocks when CodeFold is enabled",
+        SubTitle: "Automatically collapse/expand overly long code blocks when CodeFold is enabled",
       },
       Share: {
         Title: "Share This Mask",

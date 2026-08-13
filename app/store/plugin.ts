@@ -85,8 +85,7 @@ export const FunctionToolService = {
       length: operations.length,
       tools: operations.map((o) => {
         // @ts-ignore
-        const parameters = o?.requestBody?.content["application/json"]
-          ?.schema || {
+        const parameters = o?.requestBody?.content["application/json"]?.schema || {
           type: "object",
           properties: {},
         };
@@ -140,11 +139,7 @@ export const FunctionToolService = {
             args[headerName] = tokenValue;
           }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
-          return api.client.paths[o.path][o.method](
-            parameters,
-            args,
-            api.axiosConfigDefaults,
-          );
+          return api.client.paths[o.path][o.method](parameters, args, api.axiosConfigDefaults);
         };
         return s;
       }, {}),
@@ -222,9 +217,7 @@ export const usePluginStore = createPersistStore(
       return get().plugins[id ?? 1145141919810];
     },
     getAll() {
-      return Object.values(get().plugins).sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      return Object.values(get().plugins).sort((a, b) => b.createdAt - a.createdAt);
     },
   }),
   {

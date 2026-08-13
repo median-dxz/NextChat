@@ -24,37 +24,19 @@ import {
 } from "../store";
 import { MultimodalContent } from "../client/api";
 import { CONVERSATION_ROLES } from "../utils/conversation";
-import {
-  Input,
-  List,
-  ListItem,
-  Modal,
-  Popover,
-  Select,
-  showConfirm,
-} from "./ui-lib";
+import { Input, List, ListItem, Modal, Popover, Select, showConfirm } from "./ui-lib";
 import { Avatar, AvatarPicker } from "./emoji";
 import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
 import { useNavigate } from "react-router";
 
 import chatStyle from "./chat.module.scss";
 import { useState } from "react";
-import {
-  copyToClipboard,
-  downloadAs,
-  getMessageImages,
-  readFromFile,
-} from "../utils";
+import { copyToClipboard, downloadAs, getMessageImages, readFromFile } from "../utils";
 import { Updater } from "../typing";
 import { ModelConfigList } from "./model-config";
 import { FileName, Path } from "../constant";
 import { BUILTIN_MASK_STORE } from "../masks";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  OnDragEndResponder,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, OnDragEndResponder } from "@hello-pangea/dnd";
 import { getMessageTextContent } from "../utils";
 import clsx from "clsx";
 
@@ -137,10 +119,7 @@ export function MaskConfig(props: {
               onClick={() => setShowPicker(true)}
               style={{ cursor: "pointer" }}
             >
-              <MaskAvatar
-                avatar={props.mask.avatar}
-                model={props.mask.modelConfig.model}
-              />
+              <MaskAvatar avatar={props.mask.avatar} model={props.mask.modelConfig.model} />
             </div>
           </Popover>
         </ListItem>
@@ -232,10 +211,7 @@ export function MaskConfig(props: {
               checked={props.mask.syncGlobalConfig}
               onChange={async (e) => {
                 const checked = e.currentTarget.checked;
-                if (
-                  checked &&
-                  (await showConfirm(Locale.Mask.Config.Sync.Confirm))
-                ) {
+                if (checked && (await showConfirm(Locale.Mask.Config.Sync.Confirm))) {
                   props.updateMask((mask) => {
                     mask.syncGlobalConfig = checked;
                     mask.modelConfig = { ...globalConfig.modelConfig };
@@ -252,10 +228,7 @@ export function MaskConfig(props: {
       </List>
 
       <List>
-        <ModelConfigList
-          modelConfig={{ ...props.mask.modelConfig }}
-          updateConfig={updateConfig}
-        />
+        <ModelConfigList modelConfig={{ ...props.mask.modelConfig }} updateConfig={updateConfig} />
       </List>
     </>
   );
@@ -358,11 +331,7 @@ export function ContextPrompts(props: {
     if (!result.destination) {
       return;
     }
-    const newContext = reorder(
-      context,
-      result.source.index,
-      result.destination.index,
-    );
+    const newContext = reorder(context, result.source.index, result.destination.index);
     props.updateContext((context) => {
       context.splice(0, context.length, ...newContext);
     });
@@ -376,11 +345,7 @@ export function ContextPrompts(props: {
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps}>
                 {context.map((c, i) => (
-                  <Draggable
-                    draggableId={c.id || i.toString()}
-                    index={i}
-                    key={c.id}
-                  >
+                  <Draggable draggableId={c.id || i.toString()} index={i} key={c.id}>
                     {(provided) => (
                       <div
                         ref={provided.innerRef}
@@ -451,9 +416,7 @@ export function MaskPage() {
 
   const filterLang = maskStore.language;
 
-  const allMasks = maskStore
-    .getAll()
-    .filter((m) => !filterLang || m.lang === filterLang);
+  const allMasks = maskStore.getAll().filter((m) => !filterLang || m.lang === filterLang);
 
   const [searchMasks, setSearchMasks] = useState<Mask[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -463,9 +426,7 @@ export function MaskPage() {
   const onSearch = (text: string) => {
     setSearchText(text);
     if (text.length > 0) {
-      const result = allMasks.filter((m) =>
-        m.name.toLowerCase().includes(text.toLowerCase()),
-      );
+      const result = allMasks.filter((m) => m.name.toLowerCase().includes(text.toLowerCase()));
       setSearchMasks(result);
     } else {
       setSearchMasks(allMasks);
@@ -473,8 +434,7 @@ export function MaskPage() {
   };
 
   const [editingMaskId, setEditingMaskId] = useState<string | undefined>();
-  const editingMask =
-    maskStore.get(editingMaskId) ?? BUILTIN_MASK_STORE.get(editingMaskId);
+  const editingMask = maskStore.get(editingMaskId) ?? BUILTIN_MASK_STORE.get(editingMaskId);
   const closeMaskModal = () => setEditingMaskId(undefined);
 
   const downloadAll = () => {
@@ -506,9 +466,7 @@ export function MaskPage() {
       <div className={styles["mask-page"]}>
         <div className="window-header">
           <div className="window-header-title">
-            <div className="window-header-main-title">
-              {Locale.Mask.Page.Title}
-            </div>
+            <div className="window-header-main-title">{Locale.Mask.Page.Title}</div>
             <div className="window-header-submai-title">
               {Locale.Mask.Page.SubTitle(allMasks.length)}
             </div>
@@ -532,11 +490,7 @@ export function MaskPage() {
               />
             </div>
             <div className="window-action-button">
-              <IconButton
-                icon={<CloseIcon />}
-                bordered
-                onClick={() => navigate(-1)}
-              />
+              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -651,12 +605,7 @@ export function MaskPage() {
                 text={Locale.Mask.EditModal.Download}
                 key="export"
                 bordered
-                onClick={() =>
-                  downloadAs(
-                    JSON.stringify(editingMask),
-                    `${editingMask.name}.json`,
-                  )
-                }
+                onClick={() => downloadAs(JSON.stringify(editingMask), `${editingMask.name}.json`)}
               />,
               <IconButton
                 key="copy"
@@ -673,9 +622,7 @@ export function MaskPage() {
           >
             <MaskConfig
               mask={editingMask}
-              updateMask={(updater) =>
-                maskStore.updateMask(editingMaskId!, updater)
-              }
+              updateMask={(updater) => maskStore.updateMask(editingMaskId!, updater)}
               readonly={editingMask.builtin}
             />
           </Modal>

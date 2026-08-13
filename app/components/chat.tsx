@@ -1,11 +1,5 @@
 import { useDebouncedCallback } from "use-debounce";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import SendWhiteIcon from "../icons/send-white.svg";
 import BrainIcon from "../icons/brain.svg";
@@ -126,12 +120,7 @@ import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
 import { CONVERSATION_ROLES, Conversation } from "../utils/conversation";
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  type OnDragEndResponder,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
 
 const localStorage = safeLocalStorage();
 
@@ -159,7 +148,9 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
 
 const RealtimeChat = dynamic(
   async () => (await import("@/app/components/realtime-chat")).RealtimeChat,
-  { loading: () => <LoadingIcon /> },
+  {
+    loading: () => <LoadingIcon />,
+  },
 );
 
 const MCPAction = () => {
@@ -255,9 +246,7 @@ function PromptToast(props: {
           </span>
         </div>
       )}
-      {props.showModal && (
-        <SessionConfigModel onClose={() => props.setShowModal(false)} />
-      )}
+      {props.showModal && <SessionConfigModel onClose={() => props.setShowModal(false)} />}
     </div>
   );
 }
@@ -288,18 +277,13 @@ function useSubmitHandler() {
     // Fix Chinese input method "Enter" on Safari
     if (e.keyCode == 229) return false;
     if (e.key !== "Enter") return false;
-    if (e.key === "Enter" && (e.nativeEvent.isComposing || isComposing.current))
-      return false;
+    if (e.key === "Enter" && (e.nativeEvent.isComposing || isComposing.current)) return false;
     return (
       (config.submitKey === SubmitKey.AltEnter && e.altKey) ||
       (config.submitKey === SubmitKey.CtrlEnter && e.ctrlKey) ||
       (config.submitKey === SubmitKey.ShiftEnter && e.shiftKey) ||
       (config.submitKey === SubmitKey.MetaEnter && e.metaKey) ||
-      (config.submitKey === SubmitKey.Enter &&
-        !e.altKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        !e.metaKey)
+      (config.submitKey === SubmitKey.Enter && !e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
     );
   };
 
@@ -317,10 +301,7 @@ export function PromptHints(props: {
 }) {
   const noPrompts = props.prompts.length === 0;
   const [selectIndex, setSelectIndex] = useState(0);
-  const effectiveSelectIndex = Math.min(
-    selectIndex,
-    Math.max(0, props.prompts.length - 1),
-  );
+  const effectiveSelectIndex = Math.min(selectIndex, Math.max(0, props.prompts.length - 1));
   const selectedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -443,19 +424,14 @@ export function ChatAction(props: {
   );
 }
 
-export function isMessageInStreamingTurn(
-  messages: ChatMessage[],
-  messageIndex: number,
-) {
+export function isMessageInStreamingTurn(messages: ChatMessage[], messageIndex: number) {
   const message = messages[messageIndex];
   if (!message) return false;
   if (message.streaming) return true;
   if (message.role !== "user") return false;
 
   const response = messages[messageIndex + 1];
-  return Boolean(
-    response && response.role === "assistant" && response.streaming,
-  );
+  return Boolean(response && response.role === "assistant" && response.streaming);
 }
 
 export function ChatActions(props: {
@@ -478,9 +454,7 @@ export function ChatActions(props: {
   const chatStore = useChatStore();
   const pluginStore = usePluginStore();
   const session = chatStore.currentSession();
-  const cursorNode = session.messages.find(
-    (message) => message.id === session.activeCursorId,
-  );
+  const cursorNode = session.messages.find((message) => message.id === session.activeCursorId);
 
   // stop all responses
   const couldStop = chatStore.hasActiveChatRuns();
@@ -488,18 +462,14 @@ export function ChatActions(props: {
 
   // switch model
   const currentModel = session.mask.modelConfig.model;
-  const currentProviderName =
-    session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
+  const currentProviderName = session.mask.modelConfig?.providerName || ServiceProvider.OpenAI;
   const allModels = useAllModels();
   const models = useMemo(() => {
     const filteredModels = allModels.filter((m) => m.available);
     const defaultModel = filteredModels.find((m) => m.isDefault);
 
     if (defaultModel) {
-      const arr = [
-        defaultModel,
-        ...filteredModels.filter((m) => m !== defaultModel),
-      ];
+      const arr = [defaultModel, ...filteredModels.filter((m) => m !== defaultModel)];
       return arr;
     } else {
       return filteredModels;
@@ -507,9 +477,7 @@ export function ChatActions(props: {
   }, [allModels]);
   const currentModelName = useMemo(() => {
     const model = models.find(
-      (m) =>
-        m.name == currentModel &&
-        m?.provider?.providerName == currentProviderName,
+      (m) => m.name == currentModel && m?.provider?.providerName == currentProviderName,
     );
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
@@ -523,8 +491,7 @@ export function ChatActions(props: {
   const modelSizes = getModelSizes(currentModel);
   const dalle3Qualitys: DalleQuality[] = ["standard", "hd"];
   const dalle3Styles: DalleStyle[] = ["vivid", "natural"];
-  const currentSize =
-    session.mask.modelConfig?.size ?? ("1024x1024" as ModelSize);
+  const currentSize = session.mask.modelConfig?.size ?? ("1024x1024" as ModelSize);
   const currentQuality = session.mask.modelConfig?.quality ?? "standard";
   const currentStyle = session.mask.modelConfig?.style ?? "vivid";
 
@@ -543,11 +510,7 @@ export function ChatActions(props: {
     <div className={styles["chat-input-actions"]}>
       <>
         {couldStop && (
-          <ChatAction
-            onClick={stopAll}
-            text={Locale.Chat.InputActions.Stop}
-            icon={<StopIcon />}
-          />
+          <ChatAction onClick={stopAll} text={Locale.Chat.InputActions.Stop} icon={<StopIcon />} />
         )}
         {!props.hitBottom && (
           <ChatAction
@@ -618,11 +581,7 @@ export function ChatActions(props: {
           <Selector
             defaultSelectedValue={`${currentModel}@${currentProviderName}`}
             items={models.map((m) => ({
-              title: `${m.displayName}${
-                m?.provider?.providerName
-                  ? " (" + m?.provider?.providerName + ")"
-                  : ""
-              }`,
+              title: `${m.displayName}${m?.provider?.providerName ? " (" + m?.provider?.providerName + ")" : ""}`,
               value: `${m.name}@${m?.provider?.providerName}`,
             }))}
             onClose={() => setShowModelSelector(false)}
@@ -631,15 +590,12 @@ export function ChatActions(props: {
               const [model, providerName] = getModelProvider(s[0]);
               chatStore.updateSessionMetadata(session.id, (session) => {
                 session.mask.modelConfig.model = model as ModelType;
-                session.mask.modelConfig.providerName =
-                  providerName as ServiceProvider;
+                session.mask.modelConfig.providerName = providerName as ServiceProvider;
                 session.mask.syncGlobalConfig = false;
               });
               if (providerName == "ByteDance") {
                 const selectedModel = models.find(
-                  (m) =>
-                    m.name == model &&
-                    m?.provider?.providerName == providerName,
+                  (m) => m.name == model && m?.provider?.providerName == providerName,
                 );
                 showToast(selectedModel?.displayName ?? "");
               } else {
@@ -795,13 +751,10 @@ export function EditMessageModal(props: { onClose: () => void }) {
     }
   };
   const onDragEnd: OnDragEndResponder = (result) => {
-    if (!result.destination || result.source.index === result.destination.index)
-      return;
+    if (!result.destination || result.source.index === result.destination.index) return;
     const source = messages[result.source.index];
     const destination = messages[result.destination.index];
-    runGraphAction(() =>
-      chatStore.swapMessages(session.id, source.id, destination.id),
-    );
+    runGraphAction(() => chatStore.swapMessages(session.id, source.id, destination.id));
   };
 
   return (
@@ -865,11 +818,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
               {(droppable) => (
                 <div ref={droppable.innerRef} {...droppable.droppableProps}>
                   {messages.map((message, index) => (
-                    <Draggable
-                      draggableId={message.id}
-                      index={index}
-                      key={message.id}
-                    >
+                    <Draggable draggableId={message.id} index={index} key={message.id}>
                       {(draggable) => (
                         <div
                           ref={draggable.innerRef}
@@ -878,10 +827,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
                           style={
                             {
                               ...draggable.draggableProps.style,
-                              "--outline-indent": Math.min(
-                                message.outlineLevel - 1,
-                                8,
-                              ),
+                              "--outline-indent": Math.min(message.outlineLevel - 1, 8),
                             } as React.CSSProperties & {
                               "--outline-indent": number;
                             }
@@ -899,25 +845,18 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                   <DragIcon />
                                 </div>
                                 <div className={styles["graph-editor-role"]}>
-                                  <span
-                                    className={styles["graph-editor-level"]}
-                                  >
+                                  <span className={styles["graph-editor-level"]}>
                                     L{message.outlineLevel}
                                   </span>
                                   <Select
                                     value={message.role}
                                     aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
                                     onChange={(event) =>
-                                      chatStore.updateConversation(
-                                        session.id,
-                                        (conversation) =>
-                                          conversation.updateNodeData(
-                                            message.id,
-                                            (target) => {
-                                              target.role = event.currentTarget
-                                                .value as ChatMessage["role"];
-                                            },
-                                          ),
+                                      chatStore.updateConversation(session.id, (conversation) =>
+                                        conversation.updateNodeData(message.id, (target) => {
+                                          target.role = event.currentTarget
+                                            .value as ChatMessage["role"];
+                                        }),
                                       )
                                     }
                                   >
@@ -966,12 +905,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                 aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
                                 bordered
                                 className={styles["graph-editor-delete"]}
-                                onClick={() =>
-                                  chatStore.deleteMessage(
-                                    session.id,
-                                    message.id,
-                                  )
-                                }
+                                onClick={() => chatStore.deleteMessage(session.id, message.id)}
                               />
                             )}
                           </div>
@@ -980,8 +914,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
                             className={clsx(
                               styles["graph-editor-insert"],
                               messages[index + 1] &&
-                                messages[index + 1].outlineLevel !==
-                                  message.outlineLevel &&
+                                messages[index + 1].outlineLevel !== message.outlineLevel &&
                                 styles["graph-editor-outline-divider"],
                             )}
                             aria-label={`${Locale.Chat.Graph.Insert} ${index + 1}`}
@@ -994,7 +927,6 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                     content: "",
                                   }),
                                   message.id,
-                                  messages[index + 1]?.id,
                                 ),
                               )
                             }
@@ -1032,28 +964,16 @@ function NodeViewerModal(props: {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const node = session.messages.find((item) => item.id === props.nodeId);
-  const [content, setContent] = useState(() =>
-    node ? getMessageTextContent(node) : "",
-  );
-  const [segment, setSegment] = useState(
-    () => node?.nodeSummaries?.segment?.content ?? "",
-  );
+  const [content, setContent] = useState(() => (node ? getMessageTextContent(node) : ""));
+  const [segment, setSegment] = useState(() => node?.nodeSummaries?.segment?.content ?? "");
   const [checkpoint, setCheckpoint] = useState(
     () => node?.nodeSummaries?.checkpoint?.content ?? "",
   );
   const [segmentOpen, setSegmentOpen] = useState(() => Boolean(segment));
-  const [checkpointOpen, setCheckpointOpen] = useState(() =>
-    Boolean(checkpoint),
-  );
-  const [role, setRole] = useState<ChatMessage["role"]>(
-    () => node?.role ?? "user",
-  );
-  const [outlineLevel, setOutlineLevel] = useState(
-    () => node?.outlineLevel ?? 1,
-  );
-  const [editingProperty, setEditingProperty] = useState<
-    "outline-level" | "role"
-  >();
+  const [checkpointOpen, setCheckpointOpen] = useState(() => Boolean(checkpoint));
+  const [role, setRole] = useState<ChatMessage["role"]>(() => node?.role ?? "user");
+  const [outlineLevel, setOutlineLevel] = useState(() => node?.outlineLevel ?? 1);
+  const [editingProperty, setEditingProperty] = useState<"outline-level" | "role">();
   const [generating, setGenerating] = useState(false);
 
   if (!node) return null;
@@ -1073,11 +993,7 @@ function NodeViewerModal(props: {
     try {
       chatStore.updateConversation(session.id, (conversation) => {
         const outlineDelta =
-          outlineLevel === node.outlineLevel
-            ? 0
-            : outlineLevel > node.outlineLevel
-              ? 1
-              : -1;
+          outlineLevel === node.outlineLevel ? 0 : outlineLevel > node.outlineLevel ? 1 : -1;
         let next = conversation.node(node.id).shiftLevel(outlineDelta);
         next = next.updateNodeData(node.id, (target) => {
           target.role = role;
@@ -1088,10 +1004,7 @@ function NodeViewerModal(props: {
           ["checkpoint", checkpoint],
         ] as const) {
           const summary = next.summaries.node(node.id);
-          next =
-            role === "assistant"
-              ? summary.edit(kind, value)
-              : summary.remove(kind);
+          next = role === "assistant" ? summary.edit(kind, value) : summary.remove(kind);
         }
         return next;
       });
@@ -1185,18 +1098,14 @@ function NodeViewerModal(props: {
         <div className={styles["node-viewer"]}>
           <div className={styles["node-viewer-properties"]}>
             <div className={styles["node-viewer-level"]}>
-              <span id="node-outline-level-label">
-                {Locale.Chat.Graph.OutlineLevel}
-              </span>
+              <span id="node-outline-level-label">{Locale.Chat.Graph.OutlineLevel}</span>
               {editingProperty === "outline-level" ? (
                 <Select
                   autoFocus
                   value={outlineLevel}
                   aria-labelledby="node-outline-level-label"
                   onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) =>
-                    setOutlineLevel(Number(event.currentTarget.value))
-                  }
+                  onChange={(event) => setOutlineLevel(Number(event.currentTarget.value))}
                 >
                   {outlineLevelOptions.map((level) => (
                     <option key={level} value={level}>
@@ -1224,9 +1133,7 @@ function NodeViewerModal(props: {
                   value={role}
                   aria-labelledby="node-role-label"
                   onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) =>
-                    setRole(event.currentTarget.value as ChatMessage["role"])
-                  }
+                  onChange={(event) => setRole(event.currentTarget.value as ChatMessage["role"])}
                 >
                   {CONVERSATION_ROLES.map((item) => (
                     <option key={item} value={item}>
@@ -1248,11 +1155,7 @@ function NodeViewerModal(props: {
           </div>
           <label className={styles["node-viewer-content"]}>
             <span>{Locale.Chat.Actions.Edit}</span>
-            <textarea
-              rows={5}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
+            <textarea rows={5} value={content} onChange={(e) => setContent(e.target.value)} />
           </label>
           <div className={styles["node-viewer-secondary-action"]}>
             <IconButton
@@ -1277,9 +1180,7 @@ function NodeViewerModal(props: {
                   <textarea
                     rows={4}
                     value={editor.value}
-                    onChange={(event) =>
-                      editor.setValue(event.currentTarget.value)
-                    }
+                    onChange={(event) => editor.setValue(event.currentTarget.value)}
                   />
                   <div className={styles["node-summary-actions"]}>
                     <IconButton
@@ -1362,13 +1263,9 @@ function BranchSelectorModal(props: {
             >
               <span className={styles["branch-selector-indicator"]} />
               <span className={styles["branch-selector-copy"]}>
-                <strong>
-                  {getMessageTextContent(branch).slice(0, 120) || branch.id}
-                </strong>
+                <strong>{getMessageTextContent(branch).slice(0, 120) || branch.id}</strong>
               </span>
-              <span className={styles["branch-selector-level"]}>
-                L{branch.outlineLevel}
-              </span>
+              <span className={styles["branch-selector-level"]}>L{branch.outlineLevel}</span>
             </button>
           ))}
         </div>
@@ -1450,19 +1347,11 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
           </label>
           <label className={styles["global-memory-field"]}>
             <span>{Locale.Chat.Graph.Prompt}</span>
-            <textarea
-              rows={3}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
+            <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
           </label>
           <label className={styles["global-memory-field"]}>
             <span>{Locale.Chat.Graph.Content}</span>
-            <textarea
-              rows={6}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
+            <textarea rows={6} value={content} onChange={(e) => setContent(e.target.value)} />
           </label>
           <label className={styles["global-memory-model"]}>
             <span>{Locale.Chat.Graph.TemporaryMemoryModel}</span>
@@ -1471,9 +1360,7 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
               aria-label={Locale.Chat.Graph.TemporaryMemoryModel}
               onChange={(event) => setUpdateModel(event.currentTarget.value)}
             >
-              <option value="@">
-                {Locale.Chat.Graph.UseConfiguredMemoryModel}
-              </option>
+              <option value="@">{Locale.Chat.Graph.UseConfiguredMemoryModel}</option>
               {availableModels.map((model) => (
                 <option
                   key={`${model.name}@${model.provider?.providerName}`}
@@ -1532,9 +1419,7 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
           <div className={styles["shortcut-key-grid"]}>
             {shortcuts.map((shortcut, index) => (
               <div key={index} className={styles["shortcut-key-item"]}>
-                <div className={styles["shortcut-key-title"]}>
-                  {shortcut.title}
-                </div>
+                <div className={styles["shortcut-key-title"]}>{shortcut.title}</div>
                 <div className={styles["shortcut-key-keys"]}>
                   {shortcut.keys.map((key, i) => (
                     <div key={i} className={styles["shortcut-key"]}>
@@ -1552,14 +1437,8 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 }
 
 export function useEnsureAvailableModel(
-  chatStore: Pick<
-    ReturnType<typeof useChatStore.getState>,
-    "updateSessionMetadata"
-  >,
-  config: Pick<
-    ReturnType<typeof useAppConfig.getState>,
-    "modelConfig" | "update"
-  >,
+  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSessionMetadata">,
+  config: Pick<ReturnType<typeof useAppConfig.getState>, "modelConfig" | "update">,
   session: ChatSession,
   models: ReadonlyArray<ReturnType<typeof useAllModels>[number]>,
 ) {
@@ -1584,10 +1463,7 @@ export function useEnsureAvailableModel(
     if (syncGlobalConfig) {
       // Global config owns synced sessions; repair it once and let
       // useSyncGlobalModelConfig propagate the valid model downstream.
-      if (
-        globalModel === nextModel.name &&
-        globalProviderName === nextProviderName
-      ) {
+      if (globalModel === nextModel.name && globalProviderName === nextProviderName) {
         return;
       }
       updateConfig((config) => {
@@ -1626,38 +1502,23 @@ export function useEnsureAvailableModel(
 }
 
 export function useSyncGlobalModelConfig(
-  chatStore: Pick<
-    ReturnType<typeof useChatStore.getState>,
-    "updateSessionMetadata"
-  >,
+  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSessionMetadata">,
   session: ChatSession,
   modelConfig: ModelConfig,
 ) {
   useEffect(() => {
-    if (
-      !session.mask.syncGlobalConfig ||
-      isEqual(session.mask.modelConfig, modelConfig)
-    ) {
+    if (!session.mask.syncGlobalConfig || isEqual(session.mask.modelConfig, modelConfig)) {
       return;
     }
 
     chatStore.updateSessionMetadata(session.id, (session) => {
-      if (
-        !session.mask.syncGlobalConfig ||
-        isEqual(session.mask.modelConfig, modelConfig)
-      ) {
+      if (!session.mask.syncGlobalConfig || isEqual(session.mask.modelConfig, modelConfig)) {
         return false;
       }
 
       session.mask.modelConfig = { ...modelConfig };
     });
-  }, [
-    chatStore,
-    modelConfig,
-    session.id,
-    session.mask.modelConfig,
-    session.mask.syncGlobalConfig,
-  ]);
+  }, [chatStore, modelConfig, session.id, session.mask.modelConfig, session.mask.syncGlobalConfig]);
 }
 
 function ChatView() {
@@ -1686,14 +1547,8 @@ function ChatView() {
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
   const isMobileScreen = useMobileScreen();
-  const {
-    scrollRef,
-    contentRef,
-    isAtBottom,
-    requestBottom,
-    handleScroll,
-    userScrollHandlers,
-  } = useScrollToBottom(isMobileScreen ? 4 : 10);
+  const { scrollRef, contentRef, isAtBottom, requestBottom, handleScroll, userScrollHandlers } =
+    useScrollToBottom(isMobileScreen ? 4 : 10);
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1715,10 +1570,7 @@ function ChatView() {
   const measure = useDebouncedCallback(
     () => {
       const rows = inputRef.current ? autoGrowTextArea(inputRef.current) : 1;
-      const inputRows = Math.min(
-        20,
-        Math.max(2 + Number(!isMobileScreen), rows),
-      );
+      const inputRows = Math.min(20, Math.max(2 + Number(!isMobileScreen), rows));
       setInputRows(inputRows);
     },
     100,
@@ -1777,9 +1629,7 @@ function ChatView() {
       .catch((error) => {
         setIsLoading(false);
         setUserInput(userInput);
-        showToast(
-          error instanceof Error ? error.message : Locale.Memory.CompactFailed,
-        );
+        showToast(error instanceof Error ? error.message : Locale.Memory.CompactFailed);
       });
     setAttachImages([]);
     chatStore.setLastInput(userInput);
@@ -1816,11 +1666,7 @@ function ChatView() {
   // check if should send message
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // if ArrowUp and no userInput, fill with last input
-    if (
-      e.key === "ArrowUp" &&
-      userInput.length <= 0 &&
-      !(e.metaKey || e.altKey || e.ctrlKey)
-    ) {
+    if (e.key === "ArrowUp" && userInput.length <= 0 && !(e.metaKey || e.altKey || e.ctrlKey)) {
       setUserInput(chatStore.lastInput ?? "");
       e.preventDefault();
       return;
@@ -1849,9 +1695,7 @@ function ChatView() {
       })
       .catch((error) => {
         setIsLoading(false);
-        showToast(
-          error instanceof Error ? error.message : Locale.Memory.CompactFailed,
-        );
+        showToast(error instanceof Error ? error.message : Locale.Memory.CompactFailed);
       });
     inputRef.current?.focus();
   };
@@ -1896,10 +1740,7 @@ function ChatView() {
       if (config.ttsConfig.engine !== DEFAULT_TTS_ENGINE) {
         const edgeVoiceName = accessStore.edgeVoiceName();
         const tts = new MsEdgeTTS();
-        await tts.setMetadata(
-          edgeVoiceName,
-          OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3,
-        );
+        await tts.setMetadata(edgeVoiceName, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
         audioBuffer = await tts.toArrayBuffer(textContent);
       } else {
         audioBuffer = await api.llm.speech({
@@ -1923,14 +1764,9 @@ function ChatView() {
     }
   }
 
-  const context: RenderMessage[] = session.mask.hideContext
-    ? []
-    : session.mask.context.slice();
+  const context: RenderMessage[] = session.mask.hideContext ? [] : session.mask.context.slice();
 
-  if (
-    context.length === 0 &&
-    session.messages.at(0)?.content !== BOT_HELLO.content
-  ) {
+  if (context.length === 0 && session.messages.at(0)?.content !== BOT_HELLO.content) {
     const copiedHello = Object.assign({}, BOT_HELLO);
     if (!accessStore.isAuthorized()) {
       copiedHello.content = Locale.Error.Unauthorized;
@@ -1974,10 +1810,7 @@ function ChatView() {
     _setMsgRenderIndex(newIndex);
   }
 
-  const endRenderIndex = Math.min(
-    msgRenderIndex + 3 * CHAT_PAGE_SIZE,
-    renderMessages.length,
-  );
+  const endRenderIndex = Math.min(msgRenderIndex + 3 * CHAT_PAGE_SIZE, renderMessages.length);
   const messages = renderMessages.slice(msgRenderIndex, endRenderIndex);
 
   const onChatBodyScroll = (e: HTMLElement) => {
@@ -2035,21 +1868,18 @@ function ChatView() {
         console.log("[Command] got settings from url: ", payload);
 
         if (payload.key || payload.url) {
-          showConfirm(
-            Locale.URLCommand.Settings +
-              `\n${JSON.stringify(payload, null, 4)}`,
-          ).then((res) => {
-            if (!res) return;
-            if (payload.key) {
-              accessStore.update(
-                (access) => (access.openaiApiKey = payload.key!),
-              );
-            }
-            if (payload.url) {
-              accessStore.update((access) => (access.openaiUrl = payload.url!));
-            }
-            accessStore.update((access) => (access.useCustomConfig = true));
-          });
+          showConfirm(Locale.URLCommand.Settings + `\n${JSON.stringify(payload, null, 4)}`).then(
+            (res) => {
+              if (!res) return;
+              if (payload.key) {
+                accessStore.update((access) => (access.openaiApiKey = payload.key!));
+              }
+              if (payload.url) {
+                accessStore.update((access) => (access.openaiUrl = payload.url!));
+              }
+              accessStore.update((access) => (access.useCustomConfig = true));
+            },
+          );
         }
       } catch {
         console.error("[Command] failed to get settings from url: ", text);
@@ -2120,8 +1950,7 @@ function ChatView() {
       ...(await new Promise<string[]>((res, rej) => {
         const fileInput = document.createElement("input");
         fileInput.type = "file";
-        fileInput.accept =
-          "image/png, image/jpeg, image/webp, image/heic, image/heif";
+        fileInput.accept = "image/png, image/jpeg, image/webp, image/heic, image/heif";
         fileInput.multiple = true;
         fileInput.onchange = (event: any) => {
           setUploading(true);
@@ -2132,10 +1961,7 @@ function ChatView() {
             uploadImageRemote(file)
               .then((dataUrl) => {
                 imagesData.push(dataUrl);
-                if (
-                  imagesData.length === 3 ||
-                  imagesData.length === files.length
-                ) {
+                if (imagesData.length === 3 || imagesData.length === files.length) {
                   setUploading(false);
                   res(imagesData);
                 }
@@ -2163,11 +1989,7 @@ function ChatView() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // 打开新聊天 command + shift + o
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "o"
-      ) {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "o") {
         event.preventDefault();
         setTimeout(() => {
           chatStore.newSession();
@@ -2180,14 +2002,9 @@ function ChatView() {
         inputRef.current?.focus();
       }
       // 复制最后一个代码块 command + shift + ;
-      else if (
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.code === "Semicolon"
-      ) {
+      else if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === "Semicolon") {
         event.preventDefault();
-        const copyCodeButton =
-          document.querySelectorAll<HTMLElement>(".copy-code-button");
+        const copyCodeButton = document.querySelectorAll<HTMLElement>(".copy-code-button");
         if (copyCodeButton.length > 0) {
           copyCodeButton[copyCodeButton.length - 1].click();
         }
@@ -2199,9 +2016,7 @@ function ChatView() {
         event.key.toLowerCase() === "c"
       ) {
         event.preventDefault();
-        const lastNonUserMessage = messages
-          .filter((message) => message.role !== "user")
-          .pop();
+        const lastNonUserMessage = messages.filter((message) => message.role !== "user").pop();
         if (lastNonUserMessage) {
           const lastMessageContent = getMessageTextContent(lastNonUserMessage);
           copyToClipboard(lastMessageContent);
@@ -2240,14 +2055,9 @@ function ChatView() {
             </div>
           )}
 
-          <div
-            className={clsx("window-header-title", styles["chat-body-title"])}
-          >
+          <div className={clsx("window-header-title", styles["chat-body-title"])}>
             <div
-              className={clsx(
-                "window-header-main-title",
-                styles["chat-body-main-title"],
-              )}
+              className={clsx("window-header-main-title", styles["chat-body-main-title"])}
               onClickCapture={() => setIsEditingMessage(true)}
             >
               {!session.topic ? DEFAULT_TOPIC : session.topic}
@@ -2286,9 +2096,7 @@ function ChatView() {
                   title={Locale.Chat.Actions.FullScreen}
                   aria={Locale.Chat.Actions.FullScreen}
                   onClick={() => {
-                    config.update(
-                      (config) => (config.tightBorder = !config.tightBorder),
-                    );
+                    config.update((config) => (config.tightBorder = !config.tightBorder));
                   }}
                 />
               </div>
@@ -2324,27 +2132,18 @@ function ChatView() {
                     const absoluteIndex = msgRenderIndex + i;
                     const isUser = message.role === "user";
                     const isContext = absoluteIndex < context.length;
-                    const storedNode =
-                      isContext || message.preview ? undefined : message;
+                    const storedNode = isContext || message.preview ? undefined : message;
                     const messageText = getMessageTextContent(message);
                     const messageImages = getMessageImages(message);
-                    const isActiveTurn = isMessageInStreamingTurn(
-                      renderMessages,
-                      absoluteIndex,
-                    );
+                    const isActiveTurn = isMessageInStreamingTurn(renderMessages, absoluteIndex);
                     const hasMessageOutput =
                       message.content.length > 0 || Boolean(message.reasoning);
                     const isActionCandidate =
-                      absoluteIndex > 0 &&
-                      !message.preview &&
-                      !isContext &&
-                      hasMessageOutput;
+                      absoluteIndex > 0 && !message.preview && !isContext && hasMessageOutput;
                     const showActions =
-                      isActionCandidate &&
-                      (!isActiveTurn || Boolean(message.streaming));
+                      isActionCandidate && (!isActiveTurn || Boolean(message.streaming));
                     const showTyping = message.preview || message.streaming;
-                    const renderActions =
-                      showActions && actionMessageId === message.id;
+                    const renderActions = showActions && actionMessageId === message.id;
                     const editMessage = async () => {
                       if (storedNode) {
                         setViewingNodeId(storedNode.id);
@@ -2355,14 +2154,9 @@ function ChatView() {
                         messageText,
                         10,
                       );
-                      const newContent = replaceMessageText(
-                        message,
-                        newMessage,
-                      );
+                      const newContent = replaceMessageText(message, newMessage);
                       chatStore.updateSessionMetadata(session.id, (draft) => {
-                        const item = draft.mask.context.find(
-                          (item) => item.id === message.id,
-                        );
+                        const item = draft.mask.context.find((item) => item.id === message.id);
                         if (item) item.content = newContent;
                       });
                     };
@@ -2372,9 +2166,7 @@ function ChatView() {
                         <div
                           id={`chat-message-${message.id}`}
                           className={clsx(
-                            isUser
-                              ? styles["chat-message-user"]
-                              : styles["chat-message"],
+                            isUser ? styles["chat-message-user"] : styles["chat-message"],
                           )}
                           onPointerEnter={() => setActionMessageId(message.id)}
                           onPointerLeave={() =>
@@ -2384,11 +2176,7 @@ function ChatView() {
                           }
                           onFocusCapture={() => setActionMessageId(message.id)}
                           onBlurCapture={(event) => {
-                            if (
-                              !event.currentTarget.contains(
-                                event.relatedTarget as Node | null,
-                              )
-                            ) {
+                            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                               setActionMessageId((current) =>
                                 current === message.id ? undefined : current,
                               );
@@ -2417,19 +2205,14 @@ function ChatView() {
                                     ) : (
                                       <MaskAvatar
                                         avatar={session.mask.avatar}
-                                        model={
-                                          message.model ||
-                                          session.mask.modelConfig.model
-                                        }
+                                        model={message.model || session.mask.modelConfig.model}
                                       />
                                     )}
                                   </>
                                 )}
                               </div>
                               {!isUser && (
-                                <div className={styles["chat-model-name"]}>
-                                  {message.model}
-                                </div>
+                                <div className={styles["chat-model-name"]}>{message.model}</div>
                               )}
 
                               {renderActions && (
@@ -2439,9 +2222,7 @@ function ChatView() {
                                       <ChatAction
                                         text={Locale.Chat.Actions.Stop}
                                         icon={<StopIcon />}
-                                        onClick={() =>
-                                          onUserStop(message.id ?? i)
-                                        }
+                                        onClick={() => onUserStop(message.id ?? i)}
                                       />
                                     ) : (
                                       <>
@@ -2454,17 +2235,13 @@ function ChatView() {
                                         <ChatAction
                                           text={Locale.Chat.Actions.Delete}
                                           icon={<DeleteIcon />}
-                                          onClick={() =>
-                                            onDelete(message.id ?? i)
-                                          }
+                                          onClick={() => onDelete(message.id ?? i)}
                                         />
 
                                         <ChatAction
                                           text={Locale.Chat.Actions.Copy}
                                           icon={<CopyIcon />}
-                                          onClick={() =>
-                                            copyToClipboard(messageText)
-                                          }
+                                          onClick={() => copyToClipboard(messageText)}
                                         />
                                         {config.ttsConfig.enable && (
                                           <ChatAction
@@ -2473,16 +2250,8 @@ function ChatView() {
                                                 ? Locale.Chat.Actions.StopSpeech
                                                 : Locale.Chat.Actions.Speech
                                             }
-                                            icon={
-                                              speechStatus ? (
-                                                <SpeakStopIcon />
-                                              ) : (
-                                                <SpeakIcon />
-                                              )
-                                            }
-                                            onClick={() =>
-                                              openaiSpeech(messageText)
-                                            }
+                                            icon={speechStatus ? <SpeakStopIcon /> : <SpeakIcon />}
+                                            onClick={() => openaiSpeech(messageText)}
                                           />
                                         )}
                                       </>
@@ -2522,9 +2291,7 @@ function ChatView() {
                                 <ReasoningDisclosure
                                   reasoning={message.reasoning ?? ""}
                                   streaming={message.streaming}
-                                  reasoningDurationMs={
-                                    message.reasoningDurationMs
-                                  }
+                                  reasoningDurationMs={message.reasoningDurationMs}
                                   content={messageText}
                                 />
                               )}
@@ -2550,9 +2317,7 @@ function ChatView() {
                                   {/* External and data URLs cannot use Next image optimization. */}
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    className={
-                                      styles["chat-message-item-image"]
-                                    }
+                                    className={styles["chat-message-item-image"]}
                                     src={messageImages[0]}
                                     alt=""
                                   />
@@ -2572,11 +2337,7 @@ function ChatView() {
                                       <React.Fragment key={index}>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
-                                          className={
-                                            styles[
-                                              "chat-message-item-image-multi"
-                                            ]
-                                          }
+                                          className={styles["chat-message-item-image-multi"]}
                                           src={image}
                                           alt=""
                                         />
@@ -2598,41 +2359,27 @@ function ChatView() {
                                   className={clsx(
                                     styles["chat-message-node-actions"],
                                     styles["chat-input-actions"],
-                                    renderActions &&
-                                      styles[
-                                        "chat-message-node-actions-active"
-                                      ],
+                                    renderActions && styles["chat-message-node-actions-active"],
                                   )}
                                 >
                                   <ChatAction
                                     text={Locale.Chat.Graph.Branch}
                                     icon={<BranchIcon />}
-                                    onClick={() =>
-                                      setBranchParentId(storedNode.id)
-                                    }
+                                    onClick={() => setBranchParentId(storedNode.id)}
                                   />
                                   <ChatAction
                                     text={Locale.Chat.Graph.Continue}
                                     icon={<ContinueIcon />}
-                                    active={
-                                      session.activeCursorId === storedNode.id
-                                    }
+                                    active={session.activeCursorId === storedNode.id}
                                     onClick={() => {
-                                      chatStore.continueFromNode(
-                                        session.id,
-                                        storedNode.id,
-                                      );
+                                      chatStore.continueFromNode(session.id, storedNode.id);
                                       inputRef.current?.focus();
                                     }}
                                   />
                                 </div>
                               )}
-                              <div
-                                className={styles["chat-message-action-date"]}
-                              >
-                                {isContext
-                                  ? Locale.Chat.IsContext
-                                  : message.date.toLocaleString()}
+                              <div className={styles["chat-message-action-date"]}>
+                                {isContext ? Locale.Chat.IsContext : message.date.toLocaleString()}
                               </div>
                             </div>
                           </div>
@@ -2643,10 +2390,7 @@ function ChatView() {
               </div>
             </div>
             <div className={styles["chat-input-panel"]}>
-              <PromptHints
-                prompts={promptHints}
-                onPromptSelect={onPromptSelect}
-              />
+              <PromptHints prompts={promptHints} onPromptSelect={onPromptSelect} />
 
               <ChatActions
                 uploadImage={uploadImage}
@@ -2674,8 +2418,7 @@ function ChatView() {
               />
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
-                  [styles["chat-input-panel-inner-attach"]]:
-                    attachImages.length !== 0,
+                  [styles["chat-input-panel-inner-attach"]]: attachImages.length !== 0,
                 })}
                 htmlFor="chat-input"
               >
@@ -2707,9 +2450,7 @@ function ChatView() {
                           <div className={styles["attach-image-mask"]}>
                             <DeleteImageButton
                               deleteImage={() => {
-                                setAttachImages(
-                                  attachImages.filter((_, i) => i !== index),
-                                );
+                                setAttachImages(attachImages.filter((_, i) => i !== index));
                               }}
                             />
                           </div>
@@ -2746,9 +2487,7 @@ function ChatView() {
           </div>
         </div>
       </div>
-      {showExport && (
-        <ExportMessageModal onClose={() => setShowExport(false)} />
-      )}
+      {showExport && <ExportMessageModal onClose={() => setShowExport(false)} />}
 
       {isEditingMessage && (
         <EditMessageModal
@@ -2758,9 +2497,7 @@ function ChatView() {
         />
       )}
 
-      {showShortcutKeyModal && (
-        <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />
-      )}
+      {showShortcutKeyModal && <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />}
 
       {viewingNodeId && (
         <NodeViewerModal
@@ -2778,9 +2515,7 @@ function ChatView() {
         />
       )}
 
-      {showGlobalMemory && (
-        <GlobalMemoryModal onClose={() => setShowGlobalMemory(false)} />
-      )}
+      {showGlobalMemory && <GlobalMemoryModal onClose={() => setShowGlobalMemory(false)} />}
     </>
   );
 }

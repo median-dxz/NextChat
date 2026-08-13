@@ -1,20 +1,9 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
-import {
-  ApiPath,
-  MOONSHOT_BASE_URL,
-  Moonshot,
-  REQUEST_TIMEOUT_MS,
-} from "@/app/constant";
+import { ApiPath, MOONSHOT_BASE_URL, Moonshot, REQUEST_TIMEOUT_MS } from "@/app/constant";
 import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent } from "@/app/utils";
 import { RequestPayload } from "./openai";
@@ -97,15 +86,10 @@ export class MoonshotApi implements LLMApi {
       };
 
       // make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return stream(
           chatPath,
           requestPayload,
@@ -145,11 +129,7 @@ export class MoonshotApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

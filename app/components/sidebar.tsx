@@ -122,8 +122,7 @@ export function useDragSideBar() {
   };
 
   const isMobileScreen = useMobileScreen();
-  const shouldNarrow =
-    !isMobileScreen && config.sidebarWidth < MIN_SIDEBAR_WIDTH;
+  const shouldNarrow = !isMobileScreen && config.sidebarWidth < MIN_SIDEBAR_WIDTH;
 
   useEffect(() => {
     const barWidth = shouldNarrow
@@ -146,10 +145,7 @@ export function SideBarContainer(props: {
   className?: string;
 }) {
   const isMobileScreen = useMobileScreen();
-  const isIOSMobile = useMemo(
-    () => isIOS() && isMobileScreen,
-    [isMobileScreen],
-  );
+  const isIOSMobile = useMemo(() => isIOS() && isMobileScreen, [isMobileScreen]);
   const { children, className, onDragStart, shouldNarrow } = props;
   return (
     <div
@@ -162,10 +158,7 @@ export function SideBarContainer(props: {
       }}
     >
       {children}
-      <div
-        className={styles["sidebar-drag"]}
-        onPointerDown={(e) => onDragStart(e as any)}
-      >
+      <div className={styles["sidebar-drag"]} onPointerDown={(e) => onDragStart(e as any)}>
         <DragIcon />
       </div>
     </div>
@@ -253,11 +246,7 @@ export function SideBar(props: { className?: string }) {
   }, []);
 
   return (
-    <SideBarContainer
-      onDragStart={onDragStart}
-      shouldNarrow={shouldNarrow}
-      {...props}
-    >
+    <SideBarContainer onDragStart={onDragStart} shouldNarrow={shouldNarrow} {...props}>
       <SideBarHeader
         title="NextChat"
         subTitle="Build your own AI assistant."
@@ -355,20 +344,12 @@ export function SideBar(props: { className?: string }) {
             </div>
             <div className={styles["sidebar-action"]}>
               <Link to={Path.Settings}>
-                <IconButton
-                  aria={Locale.Settings.Title}
-                  icon={<SettingsIcon />}
-                  shadow
-                />
+                <IconButton aria={Locale.Settings.Title} icon={<SettingsIcon />} shadow />
               </Link>
             </div>
             <div className={styles["sidebar-action"]}>
               <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-                <IconButton
-                  aria={Locale.Export.MessageFromChatGPT}
-                  icon={<GithubIcon />}
-                  shadow
-                />
+                <IconButton aria={Locale.Export.MessageFromChatGPT} icon={<GithubIcon />} shadow />
               </a>
             </div>
           </>

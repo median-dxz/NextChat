@@ -140,8 +140,7 @@ const tr: PartialLocaleType = {
         Title: "Tüm verileri temizle",
         SubTitle: "Tüm sohbet ve ayar verilerini temizle",
         Action: "Hemen temizle",
-        Confirm:
-          "Tüm sohbet ve ayar verilerini temizlemek istediğinizden emin misiniz?",
+        Confirm: "Tüm sohbet ve ayar verilerini temizlemek istediğinizden emin misiniz?",
       },
     },
     Lang: {
@@ -233,8 +232,7 @@ const tr: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Maske Başlangıç Sayfası",
-        SubTitle:
-          "Yeni sohbet başlatıldığında maske başlangıç sayfasını göster",
+        SubTitle: "Yeni sohbet başlatıldığında maske başlangıç sayfasını göster",
       },
       Builtin: {
         Title: "Yerleşik Maskeleri Gizle",
@@ -244,8 +242,7 @@ const tr: PartialLocaleType = {
     Prompt: {
       Disable: {
         Title: "İpucu Tamamlamayı Devre Dışı Bırak",
-        SubTitle:
-          "Giriş kutusunun başına / yazarak otomatik tamamlamayı tetikle",
+        SubTitle: "Giriş kutusunun başına / yazarak otomatik tamamlamayı tetikle",
       },
       List: "Özelleştirilmiş İpucu Listesi",
       ListCount: (builtin: number, custom: number) =>
@@ -266,8 +263,7 @@ const tr: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Geçmiş Mesaj Uzunluğu Sıkıştırma Eşiği",
-      SubTitle:
-        "Sıkıştırılmamış geçmiş mesaj bu değeri aştığında sıkıştırma yapılır",
+      SubTitle: "Sıkıştırılmamış geçmiş mesaj bu değeri aştığında sıkıştırma yapılır",
     },
 
     Usage: {
@@ -277,8 +273,7 @@ const tr: PartialLocaleType = {
       },
       IsChecking: "Kontrol ediliyor…",
       Check: "Yeniden kontrol et",
-      NoAccess:
-        "Bakiye görüntülemek için API Anahtarı veya erişim şifresi girin",
+      NoAccess: "Bakiye görüntülemek için API Anahtarı veya erişim şifresi girin",
     },
 
     Access: {
@@ -297,8 +292,7 @@ const tr: PartialLocaleType = {
       },
       CustomEndpoint: {
         Title: "Özelleştirilmiş API",
-        SubTitle:
-          "Özelleştirilmiş Azure veya OpenAI hizmeti kullanmak ister misiniz?",
+        SubTitle: "Özelleştirilmiş Azure veya OpenAI hizmeti kullanmak ister misiniz?",
       },
       Provider: {
         Title: "Model Sağlayıcısı",
@@ -425,8 +419,7 @@ const tr: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Özelleştirilmiş Model Adı",
-        SubTitle:
-          "Özelleştirilmiş model seçenekleri ekleyin, İngilizce virgül ile ayırın",
+        SubTitle: "Özelleştirilmiş model seçenekleri ekleyin, İngilizce virgül ile ayırın",
       },
     },
 
@@ -441,8 +434,7 @@ const tr: PartialLocaleType = {
     },
     TopP: {
       Title: "Nükleer Örnekleme (top_p)",
-      SubTitle:
-        "Rastgeleliğe benzer, ancak rastgelelik ile birlikte değiştirmeyin",
+      SubTitle: "Rastgeleliğe benzer, ancak rastgelelik ile birlikte değiştirmeyin",
     },
     MaxTokens: {
       Title: "Tek Yanıt Limiti (max_tokens)",
@@ -454,8 +446,7 @@ const tr: PartialLocaleType = {
     },
     FrequencyPenalty: {
       Title: "Frekans Cezası (frequency_penalty)",
-      SubTitle:
-        "Değer arttıkça, tekrar eden kelimelerin azalması olasılığı artar",
+      SubTitle: "Değer arttıkça, tekrar eden kelimelerin azalması olasılığı artar",
     },
   },
   Store: {
@@ -502,8 +493,7 @@ const tr: PartialLocaleType = {
     Name: "Maske",
     Page: {
       Title: "Önceden Tanımlı Karakter Maskeleri",
-      SubTitle: (count: number) =>
-        `${count} tane önceden tanımlı karakter tanımı`,
+      SubTitle: (count: number) => `${count} tane önceden tanımlı karakter tanımı`,
       Search: "Karakter maskesi ara",
       Create: "Yeni oluştur",
     },
@@ -532,8 +522,7 @@ const tr: PartialLocaleType = {
       },
       HideContext: {
         Title: "Önceden Tanımlı Sohbetleri Gizle",
-        SubTitle:
-          "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
+        SubTitle: "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
       },
       Share: {
         Title: "Bu Maskeyi Paylaş",
@@ -549,15 +538,13 @@ const tr: PartialLocaleType = {
     ConfirmNoShow:
       "Devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra ayarlardan tekrar etkinleştirebilirsiniz.",
     Title: "Bir Maske Seçin",
-    SubTitle:
-      "Şimdi başlayın ve maskenin arkasındaki zihinle etkileşimde bulunun",
+    SubTitle: "Şimdi başlayın ve maskenin arkasındaki zihinle etkileşimde bulunun",
     More: "Tümünü Gör",
   },
 
   URLCommand: {
     Code: "Bağlantıda erişim kodu bulundu, otomatik olarak doldurulsun mu?",
-    Settings:
-      "Bağlantıda önceden tanımlı ayarlar bulundu, otomatik olarak doldurulsun mu?",
+    Settings: "Bağlantıda önceden tanımlı ayarlar bulundu, otomatik olarak doldurulsun mu?",
   },
 
   UI: {

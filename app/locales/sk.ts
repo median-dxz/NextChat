@@ -106,8 +106,7 @@ const sk: PartialLocaleType = {
     },
     Image: {
       Toast: "Snímanie obrázka...",
-      Modal:
-        "Dlhým stlačením alebo kliknutím pravým tlačidlom myši uložte obrázok",
+      Modal: "Dlhým stlačením alebo kliknutím pravým tlačidlom myši uložte obrázok",
     },
   },
   Select: {
@@ -154,8 +153,7 @@ const sk: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Chatové Písmo",
-      SubTitle:
-        "Písmo obsahu chatu, ponechajte prázdne pre použitie globálneho predvoleného písma",
+      SubTitle: "Písmo obsahu chatu, ponechajte prázdne pre použitie globálneho predvoleného písma",
       Placeholder: "Názov Písma",
     },
     InjectSystemPrompts: {
@@ -262,8 +260,7 @@ const sk: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Práh kompresie histórie",
-      SubTitle:
-        "Bude komprimované, ak dĺžka nekomprimovaných správ presiahne túto hodnotu",
+      SubTitle: "Bude komprimované, ak dĺžka nekomprimovaných správ presiahne túto hodnotu",
     },
 
     Usage: {
@@ -306,8 +303,7 @@ const sk: PartialLocaleType = {
 
         Endpoint: {
           Title: "Koncový bod OpenAI",
-          SubTitle:
-            "Musí začínať http(s):// alebo použiť /api/openai ako predvolený",
+          SubTitle: "Musí začínať http(s):// alebo použiť /api/openai ako predvolený",
         },
       },
       Azure: {
@@ -351,8 +347,7 @@ const sk: PartialLocaleType = {
       Google: {
         ApiKey: {
           Title: "API kľúč",
-          SubTitle:
-            "Obísť obmedzenia prístupu heslom pomocou vlastného API kľúča Google AI Studio",
+          SubTitle: "Obísť obmedzenia prístupu heslom pomocou vlastného API kľúča Google AI Studio",
           Placeholder: "API kľúč Google AI Studio",
         },
 
@@ -398,13 +393,11 @@ const sk: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Penalizácia za prítomnosť",
-      SubTitle:
-        "Vyššia hodnota zvyšuje pravdepodobnosť hovorenia o nových témach",
+      SubTitle: "Vyššia hodnota zvyšuje pravdepodobnosť hovorenia o nových témach",
     },
     FrequencyPenalty: {
       Title: "Penalizácia za frekvenciu",
-      SubTitle:
-        "Vyššia hodnota znižuje pravdepodobnosť opakovania rovnakej línie",
+      SubTitle: "Vyššia hodnota znižuje pravdepodobnosť opakovania rovnakej línie",
     },
   },
   Store: {
@@ -419,8 +412,7 @@ const sk: PartialLocaleType = {
   },
   Copy: {
     Success: "Skopírované do schránky",
-    Failed:
-      "Kopírovanie zlyhalo, prosím udeľte povolenie na prístup k schránke",
+    Failed: "Kopírovanie zlyhalo, prosím udeľte povolenie na prístup k schránke",
   },
   Download: {
     Success: "Obsah stiahnutý do vášho adresára.",
@@ -465,8 +457,7 @@ const sk: PartialLocaleType = {
       DeleteConfirm: "Potvrdiť vymazanie?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Upraviť šablónu výziev ${readonly ? "(iba na čítanie)" : ""}`,
+      Title: (readonly: boolean) => `Upraviť šablónu výziev ${readonly ? "(iba na čítanie)" : ""}`,
       Download: "Stiahnuť",
       Clone: "Klonovať",
     },
@@ -496,8 +487,7 @@ const sk: PartialLocaleType = {
     SubTitle: "Chatovať s dušou za maskou",
     More: "Nájsť viac",
     NotShow: "Už nezobrazovať",
-    ConfirmNoShow:
-      "Potvrdiť deaktiváciu? Môžete ju neskôr znova povoliť v nastaveniach.",
+    ConfirmNoShow: "Potvrdiť deaktiváciu? Môžete ju neskôr znova povoliť v nastaveniach.",
   },
 
   UI: {

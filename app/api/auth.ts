@@ -89,8 +89,7 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
         systemApiKey = serverConfig.moonshotApiKey;
         break;
       case ModelProvider.Iflytek:
-        systemApiKey =
-          serverConfig.iflytekApiKey + ":" + serverConfig.iflytekApiSecret;
+        systemApiKey = serverConfig.iflytekApiKey + ":" + serverConfig.iflytekApiSecret;
         break;
       case ModelProvider.DeepSeek:
         systemApiKey = serverConfig.deepseekApiKey;

@@ -23,8 +23,7 @@ export async function handle(
     });
   }
 
-  const bearToken =
-    req.headers.get("x-goog-api-key") || req.headers.get("Authorization") || "";
+  const bearToken = req.headers.get("x-goog-api-key") || req.headers.get("Authorization") || "";
   const token = bearToken.trim().replaceAll("Bearer ", "").trim();
 
   const apiKey = token ? token : serverConfig.googleApiKey;
@@ -92,9 +91,7 @@ async function request(req: NextRequest, apiKey: string) {
     },
     10 * 60 * 1000,
   );
-  const fetchUrl = `${baseUrl}${path}${
-    req?.nextUrl?.searchParams?.get("alt") === "sse" ? "?alt=sse" : ""
-  }`;
+  const fetchUrl = `${baseUrl}${path}${req?.nextUrl?.searchParams?.get("alt") === "sse" ? "?alt=sse" : ""}`;
 
   console.log("[Fetch Url] ", fetchUrl);
   const fetchOptions: RequestInit = {

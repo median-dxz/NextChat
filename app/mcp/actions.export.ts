@@ -1,8 +1,4 @@
-import {
-  DEFAULT_MCP_CONFIG,
-  type McpRequestMessage,
-  type ServerConfig,
-} from "./types";
+import { DEFAULT_MCP_CONFIG, type McpRequestMessage, type ServerConfig } from "./types";
 
 const unavailable = () => {
   throw new Error("MCP server actions are unavailable in static exports");
@@ -48,10 +44,7 @@ export async function restartAllClients() {
   return unavailable();
 }
 
-export async function executeMcpAction(
-  _clientId: string,
-  _request: McpRequestMessage,
-) {
+export async function executeMcpAction(_clientId: string, _request: McpRequestMessage) {
   return unavailable();
 }
 

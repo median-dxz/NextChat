@@ -121,12 +121,7 @@ export type ModelConfig = ChatConfig["modelConfig"];
 export type TTSConfig = ChatConfig["ttsConfig"];
 export type RealtimeConfig = ChatConfig["realtimeConfig"];
 
-export function limitNumber(
-  x: number,
-  min: number,
-  max: number,
-  defaultValue: number,
-) {
+export function limitNumber(x: number, min: number, max: number, defaultValue: number) {
   if (isNaN(x)) {
     return defaultValue;
   }
@@ -255,32 +250,24 @@ export const useAppConfig = createPersistStore(
       }
 
       if (version < 4.1) {
-        legacyModelConfig.compressModel =
-          DEFAULT_CONFIG.modelConfig.compressModel;
-        legacyModelConfig.compressProviderName =
-          DEFAULT_CONFIG.modelConfig.compressProviderName;
+        legacyModelConfig.compressModel = DEFAULT_CONFIG.modelConfig.compressModel;
+        legacyModelConfig.compressProviderName = DEFAULT_CONFIG.modelConfig.compressProviderName;
       }
 
       if (version < 4.2) {
         state.modelConfig.enableConversationSummaries =
-          legacyModelConfig.sendMemory ??
-          DEFAULT_CONFIG.modelConfig.enableConversationSummaries;
-        state.modelConfig.contextWindowTokens =
-          DEFAULT_CONFIG.modelConfig.contextWindowTokens;
+          legacyModelConfig.sendMemory ?? DEFAULT_CONFIG.modelConfig.enableConversationSummaries;
+        state.modelConfig.contextWindowTokens = DEFAULT_CONFIG.modelConfig.contextWindowTokens;
         state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
-        state.modelConfig.titleProviderName =
-          DEFAULT_CONFIG.modelConfig.titleProviderName;
+        state.modelConfig.titleProviderName = DEFAULT_CONFIG.modelConfig.titleProviderName;
         state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
-        state.modelConfig.memoryProviderName =
-          DEFAULT_CONFIG.modelConfig.memoryProviderName;
+        state.modelConfig.memoryProviderName = DEFAULT_CONFIG.modelConfig.memoryProviderName;
         state.modelConfig.recentRawNodeCount =
-          legacyModelConfig.historyMessageCount ??
-          DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
+          legacyModelConfig.historyMessageCount ?? DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
         state.modelConfig.segmentTargetSourceTokens =
           legacyModelConfig.compressMessageLengthThreshold ??
           DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
-        state.modelConfig.segmentMaxSourceNodes =
-          DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
+        state.modelConfig.segmentMaxSourceNodes = DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
         state.modelConfig.checkpointTargetSegments =
           DEFAULT_CONFIG.modelConfig.checkpointTargetSegments;
         state.modelConfig.checkpointMergeTargetTokens = Math.max(

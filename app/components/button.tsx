@@ -52,11 +52,7 @@ export function IconButton(props: {
         </div>
       )}
 
-      {props.text && (
-        <div className={styles["icon-button-text"]}>
-          {props.text}
-        </div>
-      )}
+      {props.text && <div className={styles["icon-button-text"]}>{props.text}</div>}
     </button>
   );
 }

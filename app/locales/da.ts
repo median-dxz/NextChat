@@ -80,9 +80,7 @@ const da: PartialLocaleType = {
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += ", Shift + Enter for ny linje";
       }
-      return (
-        inputHints + ", / for at søge i prompts, : for at bruge kommandoer"
-      );
+      return inputHints + ", / for at søge i prompts, : for at bruge kommandoer";
     },
     Send: "Send",
     Config: {
@@ -273,8 +271,7 @@ const da: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Komprimeringsgrænse",
-      SubTitle:
-        "Hvis chatten bliver for lang, vil den komprimeres efter dette antal tegn",
+      SubTitle: "Hvis chatten bliver for lang, vil den komprimeres efter dette antal tegn",
     },
     Usage: {
       Title: "Brug og saldo",
@@ -594,10 +591,8 @@ const da: PartialLocaleType = {
     DefaultTopic: "Ny samtale",
     BotHello: "Hej! Hvordan kan jeg hjælpe dig i dag?",
     Prompt: {
-      Topic:
-        "Find en kort overskrift med 4-5 ord om emnet. Ingen tegnsætning eller anførselstegn.",
-      Summarize:
-        "Skriv et kort resumé (under 200 ord) af vores samtale til senere brug.",
+      Topic: "Find en kort overskrift med 4-5 ord om emnet. Ingen tegnsætning eller anførselstegn.",
+      Summarize: "Skriv et kort resumé (under 200 ord) af vores samtale til senere brug.",
     },
   },
   Copy: {
@@ -660,8 +655,7 @@ const da: PartialLocaleType = {
       LocationBody: "Body",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Rediger Plugin ${readonly ? "(skrivebeskyttet)" : ""}`,
+      Title: (readonly: boolean) => `Rediger Plugin ${readonly ? "(skrivebeskyttet)" : ""}`,
       Auth: "Godkendelsestype",
       Content: "OpenAPI Schema",
       Load: "Hent fra URL",
@@ -685,8 +679,7 @@ const da: PartialLocaleType = {
       DeleteConfirm: "Vil du slette?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Rediger skabelon ${readonly ? "(skrivebeskyttet)" : ""}`,
+      Title: (readonly: boolean) => `Rediger skabelon ${readonly ? "(skrivebeskyttet)" : ""}`,
       Download: "Download",
       Clone: "Klon",
     },

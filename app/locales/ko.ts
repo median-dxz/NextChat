@@ -175,8 +175,7 @@ const ko: PartialLocaleType = {
     },
     InjectSystemPrompts: {
       Title: "시스템 수준 프롬프트 삽입",
-      SubTitle:
-        "각 요청 메시지 목록의 시작 부분에 ChatGPT 시스템 프롬프트를 강제로 추가",
+      SubTitle: "각 요청 메시지 목록의 시작 부분에 ChatGPT 시스템 프롬프트를 강제로 추가",
     },
     InputTemplate: {
       Title: "사용자 입력 전처리",
@@ -220,8 +219,7 @@ const ko: PartialLocaleType = {
         },
         Proxy: {
           Title: "프록시 사용",
-          SubTitle:
-            "브라우저에서 동기화할 때 프록시를 활성화하여 교차 출처 제한을 피해야 함",
+          SubTitle: "브라우저에서 동기화할 때 프록시를 활성화하여 교차 출처 제한을 피해야 함",
         },
         ProxyUrl: {
           Title: "프록시 주소",
@@ -568,8 +566,7 @@ const ko: PartialLocaleType = {
       },
       Autoplay: {
         Title: "자동 재생 활성화",
-        SubTitle:
-          "자동으로 음성을 생성하고 재생, 먼저 TTS 스위치를 활성화해야 함",
+        SubTitle: "자동으로 음성을 생성하고 재생, 먼저 TTS 스위치를 활성화해야 함",
       },
       Model: "모델",
       Voice: {
@@ -687,8 +684,7 @@ const ko: PartialLocaleType = {
       LocationBody: "바디",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `플러그인 편집 ${readonly ? "(읽기 전용)" : ""}`,
+      Title: (readonly: boolean) => `플러그인 편집 ${readonly ? "(읽기 전용)" : ""}`,
       Auth: "인증 유형",
       Content: "OpenAPI Schema",
       Load: "URL에서 로드",
@@ -712,8 +708,7 @@ const ko: PartialLocaleType = {
       DeleteConfirm: "삭제를 확인하시겠습니까?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `프리셋 마스크 편집 ${readonly ? "（읽기 전용）" : ""}`,
+      Title: (readonly: boolean) => `프리셋 마스크 편집 ${readonly ? "（읽기 전용）" : ""}`,
       Download: "프리셋 다운로드",
       Clone: "프리셋 복제",
     },
@@ -741,8 +736,7 @@ const ko: PartialLocaleType = {
     Return: "돌아가기",
     Skip: "바로 시작",
     NotShow: "다시 보지 않기",
-    ConfirmNoShow:
-      "비활성화하시겠습니까? 비활성화 후 언제든지 설정에서 다시 활성화할 수 있습니다.",
+    ConfirmNoShow: "비활성화하시겠습니까? 비활성화 후 언제든지 설정에서 다시 활성화할 수 있습니다.",
     Title: "마스크 선택",
     SubTitle: "지금 시작하여 마스크 뒤의 사고와 교류해보세요.",
     More: "모두 보기",
@@ -750,8 +744,7 @@ const ko: PartialLocaleType = {
 
   URLCommand: {
     Code: "링크에 액세스 코드가 포함되어 있습니다. 자동으로 입력하시겠습니까?",
-    Settings:
-      "링크에 프리셋 설정이 포함되어 있습니다. 자동으로 입력하시겠습니까?",
+    Settings: "링크에 프리셋 설정이 포함되어 있습니다. 자동으로 입력하시겠습니까?",
   },
 
   UI: {

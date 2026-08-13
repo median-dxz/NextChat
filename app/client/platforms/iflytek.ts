@@ -1,24 +1,10 @@
 "use client";
-import {
-  ApiPath,
-  IFLYTEK_BASE_URL,
-  Iflytek,
-  REQUEST_TIMEOUT_MS,
-} from "@/app/constant";
+import { ApiPath, IFLYTEK_BASE_URL, Iflytek, REQUEST_TIMEOUT_MS } from "@/app/constant";
 import { useAccessStore } from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
 import Locale from "../../locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent } from "@/app/utils";
@@ -103,10 +89,7 @@ export class SparkApi implements LLMApi {
       };
 
       // Make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       if (shouldStream) {
         let responseText = "";
@@ -161,9 +144,7 @@ export class SparkApi implements LLMApi {
             // Handle different error scenarios
             if (
               !res.ok ||
-              !res.headers
-                .get("content-type")
-                ?.startsWith(EventStreamContentType) ||
+              !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
               res.status !== 200
             ) {
               let extraInfo = await res.clone().text();
@@ -177,9 +158,7 @@ export class SparkApi implements LLMApi {
               }
 
               options.onError?.(
-                new Error(
-                  `Request failed with status ${res.status}: ${extraInfo}`,
-                ),
+                new Error(`Request failed with status ${res.status}: ${extraInfo}`),
               );
               return finish();
             }
@@ -219,9 +198,7 @@ export class SparkApi implements LLMApi {
 
         if (!res.ok) {
           const errorText = await res.text();
-          options.onError?.(
-            new Error(`Request failed with status ${res.status}: ${errorText}`),
-          );
+          options.onError?.(new Error(`Request failed with status ${res.status}: ${errorText}`));
           return;
         }
 

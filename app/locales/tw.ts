@@ -25,8 +25,7 @@ const tw: PartialLocaleType = {
     Confirm: "確認",
     Return: "返回",
     SaasTips: "設定太麻煩，想要立即使用",
-    TopTips:
-      "🥳 NextChat AI 首發優惠，立刻解鎖 OpenAI o1, GPT-4o, Claude-3.5 等最新的大型語言模型",
+    TopTips: "🥳 NextChat AI 首發優惠，立刻解鎖 OpenAI o1, GPT-4o, Claude-3.5 等最新的大型語言模型",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} 則對話`,
@@ -252,8 +251,7 @@ const tw: PartialLocaleType = {
         SubTitle: "在輸入框開頭輸入 / 即可觸發自動補齊",
       },
       List: "自訂提示詞列表",
-      ListCount: (builtin: number, custom: number) =>
-        `內建 ${builtin} 條，使用者自訂 ${custom} 條`,
+      ListCount: (builtin: number, custom: number) => `內建 ${builtin} 條，使用者自訂 ${custom} 條`,
       Edit: "編輯",
       Modal: {
         Title: "提示詞列表",
@@ -453,8 +451,7 @@ const tw: PartialLocaleType = {
       DeleteConfirm: "確認刪除？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `編輯預設角色範本 ${readonly ? "（唯讀）" : ""}`,
+      Title: (readonly: boolean) => `編輯預設角色範本 ${readonly ? "（唯讀）" : ""}`,
       Download: "下載預設值",
       Clone: "以此預設值建立副本",
     },

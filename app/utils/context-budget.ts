@@ -8,10 +8,7 @@ function getContextSafetyReserve(contextWindowTokens: number) {
   );
 }
 
-export function getContextInputBudget(
-  contextWindowTokens: number,
-  maxOutputTokens: number,
-) {
+export function getContextInputBudget(contextWindowTokens: number, maxOutputTokens: number) {
   const safetyReserve = getContextSafetyReserve(contextWindowTokens);
   const outputReserve = Math.min(
     maxOutputTokens,
@@ -26,15 +23,11 @@ export function getEffectiveMaxOutputTokens(
   promptTokenCount: number,
 ) {
   const available =
-    contextWindowTokens -
-    getContextSafetyReserve(contextWindowTokens) -
-    promptTokenCount;
+    contextWindowTokens - getContextSafetyReserve(contextWindowTokens) - promptTokenCount;
   return Math.max(1, Math.min(configuredMaxOutputTokens, available));
 }
 
-export function estimateRequestMessageTokens(
-  message: Pick<ConversationMessageInput, "content">,
-) {
+export function estimateRequestMessageTokens(message: Pick<ConversationMessageInput, "content">) {
   if (!Array.isArray(message.content)) {
     return estimateTokenLength(message.content);
   }

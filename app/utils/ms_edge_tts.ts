@@ -164,11 +164,7 @@ export class MsEdgeTTS {
     this._ws.binaryType = "arraybuffer";
     return new Promise((resolve, reject) => {
       this._ws!.onopen = () => {
-        this._log(
-          "Connected in",
-          (Date.now() - this._startTime) / 1000,
-          "seconds",
-        );
+        this._log("Connected in", (Date.now() - this._startTime) / 1000, "seconds");
         this._send(
           `Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n
                     {
@@ -198,21 +194,14 @@ export class MsEdgeTTS {
           this._streams[requestId].push(null);
         } else if (message.includes("Path:response")) {
           // context response, ignore
-        } else if (
-          message.includes("Path:audio") &&
-          m.data instanceof ArrayBuffer
-        ) {
+        } else if (message.includes("Path:audio") && m.data instanceof ArrayBuffer) {
           this._pushAudioData(buffer, requestId);
         } else {
           this._log("UNKNOWN MESSAGE", message);
         }
       };
       this._ws!.onclose = () => {
-        this._log(
-          "disconnected after:",
-          (Date.now() - this._startTime) / 1000,
-          "seconds",
-        );
+        this._log("disconnected after:", (Date.now() - this._startTime) / 1000, "seconds");
         for (const requestId in this._streams) {
           this._streams[requestId].push(null);
         }
@@ -225,8 +214,7 @@ export class MsEdgeTTS {
 
   private _pushAudioData(audioBuffer: Buffer, requestId: string) {
     const audioStartIndex =
-      audioBuffer.indexOf(MsEdgeTTS.BINARY_DELIM) +
-      MsEdgeTTS.BINARY_DELIM.length;
+      audioBuffer.indexOf(MsEdgeTTS.BINARY_DELIM) + MsEdgeTTS.BINARY_DELIM.length;
     const audioData = audioBuffer.subarray(audioStartIndex);
     this._streams[requestId].push(audioData);
     this._log("received audio chunk, size: ", audioData?.length);
@@ -279,11 +267,7 @@ export class MsEdgeTTS {
    * @param outputFormat any {@link OUTPUT_FORMAT}
    * @param voiceLocale (optional) any voice locale that is supported by the voice. See the list of all voices for compatibility. If not provided, the locale will be inferred from the `voiceName`
    */
-  async setMetadata(
-    voiceName: string,
-    outputFormat: OUTPUT_FORMAT,
-    voiceLocale?: string,
-  ) {
+  async setMetadata(voiceName: string, outputFormat: OUTPUT_FORMAT, voiceLocale?: string) {
     const oldVoice = this._voice;
     const oldVoiceLocale = this._voiceLocale;
     const oldOutputFormat = this._outputFormat;
@@ -292,8 +276,7 @@ export class MsEdgeTTS {
     this._voiceLocale = voiceLocale;
     if (!this._voiceLocale) {
       const voiceLangMatch = MsEdgeTTS.VOICE_LANG_REGEX.exec(this._voice);
-      if (!voiceLangMatch)
-        throw new Error("Could not infer voiceLocale from voiceName!");
+      if (!voiceLangMatch) throw new Error("Could not infer voiceLocale from voiceName!");
       this._voiceLocale = voiceLangMatch[0];
     }
     this._outputFormat = outputFormat;

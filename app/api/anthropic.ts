@@ -14,10 +14,7 @@ import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 
 const ALLOWD_PATH = new Set([Anthropic.ChatPath, Anthropic.ChatPath1]);
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[Anthropic Route] params ", params);
 
   if (req.method === "OPTIONS") {
@@ -69,8 +66,7 @@ async function request(req: NextRequest) {
 
   let path = `${req.nextUrl.pathname}`.replaceAll(ApiPath.Anthropic, "");
 
-  let baseUrl =
-    serverConfig.anthropicUrl || serverConfig.baseUrl || ANTHROPIC_BASE_URL;
+  let baseUrl = serverConfig.anthropicUrl || serverConfig.baseUrl || ANTHROPIC_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;

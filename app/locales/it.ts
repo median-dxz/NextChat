@@ -23,8 +23,7 @@ const it: PartialLocaleType = {
     Input: "Inserisci il codice di accesso qui",
     Confirm: "Conferma",
     Return: "Ritorna",
-    SaasTips:
-      "La configurazione è troppo complicata, voglio usarlo immediatamente",
+    SaasTips: "La configurazione è troppo complicata, voglio usarlo immediatamente",
     TopTips:
       "🥳 Offerta di lancio NextChat AI, sblocca OpenAI o1, GPT-4o, Claude-3.5 e i più recenti modelli di grandi dimensioni",
   },
@@ -79,10 +78,7 @@ const it: PartialLocaleType = {
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += "，Shift + Enter per andare a capo";
       }
-      return (
-        inputHints +
-        "，/ per attivare il completamento automatico, : per attivare il comando"
-      );
+      return inputHints + "，/ per attivare il completamento automatico, : per attivare il comando";
     },
     Send: "Invia",
     Config: {
@@ -110,8 +106,7 @@ const it: PartialLocaleType = {
     },
     Image: {
       Toast: "Generazione dello screenshot in corso",
-      Modal:
-        "Tieni premuto o fai clic con il tasto destro per salvare l'immagine",
+      Modal: "Tieni premuto o fai clic con il tasto destro per salvare l'immagine",
     },
   },
   Select: {
@@ -145,8 +140,7 @@ const it: PartialLocaleType = {
         Title: "Elimina tutti i dati",
         SubTitle: "Elimina tutte le chat e i dati delle impostazioni",
         Action: "Elimina subito",
-        Confirm:
-          "Confermi l'eliminazione di tutte le chat e dei dati delle impostazioni?",
+        Confirm: "Confermi l'eliminazione di tutte le chat e dei dati delle impostazioni?",
       },
     },
     Lang: {
@@ -171,8 +165,7 @@ const it: PartialLocaleType = {
     },
     InputTemplate: {
       Title: "Preprocessing dell'input utente",
-      SubTitle:
-        "L'ultimo messaggio dell'utente verrà inserito in questo modello",
+      SubTitle: "L'ultimo messaggio dell'utente verrà inserito in questo modello",
     },
 
     Update: {
@@ -191,8 +184,7 @@ const it: PartialLocaleType = {
     },
     AutoGenerateTitle: {
       Title: "Generazione automatica del titolo",
-      SubTitle:
-        "Genera un titolo appropriato in base al contenuto della conversazione",
+      SubTitle: "Genera un titolo appropriato in base al contenuto della conversazione",
     },
     Sync: {
       CloudState: "Dati cloud",
@@ -241,13 +233,11 @@ const it: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Pagina di avvio delle maschere",
-        SubTitle:
-          "Mostra la pagina di avvio delle maschere quando si avvia una nuova chat",
+        SubTitle: "Mostra la pagina di avvio delle maschere quando si avvia una nuova chat",
       },
       Builtin: {
         Title: "Nascondi maschere predefinite",
-        SubTitle:
-          "Nascondi le maschere predefinite in tutte le liste delle maschere",
+        SubTitle: "Nascondi le maschere predefinite in tutte le liste delle maschere",
       },
     },
     Prompt: {
@@ -286,8 +276,7 @@ const it: PartialLocaleType = {
       },
       IsChecking: "Verifica in corso…",
       Check: "Verifica di nuovo",
-      NoAccess:
-        "Inserisci API Key o password di accesso per visualizzare il saldo",
+      NoAccess: "Inserisci API Key o password di accesso per visualizzare il saldo",
     },
 
     Access: {
@@ -395,8 +384,7 @@ const it: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Indirizzo dell'interfaccia",
-          SubTitle:
-            "Non supporta configurazioni personalizzate, andare su .env",
+          SubTitle: "Non supporta configurazioni personalizzate, andare su .env",
         },
       },
       ByteDance: {
@@ -434,8 +422,7 @@ const it: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Nome del modello personalizzato",
-        SubTitle:
-          "Aggiungi opzioni di modelli personalizzati, separati da virgole",
+        SubTitle: "Aggiungi opzioni di modelli personalizzati, separati da virgole",
       },
     },
 
@@ -450,8 +437,7 @@ const it: PartialLocaleType = {
     },
     TopP: {
       Title: "Campionamento nucleare (top_p)",
-      SubTitle:
-        "Simile alla casualità, ma non cambiarlo insieme alla casualità",
+      SubTitle: "Simile alla casualità, ma non cambiarlo insieme alla casualità",
     },
     MaxTokens: {
       Title: "Limite di token per risposta (max_tokens)",
@@ -459,13 +445,11 @@ const it: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Novità del tema (presence_penalty)",
-      SubTitle:
-        "Valore più alto, maggiore possibilità di espandere a nuovi argomenti",
+      SubTitle: "Valore più alto, maggiore possibilità di espandere a nuovi argomenti",
     },
     FrequencyPenalty: {
       Title: "Penalità di frequenza (frequency_penalty)",
-      SubTitle:
-        "Valore più alto, maggiore possibilità di ridurre le ripetizioni",
+      SubTitle: "Valore più alto, maggiore possibilità di ridurre le ripetizioni",
     },
   },
   Store: {
@@ -535,8 +519,7 @@ const it: PartialLocaleType = {
       Name: "Nome del ruolo",
       Sync: {
         Title: "Utilizza impostazioni globali",
-        SubTitle:
-          "La conversazione attuale utilizzerà le impostazioni globali del modello",
+        SubTitle: "La conversazione attuale utilizzerà le impostazioni globali del modello",
         Confirm:
           "Le impostazioni personalizzate della conversazione attuale verranno sovrascritte automaticamente, confermi l'attivazione delle impostazioni globali?",
       },
@@ -565,8 +548,7 @@ const it: PartialLocaleType = {
 
   URLCommand: {
     Code: "Codice di accesso rilevato nel link, riempirlo automaticamente?",
-    Settings:
-      "Impostazioni predefinite rilevate nel link, riempirle automaticamente?",
+    Settings: "Impostazioni predefinite rilevate nel link, riempirle automaticamente?",
   },
 
   UI: {
@@ -580,8 +562,7 @@ const it: PartialLocaleType = {
   },
   Exporter: {
     Description: {
-      Title:
-        "Solo i messaggi dopo la cancellazione del contesto verranno visualizzati",
+      Title: "Solo i messaggi dopo la cancellazione del contesto verranno visualizzati",
     },
     Model: "Modello",
     Messages: "Messaggi",

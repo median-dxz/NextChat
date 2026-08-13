@@ -9,12 +9,7 @@ import {
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
 } from "@/app/constant";
-import {
-  ChatMessageTool,
-  useAccessStore,
-  useAppConfig,
-  usePluginStore,
-} from "@/app/store";
+import { ChatMessageTool, useAccessStore, useAppConfig, usePluginStore } from "@/app/store";
 import { collectModelsWithDefaultModel } from "@/app/utils/model";
 import {
   preProcessImageContent,
@@ -90,9 +85,7 @@ export class ChatGPTApi implements LLMApi {
     const isAzure = path.includes("deployments");
     if (accessStore.useCustomConfig) {
       if (isAzure && !accessStore.isValidAzure()) {
-        throw Error(
-          "incomplete azure config, please check it in your settings page",
-        );
+        throw Error("incomplete azure config, please check it in your settings page");
       }
 
       baseUrl = isAzure ? accessStore.azureUrl : accessStore.openaiUrl;
@@ -107,11 +100,7 @@ export class ChatGPTApi implements LLMApi {
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (
-      !baseUrl.startsWith("http") &&
-      !isAzure &&
-      !baseUrl.startsWith(ApiPath.OpenAI)
-    ) {
+    if (!baseUrl.startsWith("http") && !isAzure && !baseUrl.startsWith(ApiPath.OpenAI)) {
       baseUrl = "https://" + baseUrl;
     }
 
@@ -169,10 +158,7 @@ export class ChatGPTApi implements LLMApi {
       };
 
       // make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       const res = await fetch(speechPath, speechPayload);
       clearTimeout(requestTimeoutId);
@@ -195,9 +181,7 @@ export class ChatGPTApi implements LLMApi {
       options.config.model.startsWith("o4-mini");
     const isGpt5 = options.config.model.startsWith("gpt-5");
     if (isDalle3) {
-      const prompt = getMessageTextContent(
-        options.messages.slice(-1)?.pop() as any,
-      );
+      const prompt = getMessageTextContent(options.messages.slice(-1)?.pop() as any);
       requestPayload = {
         model: options.config.model,
         prompt,
@@ -267,8 +251,7 @@ export class ChatGPTApi implements LLMApi {
       let chatPath = "";
       if (modelConfig.providerName === ServiceProvider.Azure) {
         // find model, and get displayName as deployName
-        const { models: configModels, customModels: configCustomModels } =
-          useAppConfig.getState();
+        const { models: configModels, customModels: configCustomModels } = useAppConfig.getState();
         const {
           defaultModel,
           customModels: accessCustomModels,
@@ -291,15 +274,11 @@ export class ChatGPTApi implements LLMApi {
           ),
         );
       } else {
-        chatPath = this.path(
-          isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
-        );
+        chatPath = this.path(isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath);
       }
       if (shouldStream) {
         let index = -1;
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         // console.log("getAsTools", tools, funcs);
         streamWithThink(
           chatPath,
@@ -346,10 +325,7 @@ export class ChatGPTApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -374,11 +350,7 @@ export class ChatGPTApi implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // reset index value
             index = -1;
             // @ts-ignore
@@ -420,10 +392,7 @@ export class ChatGPTApi implements LLMApi {
   }
   async usage() {
     const formatDate = (d: Date) =>
-      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d
-        .getDate()
-        .toString()
-        .padStart(2, "0")}`;
+      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
     const ONE_DAY = 1 * 24 * 60 * 60 * 1000;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -431,15 +400,10 @@ export class ChatGPTApi implements LLMApi {
     const endDate = formatDate(new Date(Date.now() + ONE_DAY));
 
     const [used, subs] = await Promise.all([
-      fetch(
-        this.path(
-          `${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`,
-        ),
-        {
-          method: "GET",
-          headers: getHeaders(ServiceProvider.OpenAI),
-        },
-      ),
+      fetch(this.path(`${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`), {
+        method: "GET",
+        headers: getHeaders(ServiceProvider.OpenAI),
+      }),
       fetch(this.path(OpenaiPath.SubsPath), {
         method: "GET",
         headers: getHeaders(ServiceProvider.OpenAI),

@@ -23,8 +23,7 @@ const de: PartialLocaleType = {
     Input: "Geben Sie hier den Zugangscode ein",
     Confirm: "Bestätigen",
     Return: "Zurück",
-    SaasTips:
-      "Die Konfiguration ist zu kompliziert, ich möchte es sofort nutzen",
+    SaasTips: "Die Konfiguration ist zu kompliziert, ich möchte es sofort nutzen",
     TopTips:
       "🥳 NextChat AI Einführungsangebot, schalte jetzt OpenAI o1, GPT-4o, Claude-3.5 und die neuesten großen Modelle frei",
   },
@@ -141,8 +140,7 @@ const de: PartialLocaleType = {
         Title: "Alle Daten löschen",
         SubTitle: "Löscht alle Chats und Einstellungsdaten",
         Action: "Jetzt löschen",
-        Confirm:
-          "Bestätigen Sie das Löschen aller Chats und Einstellungsdaten?",
+        Confirm: "Bestätigen Sie das Löschen aller Chats und Einstellungsdaten?",
       },
     },
     Lang: {
@@ -167,8 +165,7 @@ const de: PartialLocaleType = {
     },
     InputTemplate: {
       Title: "Benutzer-Eingabeverarbeitung",
-      SubTitle:
-        "Die neueste Nachricht des Benutzers wird in diese Vorlage eingefügt",
+      SubTitle: "Die neueste Nachricht des Benutzers wird in diese Vorlage eingefügt",
     },
 
     Update: {
@@ -187,8 +184,7 @@ const de: PartialLocaleType = {
     },
     AutoGenerateTitle: {
       Title: "Titel automatisch generieren",
-      SubTitle:
-        "Basierend auf dem Chat-Inhalt einen passenden Titel generieren",
+      SubTitle: "Basierend auf dem Chat-Inhalt einen passenden Titel generieren",
     },
     Sync: {
       CloudState: "Cloud-Daten",
@@ -237,8 +233,7 @@ const de: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Masken-Startseite",
-        SubTitle:
-          "Zeige die Masken-Startseite beim Erstellen eines neuen Chats",
+        SubTitle: "Zeige die Masken-Startseite beim Erstellen eines neuen Chats",
       },
       Builtin: {
         Title: "Eingebaute Masken ausblenden",
@@ -266,8 +261,7 @@ const de: PartialLocaleType = {
     },
     HistoryCount: {
       Title: "Anzahl der historischen Nachrichten",
-      SubTitle:
-        "Anzahl der historischen Nachrichten, die bei jeder Anfrage mitgesendet werden",
+      SubTitle: "Anzahl der historischen Nachrichten, die bei jeder Anfrage mitgesendet werden",
     },
     CompressThreshold: {
       Title: "Komprimierungsschwelle für historische Nachrichtenlänge",
@@ -282,8 +276,7 @@ const de: PartialLocaleType = {
       },
       IsChecking: "Wird überprüft…",
       Check: "Erneut überprüfen",
-      NoAccess:
-        "Geben Sie API-Schlüssel oder Zugangspasswort ein, um das Guthaben einzusehen",
+      NoAccess: "Geben Sie API-Schlüssel oder Zugangspasswort ein, um das Guthaben einzusehen",
     },
 
     Access: {
@@ -297,8 +290,7 @@ const de: PartialLocaleType = {
 
       AccessCode: {
         Title: "Zugangscode",
-        SubTitle:
-          "Der Administrator hat die verschlüsselte Zugriffskontrolle aktiviert",
+        SubTitle: "Der Administrator hat die verschlüsselte Zugriffskontrolle aktiviert",
         Placeholder: "Geben Sie den Zugangscode ein",
       },
       CustomEndpoint: {
@@ -392,8 +384,7 @@ const de: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Schnittstellenadresse",
-          SubTitle:
-            "Keine benutzerdefinierten Adressen unterstützen, konfigurieren Sie in .env",
+          SubTitle: "Keine benutzerdefinierten Adressen unterstützen, konfigurieren Sie in .env",
         },
       },
       ByteDance: {
@@ -410,8 +401,7 @@ const de: PartialLocaleType = {
       Alibaba: {
         ApiKey: {
           Title: "Schnittstellenschlüssel",
-          SubTitle:
-            "Verwenden Sie benutzerdefinierten Alibaba Cloud API-Schlüssel",
+          SubTitle: "Verwenden Sie benutzerdefinierten Alibaba Cloud API-Schlüssel",
           Placeholder: "Alibaba Cloud API-Schlüssel",
         },
         Endpoint: {
@@ -422,8 +412,7 @@ const de: PartialLocaleType = {
       AI302: {
         ApiKey: {
           Title: "Schnittstellenschlüssel",
-          SubTitle:
-            "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
+          SubTitle: "Verwenden Sie einen benutzerdefinierten 302.AI API-Schlüssel",
           Placeholder: "302.AI API-Schlüssel",
         },
         Endpoint: {
@@ -433,8 +422,7 @@ const de: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Benutzerdefinierter Modellname",
-        SubTitle:
-          "Fügen Sie benutzerdefinierte Modelloptionen hinzu, getrennt durch Kommas",
+        SubTitle: "Fügen Sie benutzerdefinierte Modelloptionen hinzu, getrennt durch Kommas",
       },
     },
 
@@ -449,8 +437,7 @@ const de: PartialLocaleType = {
     },
     TopP: {
       Title: "Kern-Sampling (top_p)",
-      SubTitle:
-        "Ähnlich der Zufälligkeit, aber nicht zusammen mit Zufälligkeit ändern",
+      SubTitle: "Ähnlich der Zufälligkeit, aber nicht zusammen mit Zufälligkeit ändern",
     },
     MaxTokens: {
       Title: "Maximale Token-Anzahl pro Antwort",
@@ -458,13 +445,11 @@ const de: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Themenfrische (presence_penalty)",
-      SubTitle:
-        "Je höher der Wert, desto wahrscheinlicher wird auf neue Themen eingegangen",
+      SubTitle: "Je höher der Wert, desto wahrscheinlicher wird auf neue Themen eingegangen",
     },
     FrequencyPenalty: {
       Title: "Häufigkeitsstrafe (frequency_penalty)",
-      SubTitle:
-        "Je höher der Wert, desto wahrscheinlicher werden wiederholte Wörter reduziert",
+      SubTitle: "Je höher der Wert, desto wahrscheinlicher werden wiederholte Wörter reduziert",
     },
   },
   Store: {
@@ -479,8 +464,7 @@ const de: PartialLocaleType = {
   },
   Copy: {
     Success: "In die Zwischenablage geschrieben",
-    Failed:
-      "Kopieren fehlgeschlagen, bitte erlauben Sie Zugriff auf die Zwischenablage",
+    Failed: "Kopieren fehlgeschlagen, bitte erlauben Sie Zugriff auf die Zwischenablage",
   },
   Download: {
     Success: "Inhalt wurde in Ihrem Verzeichnis heruntergeladen.",
@@ -512,8 +496,7 @@ const de: PartialLocaleType = {
     Name: "Masken",
     Page: {
       Title: "Vordefinierte Rollenmasken",
-      SubTitle: (count: number) =>
-        `${count} vordefinierte Rollenbeschreibungen`,
+      SubTitle: (count: number) => `${count} vordefinierte Rollenbeschreibungen`,
       Search: "Rollenmasken suchen",
       Create: "Neu erstellen",
     },
@@ -536,15 +519,13 @@ const de: PartialLocaleType = {
       Name: "Rollenname",
       Sync: {
         Title: "Globale Einstellungen verwenden",
-        SubTitle:
-          "Soll das aktuelle Gespräch die globalen Modelleinstellungen verwenden?",
+        SubTitle: "Soll das aktuelle Gespräch die globalen Modelleinstellungen verwenden?",
         Confirm:
           "Die benutzerdefinierten Einstellungen des aktuellen Gesprächs werden automatisch überschrieben. Bestätigen Sie, dass Sie die globalen Einstellungen aktivieren möchten?",
       },
       HideContext: {
         Title: "Vordefinierte Gespräche ausblenden",
-        SubTitle:
-          "Nach dem Ausblenden werden vordefinierte Gespräche nicht mehr im Chat angezeigt",
+        SubTitle: "Nach dem Ausblenden werden vordefinierte Gespräche nicht mehr im Chat angezeigt",
       },
       Share: {
         Title: "Diese Maske teilen",
@@ -560,8 +541,7 @@ const de: PartialLocaleType = {
     ConfirmNoShow:
       "Bestätigen Sie die Deaktivierung? Nach der Deaktivierung können Sie jederzeit in den Einstellungen wieder aktivieren.",
     Title: "Wählen Sie eine Maske aus",
-    SubTitle:
-      "Starten Sie jetzt und lassen Sie sich von den Gedanken hinter der Maske inspirieren",
+    SubTitle: "Starten Sie jetzt und lassen Sie sich von den Gedanken hinter der Maske inspirieren",
     More: "Alle anzeigen",
   },
 

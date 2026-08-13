@@ -154,8 +154,7 @@ const cs: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Chatové Písmo",
-      SubTitle:
-        "Písmo obsahu chatu, ponechejte prázdné pro použití globálního výchozího písma",
+      SubTitle: "Písmo obsahu chatu, ponechejte prázdné pro použití globálního výchozího písma",
       Placeholder: "Název Písma",
     },
     InjectSystemPrompts: {
@@ -243,8 +242,7 @@ const cs: PartialLocaleType = {
     Prompt: {
       Disable: {
         Title: "Zakázat automatické doplňování promptů",
-        SubTitle:
-          "Automatické doplňování se aktivuje zadáním / na začátku textového pole",
+        SubTitle: "Automatické doplňování se aktivuje zadáním / na začátku textového pole",
       },
       List: "Seznam vlastních promptů",
       ListCount: (builtin: number, custom: number) =>
@@ -265,8 +263,7 @@ const cs: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Prahová hodnota komprese historických zpráv",
-      SubTitle:
-        "Když nekomprimované historické zprávy překročí tuto hodnotu, dojde ke kompresi",
+      SubTitle: "Když nekomprimované historické zprávy překročí tuto hodnotu, dojde ke kompresi",
     },
 
     Usage: {
@@ -304,8 +301,7 @@ const cs: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API Key",
-          SubTitle:
-            "Použijte vlastní OpenAI Key k obejití přístupového omezení",
+          SubTitle: "Použijte vlastní OpenAI Key k obejití přístupového omezení",
           Placeholder: "OpenAI API Key",
         },
 
@@ -334,8 +330,7 @@ const cs: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Rozhraní klíč",
-          SubTitle:
-            "Použijte vlastní Anthropic Key k obejití přístupového omezení",
+          SubTitle: "Použijte vlastní Anthropic Key k obejití přístupového omezení",
           Placeholder: "Anthropic API Key",
         },
 
@@ -383,8 +378,7 @@ const cs: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Adresa rozhraní",
-          SubTitle:
-            "Nepodporuje vlastní nastavení, přejděte na .env konfiguraci",
+          SubTitle: "Nepodporuje vlastní nastavení, přejděte na .env konfiguraci",
         },
       },
       ByteDance: {
@@ -445,13 +439,11 @@ const cs: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Čerstvost témat (presence_penalty)",
-      SubTitle:
-        "Čím vyšší hodnota, tím větší pravděpodobnost rozšíření na nová témata",
+      SubTitle: "Čím vyšší hodnota, tím větší pravděpodobnost rozšíření na nová témata",
     },
     FrequencyPenalty: {
       Title: "Penalizace frekvence (frequency_penalty)",
-      SubTitle:
-        "Čím vyšší hodnota, tím větší pravděpodobnost snížení opakování slov",
+      SubTitle: "Čím vyšší hodnota, tím větší pravděpodobnost snížení opakování slov",
     },
   },
   Store: {
@@ -527,8 +519,7 @@ const cs: PartialLocaleType = {
       },
       HideContext: {
         Title: "Skrýt přednastavené konverzace",
-        SubTitle:
-          "Po skrytí se přednastavené konverzace nebudou zobrazovat v chatovém rozhraní",
+        SubTitle: "Po skrytí se přednastavené konverzace nebudou zobrazovat v chatovém rozhraní",
       },
       Share: {
         Title: "Sdílet tuto masku",
@@ -541,8 +532,7 @@ const cs: PartialLocaleType = {
     Return: "Zpět",
     Skip: "Začít hned",
     NotShow: "Zobrazit už nikdy",
-    ConfirmNoShow:
-      "Opravdu chcete zakázat? Zakázání můžete kdykoli znovu povolit v nastavení.",
+    ConfirmNoShow: "Opravdu chcete zakázat? Zakázání můžete kdykoli znovu povolit v nastavení.",
     Title: "Vyberte masku",
     SubTitle: "Začněte nyní a konfrontujte se s myslí za maskou",
     More: "Zobrazit vše",
@@ -550,8 +540,7 @@ const cs: PartialLocaleType = {
 
   URLCommand: {
     Code: "Byl detekován přístupový kód v odkazu, chcete jej automaticky vyplnit?",
-    Settings:
-      "Byla detekována přednastavená nastavení v odkazu, chcete je automaticky vyplnit?",
+    Settings: "Byla detekována přednastavená nastavení v odkazu, chcete je automaticky vyplnit?",
   },
 
   UI: {

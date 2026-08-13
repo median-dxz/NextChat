@@ -44,9 +44,7 @@ export function ModelConfigList(props: {
           value={value}
           align="left"
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.model = ModalConfigValidator.model(model);
               config.providerName = providerName as ServiceProvider;
@@ -84,10 +82,7 @@ export function ModelConfigList(props: {
           }}
         ></InputRange>
       </ListItem>
-      <ListItem
-        title={Locale.Settings.TopP.Title}
-        subTitle={Locale.Settings.TopP.SubTitle}
-      >
+      <ListItem title={Locale.Settings.TopP.Title} subTitle={Locale.Settings.TopP.SubTitle}>
         <InputRange
           aria={Locale.Settings.TopP.Title}
           value={(props.modelConfig.top_p ?? 1).toFixed(1)}
@@ -97,9 +92,7 @@ export function ModelConfigList(props: {
           onChange={(e) => {
             props.updateConfig(
               (config) =>
-                (config.top_p = ModalConfigValidator.top_p(
-                  e.currentTarget.valueAsNumber,
-                )),
+                (config.top_p = ModalConfigValidator.top_p(e.currentTarget.valueAsNumber)),
             );
           }}
         ></InputRange>
@@ -137,10 +130,9 @@ export function ModelConfigList(props: {
           onChange={(e) =>
             props.updateConfig(
               (config) =>
-                (config.contextWindowTokens =
-                  ModalConfigValidator.contextWindowTokens(
-                    e.currentTarget.valueAsNumber,
-                  )),
+                (config.contextWindowTokens = ModalConfigValidator.contextWindowTokens(
+                  e.currentTarget.valueAsNumber,
+                )),
             )
           }
         ></input>
@@ -161,10 +153,9 @@ export function ModelConfigList(props: {
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
-                    (config.presence_penalty =
-                      ModalConfigValidator.presence_penalty(
-                        e.currentTarget.valueAsNumber,
-                      )),
+                    (config.presence_penalty = ModalConfigValidator.presence_penalty(
+                      e.currentTarget.valueAsNumber,
+                    )),
                 );
               }}
             ></InputRange>
@@ -183,10 +174,9 @@ export function ModelConfigList(props: {
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
-                    (config.frequency_penalty =
-                      ModalConfigValidator.frequency_penalty(
-                        e.currentTarget.valueAsNumber,
-                      )),
+                    (config.frequency_penalty = ModalConfigValidator.frequency_penalty(
+                      e.currentTarget.valueAsNumber,
+                    )),
                 );
               }}
             ></InputRange>
@@ -202,9 +192,7 @@ export function ModelConfigList(props: {
               checked={props.modelConfig.enableInjectSystemPrompts}
               onChange={(e) =>
                 props.updateConfig(
-                  (config) =>
-                    (config.enableInjectSystemPrompts =
-                      e.currentTarget.checked),
+                  (config) => (config.enableInjectSystemPrompts = e.currentTarget.checked),
                 )
               }
             ></input>
@@ -219,9 +207,7 @@ export function ModelConfigList(props: {
               type="text"
               value={props.modelConfig.template}
               onChange={(e) =>
-                props.updateConfig(
-                  (config) => (config.template = e.currentTarget.value),
-                )
+                props.updateConfig((config) => (config.template = e.currentTarget.value))
               }
             ></input>
           </ListItem>
@@ -239,9 +225,7 @@ export function ModelConfigList(props: {
           max="64"
           step="1"
           onChange={(e) =>
-            props.updateConfig(
-              (config) => (config.recentRawNodeCount = e.target.valueAsNumber),
-            )
+            props.updateConfig((config) => (config.recentRawNodeCount = e.target.valueAsNumber))
           }
         ></InputRange>
       </ListItem>
@@ -258,9 +242,7 @@ export function ModelConfigList(props: {
           value={props.modelConfig.segmentTargetSourceTokens}
           onChange={(e) =>
             props.updateConfig(
-              (config) =>
-                (config.segmentTargetSourceTokens =
-                  e.currentTarget.valueAsNumber),
+              (config) => (config.segmentTargetSourceTokens = e.currentTarget.valueAsNumber),
             )
           }
         ></input>
@@ -272,8 +254,7 @@ export function ModelConfigList(props: {
           checked={props.modelConfig.enableConversationSummaries}
           onChange={(e) =>
             props.updateConfig(
-              (config) =>
-                (config.enableConversationSummaries = e.currentTarget.checked),
+              (config) => (config.enableConversationSummaries = e.currentTarget.checked),
             )
           }
         ></input>
@@ -287,9 +268,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.compressModel = ModalConfigValidator.model(model);
               config.compressProviderName = providerName as ServiceProvider;
@@ -315,9 +294,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.MemoryModel.Title}
           value={memoryModelValue}
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.memoryModel = ModalConfigValidator.model(model);
               config.memoryProviderName = providerName as ServiceProvider;
@@ -343,9 +320,7 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.TitleModel.Title}
           value={titleModelValue}
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.titleModel = ModalConfigValidator.model(model);
               config.titleProviderName = providerName as ServiceProvider;

@@ -132,12 +132,8 @@ function sha256(data: Uint8Array) {
         MRound =
           M[round - 7] +
           M[round - 16] +
-          (rightRotate(gamma0x, 7) ^
-            rightRotate(gamma0x, 18) ^
-            (gamma0x >>> 3)) +
-          (rightRotate(gamma1x, 17) ^
-            rightRotate(gamma1x, 19) ^
-            (gamma1x >>> 10));
+          (rightRotate(gamma0x, 7) ^ rightRotate(gamma0x, 18) ^ (gamma0x >>> 3)) +
+          (rightRotate(gamma1x, 17) ^ rightRotate(gamma1x, 19) ^ (gamma1x >>> 10));
       }
 
       // M array matches platform endianness
@@ -148,8 +144,7 @@ function sha256(data: Uint8Array) {
         (rightRotate(workingState[4], 6) ^
           rightRotate(workingState[4], 11) ^
           rightRotate(workingState[4], 25)) +
-        ((workingState[4] & workingState[5]) ^
-          (~workingState[4] & workingState[6])) +
+        ((workingState[4] & workingState[5]) ^ (~workingState[4] & workingState[6])) +
         workingState[7] +
         MRound +
         ROUND_CONSTANTS[round];
@@ -217,14 +212,9 @@ function hmac(key: Uint8Array, data: ArrayLike<number>) {
 // Convert a string to a Uint8Array, SHA-256 it, and convert back to string
 const encoder = new TextEncoder();
 
-export function sign(
-  inputKey: string | Uint8Array,
-  inputData: string | Uint8Array,
-) {
-  const key =
-    typeof inputKey === "string" ? encoder.encode(inputKey) : inputKey;
-  const data =
-    typeof inputData === "string" ? encoder.encode(inputData) : inputData;
+export function sign(inputKey: string | Uint8Array, inputData: string | Uint8Array) {
+  const key = typeof inputKey === "string" ? encoder.encode(inputKey) : inputKey;
+  const data = typeof inputData === "string" ? encoder.encode(inputData) : inputData;
   return hmac(key, data);
 }
 

@@ -391,8 +391,7 @@ export const CN_MASKS: BuiltinMask[] = [
       {
         id: "mentor-5",
         role: "assistant",
-        content:
-          '"失败是成功之母。" - 俗语\n"Failure is the mother of success." - Chinese proverb',
+        content: '"失败是成功之母。" - 俗语\n"Failure is the mother of success." - Chinese proverb',
         date: "",
       },
     ],

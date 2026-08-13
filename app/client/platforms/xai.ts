@@ -3,13 +3,7 @@
 import { ApiPath, XAI_BASE_URL, XAI } from "@/app/constant";
 import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
 import { getClientConfig } from "@/app/config/client";
 import { getTimeoutMSByModel } from "@/app/utils";
 import { preProcessImageContent } from "@/app/utils/chat";
@@ -97,9 +91,7 @@ export class XAIApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return stream(
           chatPath,
           requestPayload,
@@ -139,11 +131,7 @@ export class XAIApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

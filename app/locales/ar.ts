@@ -159,8 +159,7 @@ const ar: PartialLocaleType = {
     },
     InjectSystemPrompts: {
       Title: "حقن الرسائل النصية النظامية",
-      SubTitle:
-        "فرض إضافة رسالة نظامية تحاكي ChatGPT في بداية قائمة الرسائل لكل طلب",
+      SubTitle: "فرض إضافة رسالة نظامية تحاكي ChatGPT في بداية قائمة الرسائل لكل طلب",
     },
     InputTemplate: {
       Title: "معالجة الإدخال من قبل المستخدم",
@@ -244,8 +243,7 @@ const ar: PartialLocaleType = {
         SubTitle: "استخدم / في بداية مربع النص لتفعيل الإكمال التلقائي",
       },
       List: "قائمة الإشعارات المخصصة",
-      ListCount: (builtin: number, custom: number) =>
-        `مدمج ${builtin} إشعار، مخصص ${custom} إشعار`,
+      ListCount: (builtin: number, custom: number) => `مدمج ${builtin} إشعار، مخصص ${custom} إشعار`,
       Edit: "تحرير",
       Modal: {
         Title: "قائمة الإشعارات",
@@ -262,8 +260,7 @@ const ar: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "عتبة ضغط طول الرسائل التاريخية",
-      SubTitle:
-        "عندما يتجاوز طول الرسائل التاريخية غير المضغوطة هذه القيمة، سيتم الضغط",
+      SubTitle: "عندما يتجاوز طول الرسائل التاريخية غير المضغوطة هذه القيمة، سيتم الضغط",
     },
 
     Usage: {
@@ -502,8 +499,7 @@ const ar: PartialLocaleType = {
       DeleteConfirm: "تأكيد الحذف؟",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `تحرير القناع المخصص ${readonly ? " (للقراءة فقط)" : ""}`,
+      Title: (readonly: boolean) => `تحرير القناع المخصص ${readonly ? " (للقراءة فقط)" : ""}`,
       Download: "تنزيل القناع المخصص",
       Clone: "استنساخ القناع",
     },
@@ -531,8 +527,7 @@ const ar: PartialLocaleType = {
     Return: "العودة",
     Skip: "بدء الآن",
     NotShow: "عدم العرض مرة أخرى",
-    ConfirmNoShow:
-      "تأكيد إلغاء العرض؟ بعد الإلغاء، يمكنك إعادة تفعيله في الإعدادات في أي وقت.",
+    ConfirmNoShow: "تأكيد إلغاء العرض؟ بعد الإلغاء، يمكنك إعادة تفعيله في الإعدادات في أي وقت.",
     Title: "اختر قناعًا",
     SubTitle: "ابدأ الآن وتفاعل مع الأفكار خلف القناع",
     More: "عرض الكل",

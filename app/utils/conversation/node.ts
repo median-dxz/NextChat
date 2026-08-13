@@ -73,9 +73,7 @@ export function createMessage(override: Partial<ChatMessage>): ChatMessage {
   };
 }
 
-export function createConversationNode(
-  override: Partial<ConversationNode>,
-): ConversationNode {
+export function createConversationNode(override: Partial<ConversationNode>): ConversationNode {
   return {
     outlineLevel: 1,
     ...createMessage(override),
@@ -84,7 +82,5 @@ export function createConversationNode(
 }
 
 export function createSourceDigest(nodes: readonly ConversationNode[]) {
-  return hash(
-    JSON.stringify(nodes.map((node) => [node.id, node.role, node.content])),
-  );
+  return hash(JSON.stringify(nodes.map((node) => [node.id, node.role, node.content])));
 }

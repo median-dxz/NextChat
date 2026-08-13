@@ -12,10 +12,7 @@ import {
   SpeechOptions,
 } from "../api";
 import Locale from "../../locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
 import { getMessageTextContent, getTimeoutMSByModel } from "@/app/utils";
@@ -129,9 +126,7 @@ export class ErnieApi implements LLMApi {
               accessStore.baiduApiKey,
               accessStore.baiduSecretKey,
             );
-            chatPath = `${chatPath}${
-              chatPath.includes("?") ? "&" : "?"
-            }access_token=${access_token}`;
+            chatPath = `${chatPath}${chatPath.includes("?") ? "&" : "?"}access_token=${access_token}`;
           }
         }
       }
@@ -203,9 +198,7 @@ export class ErnieApi implements LLMApi {
 
             if (
               !res.ok ||
-              !res.headers
-                .get("content-type")
-                ?.startsWith(EventStreamContentType) ||
+              !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
               res.status !== 200
             ) {
               const responseTexts = [responseText];

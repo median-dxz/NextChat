@@ -191,9 +191,7 @@ export class ClaudeApi implements LLMApi {
 
     if (shouldStream) {
       let index = -1;
-      const [tools, funcs] = usePluginStore
-        .getState()
-        .getAsTools(options.pluginIds);
+      const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
       return stream(
         path,
         requestBody,
@@ -216,10 +214,7 @@ export class ClaudeApi implements LLMApi {
             | undefined
             | {
                 type:
-                  | "content_block_delta"
-                  | "content_block_stop"
-                  | "message_delta"
-                  | "message_stop";
+                  "content_block_delta" | "content_block_stop" | "message_delta" | "message_stop";
                 content_block?: {
                   type: "tool_use";
                   id: string;
@@ -240,9 +235,7 @@ export class ClaudeApi implements LLMApi {
             // Return a message to display to the user
             const refusalMessage =
               "\n\n[Assistant refused to respond. Please modify your request and try again.]";
-            options.onError?.(
-              new Error("Content policy violation: " + refusalMessage),
-            );
+            options.onError?.(new Error("Content policy violation: " + refusalMessage));
             return refusalMessage;
           }
 
@@ -259,22 +252,14 @@ export class ClaudeApi implements LLMApi {
               },
             });
           }
-          if (
-            chunkJson?.delta?.type == "input_json_delta" &&
-            chunkJson?.delta?.partial_json
-          ) {
+          if (chunkJson?.delta?.type == "input_json_delta" && chunkJson?.delta?.partial_json) {
             // @ts-ignore
-            runTools[index]["function"]["arguments"] +=
-              chunkJson?.delta?.partial_json;
+            runTools[index]["function"]["arguments"] += chunkJson?.delta?.partial_json;
           }
           return chunkJson?.delta?.text;
         },
         // processToolMessage, include tool_calls message and tool call results
-        (
-          requestPayload: RequestPayload,
-          toolCallMessage: any,
-          toolCallResult: any[],
-        ) => {
+        (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
           // reset index value
           index = -1;
           // @ts-ignore
@@ -284,16 +269,12 @@ export class ClaudeApi implements LLMApi {
             0,
             {
               role: "assistant",
-              content: toolCallMessage.tool_calls.map(
-                (tool: ChatMessageTool) => ({
-                  type: "tool_use",
-                  id: tool.id,
-                  name: tool?.function?.name,
-                  input: tool?.function?.arguments
-                    ? JSON.parse(tool?.function?.arguments)
-                    : {},
-                }),
-              ),
+              content: toolCallMessage.tool_calls.map((tool: ChatMessageTool) => ({
+                type: "tool_use",
+                id: tool.id,
+                name: tool?.function?.name,
+                input: tool?.function?.arguments ? JSON.parse(tool?.function?.arguments) : {},
+              })),
             },
             // @ts-ignore
             ...toolCallResult.map((result) => ({
@@ -324,8 +305,7 @@ export class ClaudeApi implements LLMApi {
       };
 
       try {
-        controller.signal.onabort = () =>
-          options.onFinish("", new Response(null, { status: 400 }));
+        controller.signal.onabort = () => options.onFinish("", new Response(null, { status: 400 }));
 
         const res = await fetch(path, payload);
         const resJson = await res.json();

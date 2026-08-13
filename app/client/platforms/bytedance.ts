@@ -14,10 +14,7 @@ import {
 import { streamWithThink } from "@/app/utils/chat";
 import { getClientConfig } from "@/app/config/client";
 import { preProcessImageContent } from "@/app/utils/chat";
-import {
-  getMessageTextContentWithoutThinking,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { getMessageTextContentWithoutThinking, getTimeoutMSByModel } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
 import { toOpenAICompatibleRole } from "./roles";
 
@@ -122,9 +119,7 @@ export class DoubaoApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
@@ -169,10 +164,7 @@ export class DoubaoApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",

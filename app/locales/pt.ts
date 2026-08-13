@@ -105,8 +105,7 @@ const pt: PartialLocaleType = {
     },
     Image: {
       Toast: "Capturando Imagem...",
-      Modal:
-        "Pressione longamente ou clique com o botão direito para salvar a imagem",
+      Modal: "Pressione longamente ou clique com o botão direito para salvar a imagem",
     },
   },
   Select: {
@@ -153,8 +152,7 @@ const pt: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Fonte do Chat",
-      SubTitle:
-        "Fonte do conteúdo do chat, deixe vazio para aplicar a fonte padrão global",
+      SubTitle: "Fonte do conteúdo do chat, deixe vazio para aplicar a fonte padrão global",
       Placeholder: "Nome da Fonte",
     },
     InjectSystemPrompts: {
@@ -230,8 +228,7 @@ const pt: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Tela de Início da Máscara",
-        SubTitle:
-          "Mostrar uma tela de início da máscara antes de iniciar novo chat",
+        SubTitle: "Mostrar uma tela de início da máscara antes de iniciar novo chat",
       },
       Builtin: {
         Title: "Esconder Máscaras Embutidas",
@@ -262,8 +259,7 @@ const pt: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Limite de Compressão de Histórico",
-      SubTitle:
-        "Irá comprimir se o comprimento das mensagens não comprimidas exceder o valor",
+      SubTitle: "Irá comprimir se o comprimento das mensagens não comprimidas exceder o valor",
     },
 
     Usage: {
@@ -306,8 +302,7 @@ const pt: PartialLocaleType = {
 
         Endpoint: {
           Title: "Endpoint OpenAI",
-          SubTitle:
-            "Deve começar com http(s):// ou usar /api/openai como padrão",
+          SubTitle: "Deve começar com http(s):// ou usar /api/openai como padrão",
         },
       },
       Azure: {
@@ -380,13 +375,11 @@ const pt: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Penalidade de Presença",
-      SubTitle:
-        "Um valor maior aumenta a probabilidade de falar sobre novos tópicos",
+      SubTitle: "Um valor maior aumenta a probabilidade de falar sobre novos tópicos",
     },
     FrequencyPenalty: {
       Title: "Penalidade de Frequência",
-      SubTitle:
-        "Um valor maior diminui a probabilidade de repetir a mesma linha",
+      SubTitle: "Um valor maior diminui a probabilidade de repetir a mesma linha",
     },
   },
   Store: {
@@ -401,8 +394,7 @@ const pt: PartialLocaleType = {
   },
   Copy: {
     Success: "Copiado para a área de transferência",
-    Failed:
-      "Falha na cópia, por favor conceda permissão para acessar a área de transferência",
+    Failed: "Falha na cópia, por favor conceda permissão para acessar a área de transferência",
   },
   Download: {
     Success: "Conteúdo baixado para seu diretório.",
@@ -458,8 +450,7 @@ const pt: PartialLocaleType = {
       Sync: {
         Title: "Usar Configuração Global",
         SubTitle: "Usar configuração global neste chat",
-        Confirm:
-          "Confirmar para substituir a configuração personalizada pela configuração global?",
+        Confirm: "Confirmar para substituir a configuração personalizada pela configuração global?",
       },
       HideContext: {
         Title: "Esconder Prompts de Contexto",
@@ -479,8 +470,7 @@ const pt: PartialLocaleType = {
     SubTitle: "Converse com a Alma por trás da Máscara",
     More: "Encontre Mais",
     NotShow: "Nunca Mostrar Novamente",
-    ConfirmNoShow:
-      "Confirmar para desabilitar？Você pode habilitar nas configurações depois.",
+    ConfirmNoShow: "Confirmar para desabilitar？Você pode habilitar nas configurações depois.",
   },
 
   UI: {
@@ -504,8 +494,7 @@ const pt: PartialLocaleType = {
 
   URLCommand: {
     Code: "Código de acesso detectado a partir da url, confirmar para aplicar? ",
-    Settings:
-      "Configurações detectadas a partir da url, confirmar para aplicar?",
+    Settings: "Configurações detectadas a partir da url, confirmar para aplicar?",
   },
 };
 

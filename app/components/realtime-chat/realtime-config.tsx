@@ -17,8 +17,7 @@ export function RealtimeConfigList(props: {
   realtimeConfig: RealtimeConfig;
   updateConfig: (updater: (config: RealtimeConfig) => void) => void;
 }) {
-  const azureConfigComponent = props.realtimeConfig.provider ===
-    ServiceProvider.Azure && (
+  const azureConfigComponent = props.realtimeConfig.provider === ServiceProvider.Azure && (
     <>
       <ListItem
         title={Locale.Settings.Realtime.Azure.Endpoint.Title}
@@ -29,9 +28,7 @@ export function RealtimeConfigList(props: {
           type="text"
           placeholder={Locale.Settings.Realtime.Azure.Endpoint.Title}
           onChange={(e) => {
-            props.updateConfig(
-              (config) => (config.azure.endpoint = e.currentTarget.value),
-            );
+            props.updateConfig((config) => (config.azure.endpoint = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -44,9 +41,7 @@ export function RealtimeConfigList(props: {
           type="text"
           placeholder={Locale.Settings.Realtime.Azure.Deployment.Title}
           onChange={(e) => {
-            props.updateConfig(
-              (config) => (config.azure.deployment = e.currentTarget.value),
-            );
+            props.updateConfig((config) => (config.azure.deployment = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -63,9 +58,7 @@ export function RealtimeConfigList(props: {
           type="checkbox"
           checked={props.realtimeConfig.enable}
           onChange={(e) =>
-            props.updateConfig(
-              (config) => (config.enable = e.currentTarget.checked),
-            )
+            props.updateConfig((config) => (config.enable = e.currentTarget.checked))
           }
         ></input>
       </ListItem>
@@ -81,8 +74,7 @@ export function RealtimeConfigList(props: {
               value={props.realtimeConfig.provider}
               onChange={(e) => {
                 props.updateConfig(
-                  (config) =>
-                    (config.provider = e.target.value as ServiceProvider),
+                  (config) => (config.provider = e.target.value as ServiceProvider),
                 );
               }}
             >
@@ -122,9 +114,7 @@ export function RealtimeConfigList(props: {
               type="text"
               placeholder={Locale.Settings.Realtime.ApiKey.Placeholder}
               onChange={(e) => {
-                props.updateConfig(
-                  (config) => (config.apiKey = e.currentTarget.value),
-                );
+                props.updateConfig((config) => (config.apiKey = e.currentTarget.value));
               }}
             />
           </ListItem>
@@ -136,9 +126,7 @@ export function RealtimeConfigList(props: {
             <Select
               value={props.realtimeConfig.voice}
               onChange={(e) => {
-                props.updateConfig(
-                  (config) => (config.voice = e.currentTarget.value as Voice),
-                );
+                props.updateConfig((config) => (config.voice = e.currentTarget.value as Voice));
               }}
             >
               {voice.map((v, i) => (
@@ -160,8 +148,7 @@ export function RealtimeConfigList(props: {
               step="0.1"
               onChange={(e) => {
                 props.updateConfig(
-                  (config) =>
-                    (config.temperature = e.currentTarget.valueAsNumber),
+                  (config) => (config.temperature = e.currentTarget.valueAsNumber),
                 );
               }}
             ></InputRange>

@@ -39,15 +39,9 @@ async function handle(req: NextRequest) {
     const result = await res.json();
     console.log("save data", result);
     if (result?.success) {
-      return NextResponse.json(
-        { code: 0, id: hashedCode, result },
-        { status: res.status },
-      );
+      return NextResponse.json({ code: 0, id: hashedCode, result }, { status: res.status });
     }
-    return NextResponse.json(
-      { error: true, msg: "Save data error" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: true, msg: "Save data error" }, { status: 400 });
   }
   if (req.method === "GET") {
     const id = req?.nextUrl?.searchParams?.get("id");
@@ -61,10 +55,7 @@ async function handle(req: NextRequest) {
       headers: res.headers,
     });
   }
-  return NextResponse.json(
-    { error: true, msg: "Invalid request" },
-    { status: 400 },
-  );
+  return NextResponse.json({ error: true, msg: "Invalid request" }, { status: 400 });
 }
 
 export const POST = handle;

@@ -1,10 +1,5 @@
 import { getServerSideConfig } from "@/app/config/server";
-import {
-  MOONSHOT_BASE_URL,
-  ApiPath,
-  ModelProvider,
-  ServiceProvider,
-} from "@/app/constant";
+import { MOONSHOT_BASE_URL, ApiPath, ModelProvider, ServiceProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
@@ -12,10 +7,7 @@ import { isModelNotavailableInServer } from "@/app/utils/model";
 
 const serverConfig = getServerSideConfig();
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[Moonshot Route] params ", params);
 
   if (req.method === "OPTIONS") {

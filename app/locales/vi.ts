@@ -203,8 +203,7 @@ const vi: PartialLocaleType = {
         },
         Proxy: {
           Title: "Kích hoạt proxy",
-          SubTitle:
-            "Khi đồng bộ qua trình duyệt, cần kích hoạt proxy để tránh hạn chế ngang miền",
+          SubTitle: "Khi đồng bộ qua trình duyệt, cần kích hoạt proxy để tránh hạn chế ngang miền",
         },
         ProxyUrl: {
           Title: "Địa chỉ proxy",
@@ -264,8 +263,7 @@ const vi: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Ngưỡng nén tin nhắn lịch sử",
-      SubTitle:
-        "Khi tin nhắn lịch sử chưa nén vượt quá giá trị này, sẽ thực hiện nén",
+      SubTitle: "Khi tin nhắn lịch sử chưa nén vượt quá giá trị này, sẽ thực hiện nén",
     },
 
     Usage: {
@@ -303,8 +301,7 @@ const vi: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API Key",
-          SubTitle:
-            "Sử dụng khóa OpenAI tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa OpenAI tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API OpenAI",
         },
 
@@ -316,8 +313,7 @@ const vi: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "Khóa giao diện",
-          SubTitle:
-            "Sử dụng khóa Azure tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa Azure tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API Azure",
         },
 
@@ -334,8 +330,7 @@ const vi: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Khóa giao diện",
-          SubTitle:
-            "Sử dụng khóa Anthropic tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa Anthropic tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API Anthropic",
         },
 
@@ -421,8 +416,7 @@ const vi: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Tên mô hình tùy chỉnh",
-        SubTitle:
-          "Thêm tùy chọn mô hình tùy chỉnh, sử dụng dấu phẩy để phân cách",
+        SubTitle: "Thêm tùy chọn mô hình tùy chỉnh, sử dụng dấu phẩy để phân cách",
       },
     },
 
@@ -445,8 +439,7 @@ const vi: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Độ mới của chủ đề (presence_penalty)",
-      SubTitle:
-        "Giá trị càng lớn, khả năng mở rộng đến các chủ đề mới càng cao",
+      SubTitle: "Giá trị càng lớn, khả năng mở rộng đến các chủ đề mới càng cao",
     },
     FrequencyPenalty: {
       Title: "Hình phạt tần suất (frequency_penalty)",
@@ -510,8 +503,7 @@ const vi: PartialLocaleType = {
       DeleteConfirm: "Xác nhận xóa?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Chỉnh sửa mặt nạ định sẵn ${readonly ? "(chỉ đọc)" : ""}`,
+      Title: (readonly: boolean) => `Chỉnh sửa mặt nạ định sẵn ${readonly ? "(chỉ đọc)" : ""}`,
       Download: "Tải xuống mặt nạ",
       Clone: "Nhân bản mặt nạ",
     },
@@ -520,8 +512,7 @@ const vi: PartialLocaleType = {
       Name: "Tên vai trò",
       Sync: {
         Title: "Sử dụng cài đặt toàn cục",
-        SubTitle:
-          "Cuộc trò chuyện hiện tại có sử dụng cài đặt mô hình toàn cục không",
+        SubTitle: "Cuộc trò chuyện hiện tại có sử dụng cài đặt mô hình toàn cục không",
         Confirm:
           "Cài đặt tùy chỉnh của cuộc trò chuyện hiện tại sẽ bị ghi đè tự động, xác nhận bật cài đặt toàn cục?",
       },
@@ -550,8 +541,7 @@ const vi: PartialLocaleType = {
 
   URLCommand: {
     Code: "Phát hiện mã truy cập trong liên kết, có tự động điền không?",
-    Settings:
-      "Phát hiện cài đặt định sẵn trong liên kết, có tự động điền không?",
+    Settings: "Phát hiện cài đặt định sẵn trong liên kết, có tự động điền không?",
   },
 
   UI: {

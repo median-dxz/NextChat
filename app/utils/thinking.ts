@@ -3,11 +3,7 @@ export interface StreamingContentSegment {
   content: string;
 }
 
-export function formatReasoningForExport(
-  content: string,
-  reasoning: string,
-  label: string,
-) {
+export function formatReasoningForExport(content: string, reasoning: string, label: string) {
   const quotedReasoning = reasoning
     .split("\n")
     .map((line) => `> ${line}`)
@@ -65,18 +61,14 @@ export class ThinkingContentParser {
       return [];
     }
 
-    return [
-      this.takePending(this.mode === "reasoning" ? "reasoning" : "content"),
-    ];
+    return [this.takePending(this.mode === "reasoning" ? "reasoning" : "content")];
   }
 
   private parseReasoning(): StreamingContentSegment[] {
     const closingTagIndex = this.pendingContent.indexOf(closingTag);
     if (closingTagIndex >= 0) {
       const reasoning = this.pendingContent.slice(0, closingTagIndex);
-      const content = this.pendingContent.slice(
-        closingTagIndex + closingTag.length,
-      );
+      const content = this.pendingContent.slice(closingTagIndex + closingTag.length);
 
       this.pendingContent = "";
       this.mode = "content";
@@ -90,10 +82,7 @@ export class ThinkingContentParser {
     }
 
     const retainedLength = this.pendingTagPrefixLength();
-    const reasoning = this.pendingContent.slice(
-      0,
-      this.pendingContent.length - retainedLength,
-    );
+    const reasoning = this.pendingContent.slice(0, this.pendingContent.length - retainedLength);
     this.pendingContent = this.pendingContent.slice(reasoning.length);
     return reasoning ? [{ kind: "reasoning", content: reasoning }] : [];
   }
@@ -105,10 +94,7 @@ export class ThinkingContentParser {
   }
 
   private pendingTagPrefixLength() {
-    const maxLength = Math.min(
-      this.pendingContent.length,
-      closingTag.length - 1,
-    );
+    const maxLength = Math.min(this.pendingContent.length, closingTag.length - 1);
     for (let length = maxLength; length > 0; length -= 1) {
       if (this.pendingContent.endsWith(closingTag.slice(0, length))) {
         return length;

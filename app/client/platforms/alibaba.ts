@@ -1,10 +1,7 @@
 "use client";
 import { ApiPath, Alibaba, ALIBABA_BASE_URL } from "@/app/constant";
 import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
-import {
-  preProcessImageContentForAlibabaDashScope,
-  streamWithThink,
-} from "@/app/utils/chat";
+import { preProcessImageContentForAlibabaDashScope, streamWithThink } from "@/app/utils/chat";
 import {
   ChatOptions,
   getHeaders,
@@ -146,9 +143,7 @@ export class QwenApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(options.pluginIds);
+        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
         return streamWithThink(
           chatPath,
           requestPayload,
@@ -194,10 +189,7 @@ export class QwenApi implements LLMApi {
             const content = choices[0]?.message?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -224,11 +216,7 @@ export class QwenApi implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             requestPayload?.input?.messages?.splice(
               requestPayload?.input?.messages?.length,
               0,

@@ -1,10 +1,6 @@
 import { estimateRequestMessageTokens } from "../context-budget";
 import { estimateTokenLength } from "../token";
-import {
-  createSourceDigest,
-  type ConversationNode,
-  type NodeSummary,
-} from "./node";
+import { createSourceDigest, type ConversationNode, type NodeSummary } from "./node";
 import {
   createSummarySnapshot,
   evaluateNodeSummary,
@@ -196,9 +192,7 @@ function buildSegmentBackground(
   cache: NodeSummaryRuntimeCache,
 ): SegmentGenerationBackground[] {
   if (availableTokens <= 0) return [];
-  const projectionOrder = new Map(
-    projection.map((node, index) => [node.id, index]),
-  );
+  const projectionOrder = new Map(projection.map((node, index) => [node.id, index]));
   const sourceStart = targetChain.nodes[sourceStartIndex];
   const sourceProjectionIndex = projectionOrder.get(sourceStart.id)!;
   const candidates: SegmentGenerationBackground[] = [];
@@ -232,8 +226,7 @@ function buildSegmentBackground(
 
   candidates.sort(
     (left, right) =>
-      projectionOrder.get(left.endpointNodeId)! -
-      projectionOrder.get(right.endpointNodeId)!,
+      projectionOrder.get(left.endpointNodeId)! - projectionOrder.get(right.endpointNodeId)!,
   );
   const selected: SegmentGenerationBackground[] = [];
   let tokens = 0;
@@ -257,14 +250,9 @@ function createSegmentPlan(
   cache: NodeSummaryRuntimeCache,
   expectedSummary?: NodeSummary,
 ): SegmentMaintenancePlan | undefined {
-  const sourceTokens = sourceNodes.reduce(
-    (tokens, node) => tokens + cache.getNodeTokens(node),
-    0,
-  );
+  const sourceTokens = sourceNodes.reduce((tokens, node) => tokens + cache.getNodeTokens(node), 0);
   if (sourceTokens > inputBudget) return;
-  const sourceStartIndex = targetChain.nodes.findIndex(
-    (node) => node.id === sourceNodes[0].id,
-  );
+  const sourceStartIndex = targetChain.nodes.findIndex((node) => node.id === sourceNodes[0].id);
   return {
     kind: "segment",
     action,
@@ -296,13 +284,9 @@ function planSegmentMaintenance(
   const target = args.projection.find((node) => node.id === args.targetId);
   if (!target || target.role !== "assistant") return;
   const chains = partitionProjectionIntoOutlineChains(args.projection);
-  const targetChain = chains.find((chain) =>
-    chain.nodes.some((node) => node.id === target.id),
-  );
+  const targetChain = chains.find((chain) => chain.nodes.some((node) => node.id === target.id));
   if (!targetChain) return;
-  const targetIndex = targetChain.nodes.findIndex(
-    (node) => node.id === target.id,
-  );
+  const targetIndex = targetChain.nodes.findIndex((node) => node.id === target.id);
   const cache = createNodeSummaryRuntimeCache();
   const intervals = collectSummaryIntervals(targetChain, chains, "segment")
     .filter((interval) => interval.end <= targetIndex)
@@ -311,9 +295,7 @@ function planSegmentMaintenance(
   if (args.force && target.nodeSummaries?.segment) {
     const current = target.nodeSummaries.segment;
     const evaluation = evaluateNodeSummary(target, "segment", current, chains);
-    const sourceNodes = evaluation.structurallyEligible
-      ? evaluation.sourceNodes
-      : [target];
+    const sourceNodes = evaluation.structurallyEligible ? evaluation.sourceNodes : [target];
     return createSegmentPlan(
       "refresh",
       args.projection,
@@ -329,8 +311,7 @@ function planSegmentMaintenance(
 
   const staleGenerated = intervals.find(
     (interval) =>
-      interval.summary.provenance === "generated" &&
-      interval.evaluation.freshness === "stale",
+      interval.summary.provenance === "generated" && interval.evaluation.freshness === "stale",
   );
   if (staleGenerated) {
     return createSegmentPlan(
@@ -354,10 +335,7 @@ function planSegmentMaintenance(
   if (nextSourceIndex > targetIndex || target.nodeSummaries?.segment) return;
 
   const sourceNodes = targetChain.nodes.slice(nextSourceIndex, targetIndex + 1);
-  const sourceTokens = sourceNodes.reduce(
-    (tokens, node) => tokens + cache.getNodeTokens(node),
-    0,
-  );
+  const sourceTokens = sourceNodes.reduce((tokens, node) => tokens + cache.getNodeTokens(node), 0);
   const thresholdReached =
     sourceTokens >= Math.max(0, args.sourceTokenTarget) ||
     sourceNodes.length >= Math.max(1, args.maxSourceNodes);
@@ -375,11 +353,7 @@ function planSegmentMaintenance(
   );
 }
 
-function collectFreshSegmentsForRange(
-  intervals: SummaryInterval[],
-  start: number,
-  end: number,
-) {
+function collectFreshSegmentsForRange(intervals: SummaryInterval[], start: number, end: number) {
   const selected: SummaryInterval[] = [];
   let cursor = start;
   for (const interval of intervals) {
@@ -453,13 +427,9 @@ function planCheckpointMaintenance(
   const target = args.projection.find((node) => node.id === args.targetId);
   if (!target || target.role !== "assistant") return;
   const chains = partitionProjectionIntoOutlineChains(args.projection);
-  const targetChain = chains.find((chain) =>
-    chain.nodes.some((node) => node.id === target.id),
-  );
+  const targetChain = chains.find((chain) => chain.nodes.some((node) => node.id === target.id));
   if (!targetChain) return;
-  const targetIndex = targetChain.nodes.findIndex(
-    (node) => node.id === target.id,
-  );
+  const targetIndex = targetChain.nodes.findIndex((node) => node.id === target.id);
   const cache = createNodeSummaryRuntimeCache();
   const segments = collectSummaryIntervals(targetChain, chains, "segment")
     .filter((interval) => interval.end <= targetIndex)
@@ -468,13 +438,10 @@ function planCheckpointMaintenance(
     .filter((checkpoint) => checkpoint.end <= targetIndex)
     .sort((left, right) => left.end - right.end);
 
-  const forcedSummary = args.force
-    ? target.nodeSummaries?.checkpoint
-    : undefined;
+  const forcedSummary = args.force ? target.nodeSummaries?.checkpoint : undefined;
   const staleGenerated = checkpoints.find(
     (checkpoint) =>
-      checkpoint.summary.provenance === "generated" &&
-      checkpoint.evaluation.freshness === "stale",
+      checkpoint.summary.provenance === "generated" && checkpoint.evaluation.freshness === "stale",
   );
   const forcedCheckpoint = forcedSummary
     ? {
@@ -487,9 +454,7 @@ function planCheckpointMaintenance(
   if (refresh) {
     const base = checkpoints
       .filter(
-        (checkpoint) =>
-          checkpoint.end < refresh.end &&
-          checkpoint.evaluation.freshness === "fresh",
+        (checkpoint) => checkpoint.end < refresh.end && checkpoint.evaluation.freshness === "fresh",
       )
       .at(-1);
     const rangeSegments = collectFreshSegmentsForRange(
@@ -531,8 +496,7 @@ function planCheckpointMaintenance(
   const inputTokens =
     (base ? cache.getSummaryTokens(base.summary.content) : 0) +
     continuous.reduce(
-      (tokens, segment) =>
-        tokens + cache.getSummaryTokens(segment.summary.content),
+      (tokens, segment) => tokens + cache.getSummaryTokens(segment.summary.content),
       0,
     );
   const thresholdReached =
@@ -562,10 +526,7 @@ function emptyChainContextState(): ChainContextState {
   };
 }
 
-function compareChainContextStates(
-  left: ChainContextState,
-  right: ChainContextState,
-) {
+function compareChainContextStates(left: ChainContextState, right: ChainContextState) {
   const benefitKeys = [
     "coveredNodeCount",
     "freshCoveredNodeCount",
@@ -580,13 +541,8 @@ function compareChainContextStates(
   return right.tokens - left.tokens;
 }
 
-function chainStateDominates(
-  left: ChainContextState,
-  right: ChainContextState,
-) {
-  return (
-    left.tokens <= right.tokens && compareChainContextStates(left, right) > 0
-  );
+function chainStateDominates(left: ChainContextState, right: ChainContextState) {
+  return left.tokens <= right.tokens && compareChainContextStates(left, right) > 0;
 }
 
 function chainStateSignature(state: ChainContextState) {
@@ -607,8 +563,7 @@ function pruneChainContextStates(states: ChainContextState[]) {
     if (!unique.has(signature)) unique.set(signature, state);
   }
   const candidates = [...unique.values()].sort(
-    (left, right) =>
-      left.tokens - right.tokens || compareChainContextStates(right, left),
+    (left, right) => left.tokens - right.tokens || compareChainContextStates(right, left),
   );
   const frontier: ChainContextState[] = [];
   let best: ChainContextState | undefined;
@@ -632,24 +587,15 @@ function combineContextStates(
   return {
     tokens: left.tokens + right.tokens,
     coveredNodeCount: left.coveredNodeCount + right.coveredNodeCount,
-    freshCoveredNodeCount:
-      left.freshCoveredNodeCount + right.freshCoveredNodeCount,
+    freshCoveredNodeCount: left.freshCoveredNodeCount + right.freshCoveredNodeCount,
     rawCoveredNodeCount: left.rawCoveredNodeCount + right.rawCoveredNodeCount,
-    segmentCoveredNodeCount:
-      left.segmentCoveredNodeCount + right.segmentCoveredNodeCount,
-    checkpointCoveredNodeCount:
-      left.checkpointCoveredNodeCount + right.checkpointCoveredNodeCount,
-    selectedRepresentations: [
-      ...left.selectedRepresentations,
-      ...right.selectedRepresentations,
-    ],
+    segmentCoveredNodeCount: left.segmentCoveredNodeCount + right.segmentCoveredNodeCount,
+    checkpointCoveredNodeCount: left.checkpointCoveredNodeCount + right.checkpointCoveredNodeCount,
+    selectedRepresentations: [...left.selectedRepresentations, ...right.selectedRepresentations],
   };
 }
 
-function compareFidelityVector(
-  left: ChainContextState,
-  right: ChainContextState,
-) {
+function compareFidelityVector(left: ChainContextState, right: ChainContextState) {
   const keys = [
     "freshCoveredNodeCount",
     "rawCoveredNodeCount",
@@ -667,9 +613,7 @@ function bestState(
   states: ChainContextState[],
   compare: (left: ChainContextState, right: ChainContextState) => number,
 ) {
-  return states.reduce((best, candidate) =>
-    compare(candidate, best) > 0 ? candidate : best,
-  );
+  return states.reduce((best, candidate) => (compare(candidate, best) > 0 ? candidate : best));
 }
 
 function approximateContextStates(
@@ -741,17 +685,11 @@ function extendChainContextState(
   return {
     tokens: state.tokens + edge.tokens,
     coveredNodeCount: state.coveredNodeCount + edge.coveredNodeCount,
-    freshCoveredNodeCount:
-      state.freshCoveredNodeCount + edge.freshCoveredNodeCount,
+    freshCoveredNodeCount: state.freshCoveredNodeCount + edge.freshCoveredNodeCount,
     rawCoveredNodeCount: state.rawCoveredNodeCount + edge.rawCoveredNodeCount,
-    segmentCoveredNodeCount:
-      state.segmentCoveredNodeCount + edge.segmentCoveredNodeCount,
-    checkpointCoveredNodeCount:
-      state.checkpointCoveredNodeCount + edge.checkpointCoveredNodeCount,
-    selectedRepresentations: [
-      ...state.selectedRepresentations,
-      edge.representation,
-    ],
+    segmentCoveredNodeCount: state.segmentCoveredNodeCount + edge.segmentCoveredNodeCount,
+    checkpointCoveredNodeCount: state.checkpointCoveredNodeCount + edge.checkpointCoveredNodeCount,
+    selectedRepresentations: [...state.selectedRepresentations, edge.representation],
   };
 }
 
@@ -763,10 +701,7 @@ function buildChainContextEdges(
   includeSummaries: boolean,
 ) {
   const positions = new Map(chain.nodes.map((node, index) => [node.id, index]));
-  const edges = Array.from(
-    { length: nodeCount },
-    () => [] as ChainContextEdge[],
-  );
+  const edges = Array.from({ length: nodeCount }, () => [] as ChainContextEdge[]);
   for (let index = 0; index < nodeCount; index += 1) {
     const node = chain.nodes[index];
     edges[index].push({
@@ -797,12 +732,10 @@ function buildChainContextEdges(
           end: end + 1,
           tokens: cache.getSummaryTokens(summary.content),
           coveredNodeCount,
-          freshCoveredNodeCount:
-            evaluation.freshness === "fresh" ? coveredNodeCount : 0,
+          freshCoveredNodeCount: evaluation.freshness === "fresh" ? coveredNodeCount : 0,
           rawCoveredNodeCount: 0,
           segmentCoveredNodeCount: kind === "segment" ? coveredNodeCount : 0,
-          checkpointCoveredNodeCount:
-            kind === "checkpoint" ? coveredNodeCount : 0,
+          checkpointCoveredNodeCount: kind === "checkpoint" ? coveredNodeCount : 0,
           representation: {
             kind,
             ownerNodeId: owner.id,
@@ -828,17 +761,8 @@ function planOutlineChainContext(
 ): OutlineChainContextFrontier {
   const limitedNodeCount = Math.max(0, Math.min(nodeCount, chain.nodes.length));
   const budget = Math.max(0, tokenBudget);
-  const edges = buildChainContextEdges(
-    chain,
-    allChains,
-    limitedNodeCount,
-    cache,
-    includeSummaries,
-  );
-  const statesAt = Array.from(
-    { length: limitedNodeCount + 1 },
-    () => [] as ChainContextState[],
-  );
+  const edges = buildChainContextEdges(chain, allChains, limitedNodeCount, cache, includeSummaries);
+  const statesAt = Array.from({ length: limitedNodeCount + 1 }, () => [] as ChainContextState[]);
   for (let cutoff = 0; cutoff <= limitedNodeCount; cutoff += 1) {
     statesAt[cutoff].push(emptyChainContextState());
   }
@@ -866,9 +790,7 @@ function planOutlineChainContext(
     options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE,
   );
   approximated ||= finalPruned.approximated;
-  const states = finalPruned.states.sort((left, right) =>
-    compareChainContextStates(right, left),
-  );
+  const states = finalPruned.states.sort((left, right) => compareChainContextStates(right, left));
   return {
     states,
     approximated,
@@ -884,10 +806,7 @@ function selectRecentRawContext(
   const desiredCount = Math.max(0, Math.floor(recentRawNodeCount));
   let startIndex = Math.max(0, projection.length - desiredCount);
   let selected = projection.slice(startIndex);
-  let tokens = selected.reduce(
-    (total, node) => total + cache.getNodeTokens(node),
-    0,
-  );
+  let tokens = selected.reduce((total, node) => total + cache.getNodeTokens(node), 0);
   while (selected.length > 0 && tokens > Math.max(0, availableTokens)) {
     tokens -= cache.getNodeTokens(selected[0]);
     startIndex += 1;
@@ -903,9 +822,7 @@ function selectRecentRawContext(
   };
 }
 
-function planChainContextFrontiers(
-  args: PlanChainContextArgs,
-): ChainContextPlanningResult {
+function planChainContextFrontiers(args: PlanChainContextArgs): ChainContextPlanningResult {
   const cache = createNodeSummaryRuntimeCache();
   const recentRaw = selectRecentRawContext(
     args.projection,
@@ -918,9 +835,7 @@ function planChainContextFrontiers(
   const allChains = partitionProjectionIntoOutlineChains(args.projection);
   const optionalBudget = Math.max(0, args.availableTokens - recentRaw.tokens);
   const chains = allChains.flatMap((chain) => {
-    const nodeCount = chain.nodes.findIndex(
-      (node) => !optionalIds.has(node.id),
-    );
+    const nodeCount = chain.nodes.findIndex((node) => !optionalIds.has(node.id));
     const prefixLength = nodeCount < 0 ? chain.nodes.length : nodeCount;
     return prefixLength > 0
       ? [
@@ -950,11 +865,7 @@ export function planNodeConversationContext(
   args: PlanChainContextArgs,
 ): NodeConversationContextPlan {
   const planning = planChainContextFrontiers(args);
-  const combined = combineChainContextFrontiers(
-    planning.chains,
-    planning.optionalBudget,
-    args,
-  );
+  const combined = combineChainContextFrontiers(planning.chains, planning.optionalBudget, args);
   const optionalState = bestState(
     combined.states.length > 0 ? combined.states : [emptyChainContextState()],
     compareChainContextStates,
@@ -983,8 +894,7 @@ function combineChainContextFrontiers(
   options: ContextParetoOptions = {},
 ): CombinedContextFrontier {
   const frontierLimit = options.frontierLimit ?? DEFAULT_CONTEXT_FRONTIER_LIMIT;
-  const tokenBucketSize =
-    options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE;
+  const tokenBucketSize = options.tokenBucketSize ?? DEFAULT_CONTEXT_TOKEN_BUCKET_SIZE;
   let frontier = [emptyChainContextState()];
   let approximated = chains.some((chain) => chain.approximated);
   let maxCandidateCount = frontier.length;
@@ -1036,16 +946,10 @@ function combineChainContextFrontiers(
 export interface ConversationPlanningApi {
   readonly chainRootId: string | undefined;
   segment(
-    options: Omit<
-      PlanSegmentMaintenanceArgs,
-      "projection" | "targetId" | "cache"
-    >,
+    options: Omit<PlanSegmentMaintenanceArgs, "projection" | "targetId" | "cache">,
   ): SegmentMaintenancePlan | undefined;
   checkpoint(
-    options: Omit<
-      PlanCheckpointMaintenanceArgs,
-      "projection" | "targetId" | "cache"
-    >,
+    options: Omit<PlanCheckpointMaintenanceArgs, "projection" | "targetId" | "cache">,
   ): CheckpointMaintenancePlan | undefined;
 }
 
@@ -1053,8 +957,8 @@ export function ConversationPlanning(
   projection: ConversationNode[],
   targetNodeId: string,
 ): ConversationPlanningApi {
-  const targetChain = partitionProjectionIntoOutlineChains(projection).find(
-    (chain) => chain.nodes.some((node) => node.id === targetNodeId),
+  const targetChain = partitionProjectionIntoOutlineChains(projection).find((chain) =>
+    chain.nodes.some((node) => node.id === targetNodeId),
   );
   return {
     chainRootId: targetChain?.nodes[0].id,

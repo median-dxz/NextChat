@@ -1,9 +1,5 @@
 import { getClientConfig } from "../config/client";
-import {
-  ACCESS_CODE_PREFIX,
-  ModelProvider,
-  ServiceProvider,
-} from "../constant";
+import { ACCESS_CODE_PREFIX, ModelProvider, ServiceProvider } from "../constant";
 import { ChatMessageTool, ModelType, useAccessStore } from "../store";
 import { ChatGPTApi, DalleRequestPayload } from "./platforms/openai";
 import { GeminiProApi } from "./platforms/google";
@@ -19,10 +15,7 @@ import { XAIApi } from "./platforms/xai";
 import { ChatGLMApi } from "./platforms/glm";
 import { SiliconflowApi } from "./platforms/siliconflow";
 import { Ai302Api } from "./platforms/ai302";
-import type {
-  ConversationContent,
-  ConversationMultimodalContent,
-} from "../utils/conversation";
+import type { ConversationContent, ConversationMultimodalContent } from "../utils/conversation";
 
 export const Models = ["gpt-3.5-turbo", "gpt-4"] as const;
 export const TTSModels = ["tts-1", "tts-1-hd"] as const;
@@ -184,23 +177,15 @@ export class ClientApi {
   masks() {}
 }
 
-export function getBearerToken(
-  apiKey: string,
-  noBearer: boolean = false,
-): string {
-  return validString(apiKey)
-    ? `${noBearer ? "" : "Bearer "}${apiKey.trim()}`
-    : "";
+export function getBearerToken(apiKey: string, noBearer: boolean = false): string {
+  return validString(apiKey) ? `${noBearer ? "" : "Bearer "}${apiKey.trim()}` : "";
 }
 
 export function validString(x: string): boolean {
   return x?.length > 0;
 }
 
-export function getHeaders(
-  providerName: string,
-  ignoreHeaders: boolean = false,
-) {
+export function getHeaders(providerName: string, ignoreHeaders: boolean = false) {
   const accessStore = useAccessStore.getState();
   let headers: Record<string, string> = {};
   if (!ignoreHeaders) {
@@ -284,30 +269,18 @@ export function getHeaders(
           : "Authorization";
   }
 
-  const {
-    isGoogle,
-    isAzure,
-    isAnthropic,
-    isBaidu,
-    apiKey,
-    isEnabledAccessControl,
-  } = getConfig();
+  const { isGoogle, isAzure, isAnthropic, isBaidu, apiKey, isEnabledAccessControl } = getConfig();
   // when using baidu api in app, not set auth header
   if (isBaidu && clientConfig?.isApp) return headers;
 
   const authHeader = getAuthHeader();
 
-  const bearerToken = getBearerToken(
-    apiKey,
-    isAzure || isAnthropic || isGoogle,
-  );
+  const bearerToken = getBearerToken(apiKey, isAzure || isAnthropic || isGoogle);
 
   if (bearerToken) {
     headers[authHeader] = bearerToken;
   } else if (isEnabledAccessControl && validString(accessStore.accessCode)) {
-    headers["Authorization"] = getBearerToken(
-      ACCESS_CODE_PREFIX + accessStore.accessCode,
-    );
+    headers["Authorization"] = getBearerToken(ACCESS_CODE_PREFIX + accessStore.accessCode);
   }
 
   return headers;

@@ -1,7 +1,4 @@
-import {
-  type ConversationGraphApi,
-  type ConversationGraphState,
-} from "./graph";
+import { type ConversationGraphApi, type ConversationGraphState } from "./graph";
 import {
   createSourceDigest,
   type ConversationNode,
@@ -59,8 +56,7 @@ export interface CheckpointMaintenancePlan extends SummaryMaintenancePlanBase {
   inputs: CheckpointGenerationInput[];
 }
 
-export type SummaryMaintenancePlan =
-  SegmentMaintenancePlan | CheckpointMaintenancePlan;
+export type SummaryMaintenancePlan = SegmentMaintenancePlan | CheckpointMaintenancePlan;
 
 export interface ConversationNodeSummaryApi<TResult> {
   edit(kind: NodeSummaryKind, content: string): TResult;
@@ -76,15 +72,9 @@ export function partitionProjectionIntoOutlineChains(
 
   for (const node of projection) {
     const parent = node.parentId ? nodesById.get(node.parentId) : undefined;
-    const parentChainIndex = parent
-      ? nodeChainIndexes.get(parent.id)
-      : undefined;
+    const parentChainIndex = parent ? nodeChainIndexes.get(parent.id) : undefined;
     let chainIndex: number;
-    if (
-      parent &&
-      parent.outlineLevel === node.outlineLevel &&
-      parentChainIndex !== undefined
-    ) {
+    if (parent && parent.outlineLevel === node.outlineLevel && parentChainIndex !== undefined) {
       chainIndex = parentChainIndex;
     } else {
       chainIndex = chains.length;
@@ -122,33 +112,25 @@ export function evaluateNodeSummary(
   if (sourceLocations.some((location) => !location)) {
     return { structurallyEligible: false, sourceNodes: [] };
   }
-  const resolved = sourceLocations.filter(
-    (location): location is NonNullable<typeof location> => Boolean(location),
+  const resolved = sourceLocations.filter((location): location is NonNullable<typeof location> =>
+    Boolean(location),
   );
   const first = resolved[0];
   const sameContinuousChain = resolved.every(
     (location, index) =>
-      location.chainIndex === first.chainIndex &&
-      location.nodeIndex === first.nodeIndex + index,
+      location.chainIndex === first.chainIndex && location.nodeIndex === first.nodeIndex + index,
   );
   const ownerIsLastSource =
-    resolved.at(-1)?.node.id === owner.id &&
-    resolved.at(-1)?.node.role === "assistant";
-  const checkpointStartsAtChainRoot =
-    kind !== "checkpoint" || first.nodeIndex === 0;
-  if (
-    !sameContinuousChain ||
-    !ownerIsLastSource ||
-    !checkpointStartsAtChainRoot
-  ) {
+    resolved.at(-1)?.node.id === owner.id && resolved.at(-1)?.node.role === "assistant";
+  const checkpointStartsAtChainRoot = kind !== "checkpoint" || first.nodeIndex === 0;
+  if (!sameContinuousChain || !ownerIsLastSource || !checkpointStartsAtChainRoot) {
     return { structurallyEligible: false, sourceNodes: [] };
   }
 
   const sourceNodes = resolved.map((location) => location.node);
   return {
     structurallyEligible: true,
-    freshness:
-      summary.sourceDigest === createDigest(sourceNodes) ? "fresh" : "stale",
+    freshness: summary.sourceDigest === createDigest(sourceNodes) ? "fresh" : "stale",
     sourceNodes,
   };
 }
@@ -177,8 +159,7 @@ function isGenerationInputCurrent(
   chains: OutlineChain[],
   input: SegmentGenerationBackground | CheckpointGenerationInput,
 ) {
-  const nodeId =
-    "endpointNodeId" in input ? input.endpointNodeId : input.ownerNodeId;
+  const nodeId = "endpointNodeId" in input ? input.endpointNodeId : input.ownerNodeId;
   const node = nodesById.get(nodeId);
   if (!node) return false;
   if (input.kind === "raw") {
@@ -188,8 +169,7 @@ function isGenerationInputCurrent(
   return Boolean(
     summary &&
     createSummarySnapshot(summary) === input.snapshot &&
-    evaluateNodeSummary(node, input.kind, summary, chains).freshness ===
-      "fresh",
+    evaluateNodeSummary(node, input.kind, summary, chains).freshness === "fresh",
   );
 }
 
@@ -215,9 +195,7 @@ function bindConversationSummary<TResult>(
   commitData: (state: ConversationGraphState) => TResult,
 ) {
   const state = graph.state;
-  const findNode = (
-    nodeId: string,
-  ): ConversationNodeSummaryApi<TResult> | undefined => {
+  const findNode = (nodeId: string): ConversationNodeSummaryApi<TResult> | undefined => {
     const graphNode = graph.findNode(nodeId);
     if (!graphNode) return;
     const node = graphNode.value;
@@ -236,8 +214,7 @@ function bindConversationSummary<TResult>(
         const chain = chains.find((candidate) =>
           candidate.nodes.some((candidateNode) => candidateNode.id === node.id),
         );
-        const ownerIndex =
-          chain?.nodes.findIndex((candidate) => candidate.id === node.id) ?? -1;
+        const ownerIndex = chain?.nodes.findIndex((candidate) => candidate.id === node.id) ?? -1;
         if (!chain || ownerIndex < 0) {
           throw new Error(`Missing outline chain for ${node.id}`);
         }
@@ -246,9 +223,7 @@ function bindConversationSummary<TResult>(
           (kind === "checkpoint"
             ? chain.nodes.slice(0, ownerIndex + 1).map((source) => source.id)
             : [node.id]);
-        const sourcesById = new Map(
-          projection.map((source) => [source.id, source]),
-        );
+        const sourcesById = new Map(projection.map((source) => [source.id, source]));
         const sourceNodes = sourceNodeIds
           .map((id) => sourcesById.get(id))
           .filter((source): source is ConversationNode => Boolean(source));
@@ -258,10 +233,7 @@ function bindConversationSummary<TResult>(
           sourceDigest: createSourceDigest(sourceNodes),
           provenance: "user-edited",
         };
-        if (
-          !evaluateNodeSummary(node, kind, candidate, chains)
-            .structurallyEligible
-        ) {
+        if (!evaluateNodeSummary(node, kind, candidate, chains).structurallyEligible) {
           throw new Error(`Invalid ${kind} summary coverage for ${node.id}`);
         }
         return commitNode((target) => {
@@ -290,13 +262,9 @@ function bindConversationSummary<TResult>(
     findNode,
     commitGenerated(plan: SummaryMaintenancePlan, content: string) {
       const currentProjection = graph.projectTo(plan.ownerNodeId);
-      const target = currentProjection.find(
-        (node) => node.id === plan.ownerNodeId,
-      );
+      const target = currentProjection.find((node) => node.id === plan.ownerNodeId);
       if (!target || target.role !== "assistant") return;
-      const sourcesById = new Map(
-        currentProjection.map((node) => [node.id, node]),
-      );
+      const sourcesById = new Map(currentProjection.map((node) => [node.id, node]));
       const sourceNodes = plan.sourceNodeIds
         .map((id) => sourcesById.get(id))
         .filter((node): node is ConversationNode => Boolean(node));
@@ -313,14 +281,9 @@ function bindConversationSummary<TResult>(
       }
 
       const chains = partitionProjectionIntoOutlineChains(currentProjection);
-      const inputs: Array<
-        SegmentGenerationBackground | CheckpointGenerationInput
-      > = plan.kind === "segment" ? plan.background : plan.inputs;
-      if (
-        !inputs.every((input) =>
-          isGenerationInputCurrent(sourcesById, chains, input),
-        )
-      ) {
+      const inputs: Array<SegmentGenerationBackground | CheckpointGenerationInput> =
+        plan.kind === "segment" ? plan.background : plan.inputs;
+      if (!inputs.every((input) => isGenerationInputCurrent(sourcesById, chains, input))) {
         return;
       }
 
@@ -330,10 +293,7 @@ function bindConversationSummary<TResult>(
         sourceDigest,
         provenance: "generated",
       };
-      if (
-        !evaluateNodeSummary(target, plan.kind, candidate, chains)
-          .structurallyEligible
-      ) {
+      if (!evaluateNodeSummary(target, plan.kind, candidate, chains).structurallyEligible) {
         return;
       }
       return commitData(
@@ -346,7 +306,5 @@ function bindConversationSummary<TResult>(
   };
 }
 
-export type ConversationSummaryApi<TResult> = ReturnType<
-  typeof bindConversationSummary<TResult>
->;
+export type ConversationSummaryApi<TResult> = ReturnType<typeof bindConversationSummary<TResult>>;
 export const ConversationSummary = bindConversationSummary;

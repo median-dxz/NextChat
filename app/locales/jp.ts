@@ -308,8 +308,7 @@ const jp: PartialLocaleType = {
 
         Endpoint: {
           Title: "エンドポイント",
-          SubTitle:
-            "デフォルト以外のアドレスにはhttp(s)://を含める必要があります",
+          SubTitle: "デフォルト以外のアドレスにはhttp(s)://を含める必要があります",
         },
       },
       Azure: {
@@ -332,8 +331,7 @@ const jp: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "APIキー",
-          SubTitle:
-            "カスタムAnthropicキーを使用してパスワードアクセス制限を回避",
+          SubTitle: "カスタムAnthropicキーを使用してパスワードアクセス制限を回避",
           Placeholder: "Anthropic APIキー",
         },
 
@@ -434,8 +432,7 @@ const jp: PartialLocaleType = {
     },
     TopP: {
       Title: "トップP (top_p)",
-      SubTitle:
-        "ランダム性に似ていますが、ランダム性と一緒に変更しないでください",
+      SubTitle: "ランダム性に似ていますが、ランダム性と一緒に変更しないでください",
     },
     MaxTokens: {
       Title: "1回の応答制限 (max_tokens)",
@@ -510,8 +507,7 @@ const jp: PartialLocaleType = {
       DeleteConfirm: "削除してもよろしいですか？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `プリセットマスクの編集 ${readonly ? "（読み取り専用）" : ""}`,
+      Title: (readonly: boolean) => `プリセットマスクの編集 ${readonly ? "（読み取り専用）" : ""}`,
       Download: "プリセットをダウンロード",
       Clone: "プリセットをクローン",
     },
@@ -526,8 +522,7 @@ const jp: PartialLocaleType = {
       },
       HideContext: {
         Title: "プリセット対話を非表示",
-        SubTitle:
-          "非表示にすると、プリセット対話はチャット画面に表示されません",
+        SubTitle: "非表示にすると、プリセット対話はチャット画面に表示されません",
       },
       Share: {
         Title: "このマスクを共有",
@@ -540,8 +535,7 @@ const jp: PartialLocaleType = {
     Return: "戻る",
     Skip: "直接開始",
     NotShow: "今後表示しない",
-    ConfirmNoShow:
-      "無効にしてもよろしいですか？無効にした後、設定でいつでも再度有効にできます。",
+    ConfirmNoShow: "無効にしてもよろしいですか？無効にした後、設定でいつでも再度有効にできます。",
     Title: "マスクを選択",
     SubTitle: "今すぐ始めよう、マスクの背後にある魂と思考の衝突",
     More: "すべて表示",

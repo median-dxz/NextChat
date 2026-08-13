@@ -195,8 +195,7 @@ export const Azure = {
 
 export const Google = {
   ExampleEndpoint: "https://generativelanguage.googleapis.com/",
-  ChatPath: (modelName: string) =>
-    `v1beta/models/${modelName}:streamGenerateContent`,
+  ChatPath: (modelName: string) => `v1beta/models/${modelName}:streamGenerateContent`,
 };
 
 export const Baidu = {
@@ -466,14 +465,7 @@ export const DEFAULT_TTS_ENGINES = ["OpenAI-TTS", "Edge-TTS"];
 export const DEFAULT_TTS_MODEL = "tts-1";
 export const DEFAULT_TTS_VOICE = "alloy";
 export const DEFAULT_TTS_MODELS = ["tts-1", "tts-1-hd"];
-export const DEFAULT_TTS_VOICES = [
-  "alloy",
-  "echo",
-  "fable",
-  "onyx",
-  "nova",
-  "shimmer",
-];
+export const DEFAULT_TTS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 export const VISION_MODEL_REGEXES = [
   /vision/,
@@ -493,7 +485,7 @@ export const VISION_MODEL_REGEXES = [
   /o3/,
   /o4-mini/,
   /grok-4/i,
-  /gpt-5/
+  /gpt-5/,
 ];
 
 export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
@@ -561,7 +553,7 @@ const googleModels = [
   "gemini-2.0-pro-exp",
   "gemini-2.0-pro-exp-02-05",
   "gemini-2.5-pro-preview-06-05",
-  "gemini-2.5-pro"
+  "gemini-2.5-pro",
 ];
 
 const anthropicModels = [
@@ -642,13 +634,7 @@ const moonshotModels = [
   "kimi-latest",
 ];
 
-const iflytekModels = [
-  "general",
-  "generalv3",
-  "pro-128k",
-  "generalv3.5",
-  "4.0Ultra",
-];
+const iflytekModels = ["general", "generalv3", "pro-128k", "generalv3.5", "4.0Ultra"];
 
 const deepseekModels = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"];
 

@@ -1,9 +1,4 @@
-import {
-  FETCH_COMMIT_URL,
-  FETCH_TAG_URL,
-  ModelProvider,
-  StoreKey,
-} from "../constant";
+import { FETCH_COMMIT_URL, FETCH_TAG_URL, ModelProvider, StoreKey } from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
 import { clientUpdate } from "../utils";
@@ -25,11 +20,9 @@ function formatVersionDate(t: string) {
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
 
-  return [
-    year.toString(),
-    month.toString().padStart(2, "0"),
-    day.toString().padStart(2, "0"),
-  ].join("");
+  return [year.toString(), month.toString().padStart(2, "0"), day.toString().padStart(2, "0")].join(
+    "",
+  );
 }
 
 type VersionType = "date" | "tag";
@@ -76,9 +69,7 @@ export const useUpdateStore = createPersistStore(
     async getLatestVersion(force = false) {
       const versionType = get().versionType;
       let version =
-        versionType === "date"
-          ? getClientConfig()?.commitDate
-          : getClientConfig()?.version;
+        versionType === "date" ? getClientConfig()?.commitDate : getClientConfig()?.version;
 
       set(() => ({ version }));
 

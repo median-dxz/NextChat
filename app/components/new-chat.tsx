@@ -21,13 +21,8 @@ import clsx from "clsx";
 function MaskItem(props: { mask: Mask; onClick?: () => void }) {
   return (
     <div className={styles["mask"]} onClick={props.onClick}>
-      <MaskAvatar
-        avatar={props.mask.avatar}
-        model={props.mask.modelConfig.model}
-      />
-      <div className={clsx(styles["mask-name"], "one-line")}>
-        {props.mask.name}
-      </div>
+      <MaskAvatar avatar={props.mask.avatar} model={props.mask.modelConfig.model} />
+      <div className={clsx(styles["mask-name"], "one-line")}>{props.mask.name}</div>
     </div>
   );
 }
@@ -108,8 +103,7 @@ export function NewChat() {
 
   useEffect(() => {
     if (maskRef.current) {
-      maskRef.current.scrollLeft =
-        (maskRef.current.scrollWidth - maskRef.current.clientWidth) / 2;
+      maskRef.current.scrollLeft = (maskRef.current.scrollWidth - maskRef.current.clientWidth) / 2;
     }
   }, [groups]);
 
@@ -127,9 +121,7 @@ export function NewChat() {
             onClick={async () => {
               if (await showConfirm(Locale.NewChat.ConfirmNoShow)) {
                 startChat();
-                config.update(
-                  (config) => (config.dontShowMaskSplashScreen = true),
-                );
+                config.update((config) => (config.dontShowMaskSplashScreen = true));
               }
             }}
           ></IconButton>
@@ -173,11 +165,7 @@ export function NewChat() {
         {groups.map((masks, i) => (
           <div key={i} className={styles["mask-row"]}>
             {masks.map((mask, index) => (
-              <MaskItem
-                key={index}
-                mask={mask}
-                onClick={() => startChat(mask)}
-              />
+              <MaskItem key={index} mask={mask} onClick={() => startChat(mask)} />
             ))}
           </div>
         ))}

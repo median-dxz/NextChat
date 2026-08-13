@@ -7,21 +7,11 @@ import clsx from "clsx";
 
 import { useState, useRef, useEffect } from "react";
 
-import {
-  useChatStore,
-  createConversationNode,
-  useAppConfig,
-} from "@/app/store";
+import { useChatStore, createConversationNode, useAppConfig } from "@/app/store";
 
 import { IconButton } from "@/app/components/button";
 
-import {
-  Modality,
-  RTClient,
-  RTInputAudioItem,
-  RTResponse,
-  TurnDetection,
-} from "rt-client";
+import { Modality, RTClient, RTInputAudioItem, RTResponse, TurnDetection } from "rt-client";
 import { AudioHandler } from "@/app/lib/audio";
 import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
@@ -32,11 +22,7 @@ interface RealtimeChatProps {
   onPausedVoice?: () => void;
 }
 
-export function RealtimeChat({
-  onClose,
-  onStartVoice,
-  onPausedVoice,
-}: RealtimeChatProps) {
+export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeChatProps) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
@@ -66,17 +52,10 @@ export function RealtimeChat({
       try {
         setIsConnecting(true);
         clientRef.current = azure
-          ? new RTClient(
-              new URL(azureEndpoint),
-              { key: apiKey },
-              { deployment: azureDeployment },
-            )
+          ? new RTClient(new URL(azureEndpoint), { key: apiKey }, { deployment: azureDeployment })
           : new RTClient({ key: apiKey }, { model });
-        const modalities: Modality[] =
-          modality === "audio" ? ["text", "audio"] : ["text"];
-        const turnDetection: TurnDetection = useVAD
-          ? { type: "server_vad" }
-          : null;
+        const modalities: Modality[] = modality === "audio" ? ["text", "audio"] : ["text"];
+        const turnDetection: TurnDetection = useVAD ? { type: "server_vad" } : null;
         await clientRef.current.configure({
           instructions: "",
           voice,
@@ -158,9 +137,7 @@ export function RealtimeChat({
           role: item.role,
           content: "",
         });
-        chatStore.updateConversation(session.id, (conversation) =>
-          conversation.insert(botMessage),
-        );
+        chatStore.updateConversation(session.id, (conversation) => conversation.insert(botMessage));
         let messageContent = "";
         let hasAudio = false;
         for await (const content of item) {
@@ -211,16 +188,11 @@ export function RealtimeChat({
         role: "user",
         content: item.transcription,
       });
-      chatStore.updateConversation(session.id, (conversation) =>
-        conversation.insert(userMessage),
-      );
+      chatStore.updateConversation(session.id, (conversation) => conversation.insert(userMessage));
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;
       // upload audio get audio_url
-      const blob = audioHandlerRef.current?.saveRecordFile(
-        audioStartMillis,
-        audioEndMillis,
-      );
+      const blob = audioHandlerRef.current?.saveRecordFile(audioStartMillis, audioEndMillis);
       uploadImage(blob!).then((audio_url) => {
         chatStore.updateConversation(session.id, (conversation) =>
           conversation.updateNodeData(userMessage.id, (message) => {
@@ -355,12 +327,7 @@ export function RealtimeChat({
         </div>
         <div className={styles["icon-center"]}>{status}</div>
         <div>
-          <IconButton
-            icon={<PowerIcon />}
-            onClick={handleClose}
-            shadow
-            bordered
-          />
+          <IconButton icon={<PowerIcon />} onClick={handleClose} shadow bordered />
         </div>
       </div>
     </div>

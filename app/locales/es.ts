@@ -23,8 +23,7 @@ const es: PartialLocaleType = {
     Input: "Introduce el código de acceso aquí",
     Confirm: "Confirmar",
     Return: "Regresar",
-    SaasTips:
-      "La configuración es demasiado complicada, quiero usarlo de inmediato",
+    SaasTips: "La configuración es demasiado complicada, quiero usarlo de inmediato",
     TopTips:
       "🥳 Oferta de lanzamiento de NextChat AI, desbloquea OpenAI o1, GPT-4o, Claude-3.5 y los últimos grandes modelos",
   },
@@ -46,8 +45,7 @@ const es: PartialLocaleType = {
       Copy: "Copiar",
       Stop: "Detener",
       Retry: "Reintentar",
-      PinToastContent:
-        "Se ha fijado 1 conversación a los prompts predeterminados",
+      PinToastContent: "Se ha fijado 1 conversación a los prompts predeterminados",
       PinToastAction: "Ver",
       Delete: "Eliminar",
       Edit: "Editar",
@@ -80,9 +78,7 @@ const es: PartialLocaleType = {
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += "，Shift + Enter para nueva línea";
       }
-      return (
-        inputHints + "，/ para activar autocompletado，: para activar comandos"
-      );
+      return inputHints + "，/ para activar autocompletado，: para activar comandos";
     },
     Send: "Enviar",
     Config: {
@@ -136,8 +132,7 @@ const es: PartialLocaleType = {
     Danger: {
       Reset: {
         Title: "Restablecer todas las configuraciones",
-        SubTitle:
-          "Restablecer todas las configuraciones a los valores predeterminados",
+        SubTitle: "Restablecer todas las configuraciones a los valores predeterminados",
         Action: "Restablecer ahora",
         Confirm: "¿Confirmar el restablecimiento de todas las configuraciones?",
       },
@@ -145,8 +140,7 @@ const es: PartialLocaleType = {
         Title: "Eliminar todos los datos",
         SubTitle: "Eliminar todos los chats y datos de configuración",
         Action: "Eliminar ahora",
-        Confirm:
-          "¿Confirmar la eliminación de todos los chats y datos de configuración?",
+        Confirm: "¿Confirmar la eliminación de todos los chats y datos de configuración?",
       },
     },
     Lang: {
@@ -186,8 +180,7 @@ const es: PartialLocaleType = {
     Theme: "Tema",
     SendPreviewBubble: {
       Title: "Vista previa del globo",
-      SubTitle:
-        "Previsualiza el contenido Markdown en un globo de vista previa",
+      SubTitle: "Previsualiza el contenido Markdown en un globo de vista previa",
     },
     AutoGenerateTitle: {
       Title: "Generar título automáticamente",
@@ -240,20 +233,17 @@ const es: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Pantalla de inicio de máscara",
-        SubTitle:
-          "Mostrar la pantalla de inicio de la máscara al iniciar un nuevo chat",
+        SubTitle: "Mostrar la pantalla de inicio de la máscara al iniciar un nuevo chat",
       },
       Builtin: {
         Title: "Ocultar máscaras integradas",
-        SubTitle:
-          "Ocultar las máscaras integradas en todas las listas de máscaras",
+        SubTitle: "Ocultar las máscaras integradas en todas las listas de máscaras",
       },
     },
     Prompt: {
       Disable: {
         Title: "Deshabilitar autocompletado de prompts",
-        SubTitle:
-          "Escribe / al principio del campo de entrada para activar el autocompletado",
+        SubTitle: "Escribe / al principio del campo de entrada para activar el autocompletado",
       },
       List: "Lista de prompts personalizados",
       ListCount: (builtin: number, custom: number) =>
@@ -285,8 +275,7 @@ const es: PartialLocaleType = {
       },
       IsChecking: "Verificando…",
       Check: "Revisar de nuevo",
-      NoAccess:
-        "Introduce la clave API o la contraseña de acceso para ver el saldo",
+      NoAccess: "Introduce la clave API o la contraseña de acceso para ver el saldo",
     },
 
     Access: {
@@ -321,8 +310,7 @@ const es: PartialLocaleType = {
 
         Endpoint: {
           Title: "Dirección del endpoint",
-          SubTitle:
-            "Debe incluir http(s):// además de la dirección predeterminada",
+          SubTitle: "Debe incluir http(s):// además de la dirección predeterminada",
         },
       },
       Azure: {
@@ -395,8 +383,7 @@ const es: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Dirección del endpoint",
-          SubTitle:
-            "No admite personalización, dirígete a .env para configurarlo",
+          SubTitle: "No admite personalización, dirígete a .env para configurarlo",
         },
       },
       ByteDance: {
@@ -434,8 +421,7 @@ const es: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Nombre del modelo personalizado",
-        SubTitle:
-          "Agrega opciones de modelos personalizados, separados por comas",
+        SubTitle: "Agrega opciones de modelos personalizados, separados por comas",
       },
     },
 
@@ -458,13 +444,11 @@ const es: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Novedad de temas (presence_penalty)",
-      SubTitle:
-        "Cuanto mayor sea el valor, más probable es que se amplíen a nuevos temas",
+      SubTitle: "Cuanto mayor sea el valor, más probable es que se amplíen a nuevos temas",
     },
     FrequencyPenalty: {
       Title: "Penalización de frecuencia (frequency_penalty)",
-      SubTitle:
-        "Cuanto mayor sea el valor, más probable es que se reduzcan las palabras repetidas",
+      SubTitle: "Cuanto mayor sea el valor, más probable es que se reduzcan las palabras repetidas",
     },
   },
   Store: {
@@ -534,15 +518,13 @@ const es: PartialLocaleType = {
       Name: "Nombre del rol",
       Sync: {
         Title: "Usar configuración global",
-        SubTitle:
-          "¿Usar la configuración global del modelo para la conversación actual?",
+        SubTitle: "¿Usar la configuración global del modelo para la conversación actual?",
         Confirm:
           "La configuración personalizada de la conversación actual se sobrescribirá automáticamente, ¿confirmar habilitar la configuración global?",
       },
       HideContext: {
         Title: "Ocultar conversaciones predefinidas",
-        SubTitle:
-          "Las conversaciones predefinidas ocultas no aparecerán en la interfaz de chat",
+        SubTitle: "Las conversaciones predefinidas ocultas no aparecerán en la interfaz de chat",
       },
       Share: {
         Title: "Compartir esta máscara",
@@ -564,8 +546,7 @@ const es: PartialLocaleType = {
 
   URLCommand: {
     Code: "Detectado un código de acceso en el enlace, ¿deseas autocompletarlo?",
-    Settings:
-      "Detectada configuración predefinida en el enlace, ¿deseas autocompletarla?",
+    Settings: "Detectada configuración predefinida en el enlace, ¿deseas autocompletarla?",
   },
 
   UI: {

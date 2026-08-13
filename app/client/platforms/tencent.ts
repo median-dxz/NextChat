@@ -11,17 +11,10 @@ import {
   SpeechOptions,
 } from "../api";
 import Locale from "../../locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { getMessageTextContent, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
 import mapKeys from "lodash-es/mapKeys";
 import mapValues from "lodash-es/mapValues";
 import isArray from "lodash-es/isArray";
@@ -183,10 +176,7 @@ export class HunyuanApi implements LLMApi {
           async onopen(res) {
             clearTimeout(requestTimeoutId);
             const contentType = res.headers.get("content-type");
-            console.log(
-              "[Tencent] request response content type: ",
-              contentType,
-            );
+            console.log("[Tencent] request response content type: ", contentType);
             responseRes = res;
             if (contentType?.startsWith("text/plain")) {
               responseText = await res.clone().text();
@@ -195,9 +185,7 @@ export class HunyuanApi implements LLMApi {
 
             if (
               !res.ok ||
-              !res.headers
-                .get("content-type")
-                ?.startsWith(EventStreamContentType) ||
+              !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
               res.status !== 200
             ) {
               const responseTexts = [responseText];

@@ -7,11 +7,7 @@ import ReturnIcon from "@/app/icons/return.svg";
 import Locale from "@/app/locales";
 import { Path } from "@/app/constant";
 import React, { useMemo, useRef } from "react";
-import {
-  copyToClipboard,
-  getMessageTextContent,
-  useMobileScreen,
-} from "@/app/utils";
+import { copyToClipboard, getMessageTextContent, useMobileScreen } from "@/app/utils";
 import { useNavigate, useLocation } from "react-router";
 import { useAppConfig } from "@/app/store";
 import MinIcon from "@/app/icons/min.svg";
@@ -26,11 +22,7 @@ import { useSdStore } from "@/app/store/sd";
 import LoadingIcon from "@/app/icons/three-dots.svg";
 import ErrorIcon from "@/app/icons/delete.svg";
 import SDIcon from "@/app/icons/sd.svg";
-import {
-  showConfirm,
-  showImageModal,
-  showModal,
-} from "@/app/components/ui-lib";
+import { showConfirm, showImageModal, showModal } from "@/app/components/ui-lib";
 import { removeImage } from "@/app/utils/chat";
 import { SideBar } from "./sd-sidebar";
 import { WindowContent } from "@/app/components/home";
@@ -71,11 +63,7 @@ function getSdTaskStatus(item: any) {
           onClick={() => {
             showModal({
               title: Locale.Sd.Detail,
-              children: (
-                <div style={{ color: color, userSelect: "text" }}>
-                  {item.error}
-                </div>
-              ),
+              children: <div style={{ color: color, userSelect: "text" }}>{item.error}</div>,
             });
           }}
         >
@@ -116,12 +104,7 @@ export function Sd() {
                 </div>
               </div>
             )}
-            <div
-              className={clsx(
-                "window-header-title",
-                chatStyles["chat-body-title"],
-              )}
-            >
+            <div className={clsx("window-header-title", chatStyles["chat-body-title"])}>
               <div className={`window-header-main-title`}>Stability AI</div>
               <div className="window-header-sub-title">
                 {Locale.Sd.SubTitle(sdImages.length || 0)}
@@ -136,9 +119,7 @@ export function Sd() {
                     icon={config.tightBorder ? <MinIcon /> : <MaxIcon />}
                     bordered
                     onClick={() => {
-                      config.update(
-                        (config) => (config.tightBorder = !config.tightBorder),
-                      );
+                      config.update((config) => (config.tightBorder = !config.tightBorder));
                     }}
                   />
                 </div>
@@ -187,10 +168,7 @@ export function Sd() {
                           <LoadingIcon />
                         </div>
                       )}
-                      <div
-                        style={{ marginLeft: "10px" }}
-                        className={styles["sd-img-item-info"]}
-                      >
+                      <div style={{ marginLeft: "10px" }} className={styles["sd-img-item-info"]}>
                         <p className={styles["line-1"]}>
                           {Locale.SdPanel.Prompt}:{" "}
                           <span
@@ -200,9 +178,7 @@ export function Sd() {
                               showModal({
                                 title: Locale.Sd.Detail,
                                 children: (
-                                  <div style={{ userSelect: "text" }}>
-                                    {item.params.prompt}
-                                  </div>
+                                  <div style={{ userSelect: "text" }}>{item.params.prompt}</div>
                                 ),
                               });
                             }}
@@ -233,8 +209,7 @@ export function Sd() {
                                             label = Locale.SdPanel.Prompt;
                                             break;
                                           case "negative_prompt":
-                                            label =
-                                              Locale.SdPanel.NegativePrompt;
+                                            label = Locale.SdPanel.NegativePrompt;
                                             break;
                                           case "aspect_ratio":
                                             label = Locale.SdPanel.AspectRatio;
@@ -250,23 +225,15 @@ export function Sd() {
                                           case "style":
                                             label = Locale.SdPanel.ImageStyle;
                                             value = params
-                                              .find(
-                                                (item) =>
-                                                  item.value === "style",
-                                              )
-                                              ?.options?.find(
-                                                (item) => item.value === value,
-                                              )?.name;
+                                              .find((item) => item.value === "style")
+                                              ?.options?.find((item) => item.value === value)?.name;
                                             break;
                                           default:
                                             break;
                                         }
 
                                         return (
-                                          <div
-                                            key={key}
-                                            style={{ margin: "10px" }}
-                                          >
+                                          <div key={key} style={{ margin: "10px" }}>
                                             <strong>{label}: </strong>
                                             {value}
                                           </div>
@@ -308,14 +275,10 @@ export function Sd() {
                               text={Locale.Sd.Actions.Delete}
                               icon={<DeleteIcon />}
                               onClick={async () => {
-                                if (
-                                  await showConfirm(Locale.Sd.Danger.Delete)
-                                ) {
+                                if (await showConfirm(Locale.Sd.Danger.Delete)) {
                                   // remove img_data + remove item in list
                                   removeImage(item.img_data).finally(() => {
-                                    sdStore.draw = sdImages.filter(
-                                      (i: any) => i.id !== item.id,
-                                    );
+                                    sdStore.draw = sdImages.filter((i: any) => i.id !== item.id);
                                     sdStore.getNextId();
                                   });
                                 }

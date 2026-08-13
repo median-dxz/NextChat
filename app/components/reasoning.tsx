@@ -16,11 +16,8 @@ export function ReasoningDisclosure({
   streaming,
   reasoningDurationMs,
 }: ReasoningDisclosureProps) {
-  const isThinking =
-    reasoning.length > 0 && Boolean(streaming) && content.trim().length === 0;
-  const [open, setOpen] = useState(
-    reasoning.length > 0 && content.trim().length === 0,
-  );
+  const isThinking = reasoning.length > 0 && Boolean(streaming) && content.trim().length === 0;
+  const [open, setOpen] = useState(reasoning.length > 0 && content.trim().length === 0);
   const [liveDurationMs, setLiveDurationMs] = useState(0);
   const timerStartedAt = useRef<number | null>(null);
   const hadReasoning = useRef(reasoning.length > 0);
@@ -66,9 +63,7 @@ export function ReasoningDisclosure({
     >
       <summary>
         {isThinking
-          ? Locale.Chat.ReasoningThinking(
-              formatReasoningDuration(liveDurationMs),
-            )
+          ? Locale.Chat.ReasoningThinking(formatReasoningDuration(liveDurationMs))
           : Locale.Chat.ReasoningThought(
               reasoningDurationMs === undefined
                 ? undefined

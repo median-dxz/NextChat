@@ -71,9 +71,7 @@ async function requestSummary(
     pluginIds,
   );
   if (!content) {
-    throw new Error(
-      `Summary request returned empty content (${providerName}/${model})`,
-    );
+    throw new Error(`Summary request returned empty content (${providerName}/${model})`);
   }
   return content;
 }
@@ -85,9 +83,7 @@ export function createSummaryMaintenance(
 
   const run = async (command: SummaryMaintenanceCommand) => {
     const session = dependencies.getSession(command.sessionId);
-    const target = session?.messages.find(
-      (node) => node.id === command.targetNodeId,
-    );
+    const target = session?.messages.find((node) => node.id === command.targetNodeId);
     if (!session || !target || target.role !== "assistant") return;
 
     const modelConfig = session.mask.modelConfig;
@@ -106,10 +102,7 @@ export function createSummaryMaintenance(
           });
     const [model, providerName] = modelConfig.compressModel
       ? [modelConfig.compressModel, modelConfig.compressProviderName]
-      : dependencies.resolveDefaultModel(
-          modelConfig.model,
-          modelConfig.providerName,
-        );
+      : dependencies.resolveDefaultModel(modelConfig.model, modelConfig.providerName);
 
     if (segmentPlan) {
       const content = await requestSummary(
@@ -180,17 +173,11 @@ export function createSummaryMaintenance(
       const initialTarget = initialSession?.messages.find(
         (node) => node.id === command.targetNodeId,
       );
-      if (
-        !initialSession ||
-        !initialTarget ||
-        initialTarget.role !== "assistant"
-      ) {
+      if (!initialSession || !initialTarget || initialTarget.role !== "assistant") {
         return Promise.resolve();
       }
 
-      const chainRootId = Conversation(initialSession).planning(
-        command.targetNodeId,
-      ).chainRootId;
+      const chainRootId = Conversation(initialSession).planning(command.targetNodeId).chainRootId;
       if (!chainRootId) return Promise.resolve();
 
       const jobKey = `${command.sessionId}:${chainRootId}`;

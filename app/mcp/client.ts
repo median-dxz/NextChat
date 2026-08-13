@@ -6,10 +6,7 @@ import { z } from "zod";
 
 const logger = new MCPClientLogger();
 
-export async function createClient(
-  id: string,
-  config: ServerConfig,
-): Promise<Client> {
+export async function createClient(id: string, config: ServerConfig): Promise<Client> {
   logger.info(`Creating client for ${id}...`);
 
   const transport = new StdioClientTransport({
@@ -47,9 +44,6 @@ export async function listTools(client: Client): Promise<ListToolsResponse> {
   return client.listTools();
 }
 
-export async function executeRequest(
-  client: Client,
-  request: McpRequestMessage,
-) {
+export async function executeRequest(client: Client, request: McpRequestMessage) {
   return client.request(request, z.any());
 }

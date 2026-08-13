@@ -2,21 +2,9 @@
 import { ChatMessage, useAppConfig, useChatStore } from "../store";
 import Locale from "../locales";
 import styles from "./exporter.module.scss";
-import {
-  List,
-  ListItem,
-  Modal,
-  Select,
-  showImageModal,
-  showToast,
-} from "./ui-lib";
+import { List, ListItem, Modal, Select, showImageModal, showToast } from "./ui-lib";
 import { IconButton } from "./button";
-import {
-  copyToClipboard,
-  downloadAs,
-  getMessageImages,
-  useMobileScreen,
-} from "../utils";
+import { copyToClipboard, downloadAs, getMessageImages, useMobileScreen } from "../utils";
 
 import CopyIcon from "../icons/copy.svg";
 import LoadingIcon from "../icons/three-dots.svg";
@@ -43,20 +31,13 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-export function getExportMessageContent(
-  message: ChatMessage,
-  includeReasoning: boolean,
-) {
+export function getExportMessageContent(message: ChatMessage, includeReasoning: boolean) {
   const content = getMessageTextContent(message);
   if (!includeReasoning || message.role !== "assistant" || !message.reasoning) {
     return content;
   }
 
-  return formatReasoningForExport(
-    content,
-    message.reasoning,
-    Locale.Chat.Reasoning,
-  );
+  return formatReasoningForExport(content, message.reasoning, Locale.Chat.Reasoning);
 }
 
 export function ExportMessageModal(props: { onClose: () => void }) {
@@ -94,10 +75,8 @@ function useSteps(
 ) {
   const stepCount = steps.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const nextStep = () =>
-    setCurrentStepIndex((currentStepIndex + 1) % stepCount);
-  const prevStep = () =>
-    setCurrentStepIndex((currentStepIndex - 1 + stepCount) % stepCount);
+  const nextStep = () => setCurrentStepIndex((currentStepIndex + 1) % stepCount);
+  const prevStep = () => setCurrentStepIndex((currentStepIndex - 1 + stepCount) % stepCount);
 
   return {
     currentStepIndex,
@@ -162,8 +141,7 @@ export function MessageExporter() {
       value: "preview",
     },
   ];
-  const { currentStep, setCurrentStepIndex, currentStepIndex } =
-    useSteps(steps);
+  const { currentStep, setCurrentStepIndex, currentStepIndex } = useSteps(steps);
   const formats = ["text", "image", "json"] as const;
   type ExportFormat = (typeof formats)[number];
 
@@ -189,12 +167,7 @@ export function MessageExporter() {
     }
     ret.push(...session.messages.filter((m) => selection.has(m.id)));
     return ret;
-  }, [
-    exportConfig.includeContext,
-    session.messages,
-    session.mask.context,
-    selection,
-  ]);
+  }, [exportConfig.includeContext, session.messages, session.mask.context, selection]);
   function preview() {
     if (exportConfig.format === "text") {
       return (
@@ -224,26 +197,18 @@ export function MessageExporter() {
   }
   return (
     <>
-      <Steps
-        steps={steps}
-        index={currentStepIndex}
-        onStepChange={setCurrentStepIndex}
-      />
+      <Steps steps={steps} index={currentStepIndex} onStepChange={setCurrentStepIndex} />
       <div
         className={styles["message-exporter-body"]}
         style={currentStep.value !== "select" ? { display: "none" } : {}}
       >
         <List>
-          <ListItem
-            title={Locale.Export.Format.Title}
-            subTitle={Locale.Export.Format.SubTitle}
-          >
+          <ListItem title={Locale.Export.Format.Title} subTitle={Locale.Export.Format.SubTitle}>
             <Select
               value={exportConfig.format}
               onChange={(e) =>
                 updateExportConfig(
-                  (config) =>
-                    (config.format = e.currentTarget.value as ExportFormat),
+                  (config) => (config.format = e.currentTarget.value as ExportFormat),
                 )
               }
             >
@@ -262,9 +227,7 @@ export function MessageExporter() {
               type="checkbox"
               checked={exportConfig.includeContext}
               onChange={(e) => {
-                updateExportConfig(
-                  (config) => (config.includeContext = e.currentTarget.checked),
-                );
+                updateExportConfig((config) => (config.includeContext = e.currentTarget.checked));
               }}
             ></input>
           </ListItem>
@@ -276,19 +239,12 @@ export function MessageExporter() {
               type="checkbox"
               checked={exportConfig.includeReasoning}
               onChange={(e) => {
-                updateExportConfig(
-                  (config) =>
-                    (config.includeReasoning = e.currentTarget.checked),
-                );
+                updateExportConfig((config) => (config.includeReasoning = e.currentTarget.checked));
               }}
             />
           </ListItem>
         </List>
-        <MessageSelector
-          selection={selection}
-          updateSelection={updateSelection}
-          defaultSelectAll
-        />
+        <MessageSelector selection={selection} updateSelection={updateSelection} defaultSelectAll />
       </div>
       {currentStep.value === "preview" && (
         <div className={styles["message-exporter-body"]}>{preview()}</div>
@@ -423,32 +379,19 @@ export function ImagePreviewer(props: {
   return (
     <div className={styles["image-previewer"]}>
       <PreviewActions copy={copy} download={download} showCopy={!isMobile} />
-      <div
-        className={clsx(styles["preview-body"], styles["default-theme"])}
-        ref={previewRef}
-      >
+      <div className={clsx(styles["preview-body"], styles["default-theme"])} ref={previewRef}>
         <div className={styles["chat-info"]}>
           <div className={clsx(styles["logo"], "no-dark")}>
-            <NextImage
-              src={ChatGptIcon.src}
-              alt="logo"
-              width={50}
-              height={50}
-            />
+            <NextImage src={ChatGptIcon.src} alt="logo" width={50} height={50} />
           </div>
 
           <div>
             <div className={styles["main-title"]}>NextChat</div>
-            <div className={styles["sub-title"]}>
-              github.com/ChatGPTNextWeb/ChatGPT-Next-Web
-            </div>
+            <div className={styles["sub-title"]}>github.com/ChatGPTNextWeb/ChatGPT-Next-Web</div>
             <div className={styles["icons"]}>
               <MaskAvatar avatar={config.avatar} />
               <span className={styles["icon-space"]}>&</span>
-              <MaskAvatar
-                avatar={mask.avatar}
-                model={session.mask.modelConfig.model}
-              />
+              <MaskAvatar avatar={mask.avatar} model={session.mask.modelConfig.model} />
             </div>
           </div>
           <div>
@@ -463,18 +406,13 @@ export function ImagePreviewer(props: {
             </div>
             <div className={styles["chat-info-item"]}>
               {Locale.Exporter.Time}:{" "}
-              {new Date(
-                props.messages.at(-1)?.date ?? session.lastUpdate,
-              ).toLocaleString()}
+              {new Date(props.messages.at(-1)?.date ?? session.lastUpdate).toLocaleString()}
             </div>
           </div>
         </div>
         {props.messages.map((m, i) => {
           return (
-            <div
-              className={clsx(styles["message"], styles["message-" + m.role])}
-              key={i}
-            >
+            <div className={clsx(styles["message"], styles["message-" + m.role])} key={i}>
               <div className={styles["avatar"]}>
                 {m.role === "user" ? (
                   <Avatar avatar={config.avatar}></Avatar>
@@ -540,10 +478,7 @@ export function MarkdownPreviewer(props: {
       .map((m) => {
         return m.role === "user"
           ? `## ${Locale.Export.MessageFromYou}:\n${getMessageTextContent(m)}`
-          : `## ${Locale.Export.MessageFromChatGPT}:\n${getExportMessageContent(
-              m,
-              props.includeReasoning,
-            ).trim()}`;
+          : `## ${Locale.Export.MessageFromChatGPT}:\n${getExportMessageContent(m, props.includeReasoning).trim()}`;
       })
       .join("\n\n");
 

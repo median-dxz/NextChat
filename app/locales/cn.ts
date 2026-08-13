@@ -25,8 +25,7 @@ const cn: PartialLocaleType = {
     Input: "在此处填写访问码",
     Confirm: "确认",
     SaasTips: "配置太麻烦，想要立即使用",
-    TopTips:
-      "🥳 NextChat AI 首发优惠，立刻解锁 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
+    TopTips: "🥳 NextChat AI 首发优惠，立刻解锁 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} 条对话`,
@@ -35,12 +34,9 @@ const cn: PartialLocaleType = {
     SubTitle: (count: number) => `共 ${count} 条对话`,
     Reasoning: "思考过程",
     ReasoningThinking: (duration: string) => `正在思考…（${duration}）`,
-    ReasoningThought: (duration?: string) =>
-      duration ? `已思考 ${duration}` : "已思考",
+    ReasoningThought: (duration?: string) => (duration ? `已思考 ${duration}` : "已思考"),
     ReasoningDuration: (minutes: number, seconds: number) =>
-      minutes > 0
-        ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒`
-        : `${seconds} 秒`,
+      minutes > 0 ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒` : `${seconds} 秒`,
     EditMessage: {
       Title: "编辑消息记录",
       Topic: {
@@ -303,8 +299,7 @@ const cn: PartialLocaleType = {
         SubTitle: "在输入框开头输入 / 即可触发自动补全",
       },
       List: "自定义提示词列表",
-      ListCount: (builtin: number, custom: number) =>
-        `内置 ${builtin} 条，用户定义 ${custom} 条`,
+      ListCount: (builtin: number, custom: number) => `内置 ${builtin} 条，用户定义 ${custom} 条`,
       Edit: "编辑",
       Modal: {
         Title: "提示词列表",
@@ -673,8 +668,7 @@ const cn: PartialLocaleType = {
     Prompt: {
       Topic:
         "使用四到五个字直接返回这句话的简要主题，不要解释、不要标点、不要语气词、不要多余文本，不要加粗，如果没有主题，请直接返回“闲聊”",
-      Summarize:
-        "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
+      Summarize: "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
     },
   },
   Copy: {
@@ -763,8 +757,7 @@ const cn: PartialLocaleType = {
       DeleteConfirm: "确认删除？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `编辑预设面具 ${readonly ? "（只读）" : ""}`,
+      Title: (readonly: boolean) => `编辑预设面具 ${readonly ? "（只读）" : ""}`,
       Download: "下载预设",
       Clone: "克隆预设",
     },

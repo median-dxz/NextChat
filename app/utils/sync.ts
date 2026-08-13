@@ -22,9 +22,7 @@ export function getNonFunctionFileds<T extends object>(obj: T) {
   return ret as NonFunctionFields<T>;
 }
 
-export type GetStoreState<T> = T extends { getState: () => infer U }
-  ? NonFunctionFields<U>
-  : never;
+export type GetStoreState<T> = T extends { getState: () => infer U } ? NonFunctionFields<U> : never;
 
 const LocalStateSetters = {
   [StoreKey.Chat]: useChatStore.setState,
@@ -43,15 +41,10 @@ const LocalStateGetters = {
 } as const;
 
 export type AppState = {
-  [k in keyof typeof LocalStateGetters]: ReturnType<
-    (typeof LocalStateGetters)[k]
-  >;
+  [k in keyof typeof LocalStateGetters]: ReturnType<(typeof LocalStateGetters)[k]>;
 };
 
-type Merger<T extends keyof AppState, U = AppState[T]> = (
-  localState: U,
-  remoteState: U,
-) => U;
+type Merger<T extends keyof AppState, U = AppState[T]> = (localState: U, remoteState: U) => U;
 
 type StateMerger = {
   [K in keyof AppState]: Merger<K>;
@@ -61,13 +54,8 @@ type StateMerger = {
 const MergeStates: StateMerger = {
   [StoreKey.Chat]: (localState, remoteState) => {
     const sessions = [...localState.sessions];
-    const positions = new Map(
-      sessions.map((session, index) => [session.id, index]),
-    );
-    const acceptCandidate = (
-      candidate: (typeof sessions)[number],
-      position?: number,
-    ) => {
+    const positions = new Map(sessions.map((session, index) => [session.id, index]));
+    const acceptCandidate = (candidate: (typeof sessions)[number], position?: number) => {
       try {
         Conversation(candidate).validate();
         if (position === undefined) {
@@ -93,12 +81,8 @@ const MergeStates: StateMerger = {
       }
 
       const localSession = sessions[position];
-      const localMessageIds = new Set(
-        localSession.messages.map((node) => node.id),
-      );
-      const missing = remoteSession.messages.filter(
-        (node) => !localMessageIds.has(node.id),
-      );
+      const localMessageIds = new Set(localSession.messages.map((node) => node.id));
+      const missing = remoteSession.messages.filter((node) => !localMessageIds.has(node.id));
       if (missing.length === 0) return;
 
       const candidate = {
@@ -111,8 +95,7 @@ const MergeStates: StateMerger = {
     return {
       ...localState,
       sessions: sessions.toSorted(
-        (a, b) =>
-          new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime(),
+        (a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime(),
       ),
     };
   },
@@ -146,9 +129,7 @@ export function getLocalAppState() {
 
 export function setLocalAppState(appState: AppState) {
   (Object.keys(LocalStateSetters) as Array<keyof AppState>).forEach((key) => {
-    const setter = LocalStateSetters[key] as (
-      state: AppState[typeof key],
-    ) => void;
+    const setter = LocalStateSetters[key] as (state: AppState[typeof key]) => void;
     setter(appState[key]);
   });
 }
