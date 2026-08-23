@@ -311,12 +311,12 @@ const cn: PartialLocaleType = {
       },
     },
     HistoryCount: {
-      Title: "近期原文节点数",
-      SubTitle: "每次请求优先保留的近期原始对话节点数",
+      Title: "附带历史消息",
+      SubTitle: "每次提问时直接发送的最近对话条数",
     },
     CompressThreshold: {
-      Title: "Segment 来源 Token 目标",
-      SubTitle: "同级链未分段原文达到该目标时生成局部摘要",
+      Title: "自动总结触发长度",
+      SubTitle: "当未总结的较早对话达到该 Token 数量时自动压缩",
     },
 
     Usage: {

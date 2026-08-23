@@ -1005,12 +1005,12 @@
 
 .chat-message-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
   min-height: 32px;
-  padding-block: 3px;
+  padding-block: 5px;
   box-sizing: border-box;
 }
 

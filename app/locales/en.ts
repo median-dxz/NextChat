@@ -310,12 +310,13 @@ const en = {
       },
     },
     HistoryCount: {
-      Title: "Recent Raw Node Count",
-      SubTitle: "Recent original conversation nodes prioritized per request",
+      Title: "Attached Messages Count",
+      SubTitle: "Number of recent messages sent directly per request",
     },
     CompressThreshold: {
-      Title: "Segment Source Token Target",
-      SubTitle: "Create a local summary when unsegmented chain history reaches this target",
+      Title: "Auto-Summary Threshold",
+      SubTitle:
+        "Automatically compress older unsummarized history when it reaches this token count",
     },
 
     Usage: {

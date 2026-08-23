@@ -263,12 +263,12 @@ const tw: PartialLocaleType = {
       },
     },
     HistoryCount: {
-      Title: "近期原文節點數",
-      SubTitle: "每次請求優先保留的近期原始對話節點數",
+      Title: "附帶歷史訊息",
+      SubTitle: "每次提問時直接發送的最近對話條數",
     },
     CompressThreshold: {
-      Title: "Segment 來源 Token 目標",
-      SubTitle: "同級鏈未分段原文達到該目標時建立局部摘要",
+      Title: "自動總結觸發長度",
+      SubTitle: "當未總結的較早對話達到該 Token 數量時自動壓縮",
     },
 
     Usage: {
