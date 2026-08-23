@@ -6,7 +6,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 
 const isApp = !!getClientConfig()?.isApp;
 const sk: PartialLocaleType = {
-  WIP: "Už čoskoro...",
   Error: {
     Unauthorized: isApp
       ? `😆 Rozhovor narazil na nejaké problémy, nebojte sa:
@@ -24,7 +23,6 @@ const sk: PartialLocaleType = {
     SubTips: "Alebo zadajte váš OpenAI alebo Google API kľúč",
     Input: "prístupový kód",
     Confirm: "Potvrdiť",
-    Later: "Neskôr",
     Return: "Návrat",
     SaasTips: "Nastavenie je príliš zložité, chcem to okamžite použiť",
     TopTips:
@@ -44,12 +42,10 @@ const sk: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Prejsť na zoznam chatov",
-      CompressedHistory: "Komprimovaná história výziev",
       Export: "Exportovať všetky správy ako Markdown",
       Copy: "Kopírovať",
       Stop: "Zastaviť",
       Retry: "Skúsiť znova",
-      Pin: "Pripnúť",
       PinToastContent: "Pripnuté 1 správy do kontextových výziev",
       PinToastAction: "Zobraziť",
       Delete: "Vymazať",
@@ -62,7 +58,6 @@ const sk: PartialLocaleType = {
       newm: "Začať nový chat s maskou",
       next: "Ďalší Chat",
       prev: "Predchádzajúci Chat",
-      clear: "Vymazať kontext",
       del: "Vymazať Chat",
     },
     InputActions: {
@@ -75,10 +70,8 @@ const sk: PartialLocaleType = {
       },
       Prompt: "Výzvy",
       Masks: "Masky",
-      Clear: "Vymazať kontext",
       Settings: "Nastavenia",
     },
-    Rename: "Premenovať Chat",
     Typing: "Písanie…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} na odoslanie`;
@@ -89,7 +82,6 @@ const sk: PartialLocaleType = {
     },
     Send: "Odoslať",
     Config: {
-      Reset: "Resetovať na predvolené",
       SaveAs: "Uložiť ako masku",
     },
     IsContext: "Kontextová výzva",
@@ -114,8 +106,7 @@ const sk: PartialLocaleType = {
     },
     Image: {
       Toast: "Snímanie obrázka...",
-      Modal:
-        "Dlhým stlačením alebo kliknutím pravým tlačidlom myši uložte obrázok",
+      Modal: "Dlhým stlačením alebo kliknutím pravým tlačidlom myši uložte obrázok",
     },
   },
   Select: {
@@ -125,13 +116,8 @@ const sk: PartialLocaleType = {
     Clear: "Vymazať",
   },
   Memory: {
-    Title: "Výzva pamäti",
-    EmptyContent: "Zatiaľ nič.",
-    Send: "Odoslať pamäť",
-    Copy: "Kopírovať pamäť",
-    Reset: "Resetovať reláciu",
-    ResetConfirm:
-      "Resetovaním sa vymaže aktuálna história konverzácie a historická pamäť. Ste si istí, že chcete resetovať?",
+    Title: "Súhrny konverzácie",
+    Send: "Automaticky zhrnúť históriu chatu a zahrnúť ju do kontextu",
   },
   Home: {
     NewChat: "Nový Chat",
@@ -167,8 +153,7 @@ const sk: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Chatové Písmo",
-      SubTitle:
-        "Písmo obsahu chatu, ponechajte prázdne pre použitie globálneho predvoleného písma",
+      SubTitle: "Písmo obsahu chatu, ponechajte prázdne pre použitie globálneho predvoleného písma",
       Placeholder: "Názov Písma",
     },
     InjectSystemPrompts: {
@@ -190,7 +175,6 @@ const sk: PartialLocaleType = {
     },
     SendKey: "Odoslať kľúč",
     Theme: "Motív",
-    TightBorder: "Tesný okraj",
     SendPreviewBubble: {
       Title: "Bublina náhľadu odoslania",
       SubTitle: "Náhľad markdownu v bubline",
@@ -276,8 +260,7 @@ const sk: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Práh kompresie histórie",
-      SubTitle:
-        "Bude komprimované, ak dĺžka nekomprimovaných správ presiahne túto hodnotu",
+      SubTitle: "Bude komprimované, ak dĺžka nekomprimovaných správ presiahne túto hodnotu",
     },
 
     Usage: {
@@ -320,8 +303,7 @@ const sk: PartialLocaleType = {
 
         Endpoint: {
           Title: "Koncový bod OpenAI",
-          SubTitle:
-            "Musí začínať http(s):// alebo použiť /api/openai ako predvolený",
+          SubTitle: "Musí začínať http(s):// alebo použiť /api/openai ako predvolený",
         },
       },
       Azure: {
@@ -365,8 +347,7 @@ const sk: PartialLocaleType = {
       Google: {
         ApiKey: {
           Title: "API kľúč",
-          SubTitle:
-            "Obísť obmedzenia prístupu heslom pomocou vlastného API kľúča Google AI Studio",
+          SubTitle: "Obísť obmedzenia prístupu heslom pomocou vlastného API kľúča Google AI Studio",
           Placeholder: "API kľúč Google AI Studio",
         },
 
@@ -412,22 +393,17 @@ const sk: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Penalizácia za prítomnosť",
-      SubTitle:
-        "Vyššia hodnota zvyšuje pravdepodobnosť hovorenia o nových témach",
+      SubTitle: "Vyššia hodnota zvyšuje pravdepodobnosť hovorenia o nových témach",
     },
     FrequencyPenalty: {
       Title: "Penalizácia za frekvenciu",
-      SubTitle:
-        "Vyššia hodnota znižuje pravdepodobnosť opakovania rovnakej línie",
+      SubTitle: "Vyššia hodnota znižuje pravdepodobnosť opakovania rovnakej línie",
     },
   },
   Store: {
     DefaultTopic: "Nová konverzácia",
     BotHello: "Ahoj! Ako vám dnes môžem pomôcť?",
-    Error: "Niečo sa pokazilo, skúste to prosím neskôr znova.",
     Prompt: {
-      History: (content: string) =>
-        "Toto je zhrnutie histórie chatu ako rekapitulácia: " + content,
       Topic:
         "Prosím, vygenerujte štvor- až päťslovný titul, ktorý zhrnie našu konverzáciu bez akéhokoľvek úvodu, interpunkcie, úvodzoviek, bodiek, symbolov, tučného textu alebo ďalšieho textu. Odstráňte uzatváracie úvodzovky.",
       Summarize:
@@ -436,8 +412,7 @@ const sk: PartialLocaleType = {
   },
   Copy: {
     Success: "Skopírované do schránky",
-    Failed:
-      "Kopírovanie zlyhalo, prosím udeľte povolenie na prístup k schránke",
+    Failed: "Kopírovanie zlyhalo, prosím udeľte povolenie na prístup k schránke",
   },
   Download: {
     Success: "Obsah stiahnutý do vášho adresára.",
@@ -447,8 +422,6 @@ const sk: PartialLocaleType = {
     Toast: (x: any) => `S ${x} kontextovými výzvami`,
     Edit: "Aktuálne nastavenia chatu",
     Add: "Pridať výzvu",
-    Clear: "Kontext vyčistený",
-    Revert: "Vrátiť späť",
   },
   Plugin: {
     Name: "Plugin",
@@ -457,13 +430,9 @@ const sk: PartialLocaleType = {
     Sysmessage: "Ste asistent, ktorý",
   },
   SearchChat: {
-    Name: "Hľadať",
     Page: {
       Title: "Hľadať v histórii chatu",
       Search: "Zadajte kľúčové slová na vyhľadávanie",
-      NoResult: "Nenašli sa žiadne výsledky",
-      NoData: "Žiadne údaje",
-      Loading: "Načítava sa",
 
       SubTitle: (count: number) => `Nájdených ${count} výsledkov`,
     },
@@ -488,8 +457,7 @@ const sk: PartialLocaleType = {
       DeleteConfirm: "Potvrdiť vymazanie?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Upraviť šablónu výziev ${readonly ? "(iba na čítanie)" : ""}`,
+      Title: (readonly: boolean) => `Upraviť šablónu výziev ${readonly ? "(iba na čítanie)" : ""}`,
       Download: "Stiahnuť",
       Clone: "Klonovať",
     },
@@ -519,16 +487,13 @@ const sk: PartialLocaleType = {
     SubTitle: "Chatovať s dušou za maskou",
     More: "Nájsť viac",
     NotShow: "Už nezobrazovať",
-    ConfirmNoShow:
-      "Potvrdiť deaktiváciu? Môžete ju neskôr znova povoliť v nastaveniach.",
+    ConfirmNoShow: "Potvrdiť deaktiváciu? Môžete ju neskôr znova povoliť v nastaveniach.",
   },
 
   UI: {
     Confirm: "Potvrdiť",
     Cancel: "Zrušiť",
     Close: "Zavrieť",
-    Create: "Vytvoriť",
-    Edit: "Upraviť",
     Export: "Exportovať",
     Import: "Importovať",
     Sync: "Synchronizovať",

@@ -3,9 +3,10 @@ import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
 import { getClientConfig } from "../config/client";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
+import type { ChatToolDefinition, ChatTools } from "../client/api";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -22,14 +23,7 @@ export type Plugin = {
   authToken?: string;
 };
 
-export type FunctionToolItem = {
-  type: string;
-  function: {
-    name: string;
-    description?: string;
-    parameters: Object;
-  };
-};
+export type FunctionToolItem = ChatToolDefinition;
 
 type FunctionToolServiceItem = {
   api: OpenAPIClientAxios;
@@ -49,8 +43,8 @@ export const FunctionToolService = {
       plugin?.authType == "basic"
         ? `Basic ${plugin?.authToken}`
         : plugin?.authType == "bearer"
-        ? `Bearer ${plugin?.authToken}`
-        : plugin?.authToken;
+          ? `Bearer ${plugin?.authToken}`
+          : plugin?.authToken;
     const authLocation = plugin?.authLocation || "header";
     const definition = yaml.load(plugin.content) as any;
     const serverURL = definition?.servers?.[0]?.url;
@@ -85,8 +79,7 @@ export const FunctionToolService = {
       length: operations.length,
       tools: operations.map((o) => {
         // @ts-ignore
-        const parameters = o?.requestBody?.content["application/json"]
-          ?.schema || {
+        const parameters = o?.requestBody?.content["application/json"]?.schema || {
           type: "object",
           properties: {},
         };
@@ -140,11 +133,7 @@ export const FunctionToolService = {
             args[headerName] = tokenValue;
           }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
-          return api.client.paths[o.path][o.method](
-            parameters,
-            args,
-            api.axiosConfigDefaults,
-          );
+          return api.client.paths[o.path][o.method](parameters, args, api.axiosConfigDefaults);
         };
         return s;
       }, {}),
@@ -206,25 +195,22 @@ export const usePluginStore = createPersistStore(
       get().markUpdate();
     },
 
-    getAsTools(ids: string[]) {
+    getAsTools(ids: string[]): ChatTools {
       const plugins = get().plugins;
       const selected = (ids || [])
         .map((id) => plugins[id])
         .filter((i) => i)
         .map((p) => FunctionToolService.add(p));
-      return [
-        // @ts-ignore
-        selected.reduce((s, i) => s.concat(i.tools), []),
-        selected.reduce((s, i) => Object.assign(s, i.funcs), {}),
-      ];
+      return {
+        definitions: selected.flatMap((item) => item.tools),
+        handlers: selected.reduce((handlers, item) => Object.assign(handlers, item.funcs), {}),
+      };
     },
     get(id?: string) {
       return get().plugins[id ?? 1145141919810];
     },
     getAll() {
-      return Object.values(get().plugins).sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      return Object.values(get().plugins).sort((a, b) => b.createdAt - a.createdAt);
     },
   }),
   {

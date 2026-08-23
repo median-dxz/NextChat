@@ -1,35 +1,20 @@
-import { ApiPath, Google } from "@/app/constant";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  LLMUsage,
-  SpeechOptions,
-} from "../api";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  usePluginStore,
-  ChatMessageTool,
-} from "@/app/store";
-import { stream } from "@/app/utils/chat";
-import { getClientConfig } from "@/app/config/client";
-import { GEMINI_BASE_URL } from "@/app/constant";
-
-import {
-  getMessageTextContent,
-  getMessageImages,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
-import { preProcessImageContent } from "@/app/utils/chat";
 import { nanoid } from "nanoid";
-import { RequestPayload } from "./openai";
+
+import { getClientConfig } from "@/app/config/client";
+import { ApiPath, GEMINI_BASE_URL, Google, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageImages, getMessageText, getTimeoutMSByModel, isVisionModel } from "@/app/utils";
+import { preProcessImageContent, stream } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
 
-export class GeminiProApi implements LLMApi {
+import type { ChatOptions, LLMModel, LLMUsage, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+import { RequestPayload } from "./openai";
+import { toGeminiRole } from "./roles";
+
+export class GeminiProApi extends LLMApi {
+  readonly providerName = ServiceProvider.Google;
   path(path: string, shouldStream = false): string {
     const accessStore = useAccessStore.getState();
 
@@ -99,9 +84,9 @@ export class GeminiProApi implements LLMApi {
       _messages.push({ role: v.role, content });
     }
     const messages = _messages.map((v) => {
-      let parts: any[] = [{ text: getMessageTextContent(v) }];
+      let parts: any[] = [{ text: getMessageText(v.content) }];
       if (isVisionModel(options.config.model)) {
-        const images = getMessageImages(v);
+        const images = getMessageImages(v.content);
         if (images.length > 0) {
           multimodal = true;
           parts = parts.concat(
@@ -119,13 +104,13 @@ export class GeminiProApi implements LLMApi {
         }
       }
       return {
-        role: v.role.replace("assistant", "model").replace("system", "user"),
+        role: toGeminiRole(v.role),
         parts: parts,
       };
     });
 
     // google requires that role in neighboring messages must not be the same
-    for (let i = 0; i < messages.length - 1; ) {
+    for (let i = 0; i < messages.length - 1;) {
       // Check if current and next item both have the role "model"
       if (messages[i].role === messages[i + 1].role) {
         // Concatenate the 'parts' of the current and next item
@@ -143,13 +128,7 @@ export class GeminiProApi implements LLMApi {
 
     const accessStore = useAccessStore.getState();
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
-    };
+    const modelConfig = options.config;
     const requestPayload = {
       contents: messages,
       generationConfig: {
@@ -186,16 +165,13 @@ export class GeminiProApi implements LLMApi {
     options.onController?.(controller);
     try {
       // https://github.com/google-gemini/cookbook/blob/main/quickstarts/rest/Streaming_REST.ipynb
-      const chatPath = this.path(
-        Google.ChatPath(modelConfig.model),
-        shouldStream,
-      );
+      const chatPath = this.path(Google.ChatPath(modelConfig.model), shouldStream);
 
       const chatPayload = {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       const isThinking = options.config.model.includes("-thinking");
@@ -206,15 +182,12 @@ export class GeminiProApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           // @ts-ignore
           tools.length > 0
             ? // @ts-ignore
@@ -223,13 +196,11 @@ export class GeminiProApi implements LLMApi {
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const chunkJson = JSON.parse(text);
 
-            const functionCall = chunkJson?.candidates
-              ?.at(0)
-              ?.content.parts.at(0)?.functionCall;
+            const functionCall = chunkJson?.candidates?.at(0)?.content.parts.at(0)?.functionCall;
             if (functionCall) {
               const { name, args } = functionCall;
               runTools.push({
@@ -247,11 +218,7 @@ export class GeminiProApi implements LLMApi {
               .join("\n\n");
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.contents?.splice(
               // @ts-ignore
@@ -259,14 +226,12 @@ export class GeminiProApi implements LLMApi {
               0,
               {
                 role: "model",
-                parts: toolCallMessage.tool_calls.map(
-                  (tool: ChatMessageTool) => ({
-                    functionCall: {
-                      name: tool?.function?.name,
-                      args: JSON.parse(tool?.function?.arguments as string),
-                    },
-                  }),
-                ),
+                parts: toolCallMessage.tool_calls.map((tool: Conversation.MessageTool) => ({
+                  functionCall: {
+                    name: tool?.function?.name,
+                    args: JSON.parse(tool?.function?.arguments as string),
+                  },
+                })),
               },
               // @ts-ignore
               ...toolCallResult.map((result) => ({
@@ -294,10 +259,7 @@ export class GeminiProApi implements LLMApi {
         if (resJson?.promptFeedback?.blockReason) {
           // being blocked
           options.onError?.(
-            new Error(
-              "Message is being blocked for reason: " +
-                resJson.promptFeedback.blockReason,
-            ),
+            new Error("Message is being blocked for reason: " + resJson.promptFeedback.blockReason),
           );
         }
         const message = apiClient.extractMessage(resJson);

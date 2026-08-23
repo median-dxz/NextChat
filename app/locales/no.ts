@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const no: PartialLocaleType = {
-  WIP: "Arbeid pågår ...",
   Error: {
     Unauthorized: isApp
       ? `😆 Samtalen har støtt på noen problemer, ikke bekymre deg:
@@ -23,10 +22,8 @@ const no: PartialLocaleType = {
     SubTips: "Eller skriv inn din OpenAI eller Google API-nøkkel",
     Input: "Skriv tilgangskoden her",
     Confirm: "Bekreft",
-    Later: "Kom tilbake senere",
     Return: "Tilbake",
-    SaasTips:
-      "Konfigurasjonen er for komplisert, jeg vil bruke det med en gang",
+    SaasTips: "Konfigurasjonen er for komplisert, jeg vil bruke det med en gang",
     TopTips:
       "🥳 NextChat AI lanseringstilbud, lås opp OpenAI o1, GPT-4o, Claude-3.5 og de nyeste store modellene nå",
   },
@@ -44,14 +41,11 @@ const no: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Vis meldingsliste",
-      CompressedHistory: "Vis komprimert historikk",
       Export: "Eksporter samtaler",
       Copy: "Kopier",
       Stop: "Stopp",
       Retry: "Prøv igjen",
-      Pin: "Fest",
-      PinToastContent:
-        "1 samtale er festet til forhåndsdefinerte oppfordringer",
+      PinToastContent: "1 samtale er festet til forhåndsdefinerte oppfordringer",
       PinToastAction: "Se",
       Delete: "Slett",
       Edit: "Rediger",
@@ -63,7 +57,6 @@ const no: PartialLocaleType = {
       newm: "Start samtale fra maske",
       next: "Neste samtale",
       prev: "Forrige samtale",
-      clear: "Rydd kontekst",
       del: "Slett samtale",
     },
     InputActions: {
@@ -76,24 +69,19 @@ const no: PartialLocaleType = {
       },
       Prompt: "Hurtigkommando",
       Masks: "Alle masker",
-      Clear: "Rydd samtale",
       Settings: "Samtaleinnstillinger",
       UploadImage: "Last opp bilde",
     },
-    Rename: "Gi nytt navn til samtale",
     Typing: "Skriver…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} send`;
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += "，Shift + Enter for linjeskift";
       }
-      return (
-        inputHints + "，/ for å utløse autoutfylling, : for å utløse kommando"
-      );
+      return inputHints + "，/ for å utløse autoutfylling, : for å utløse kommando";
     },
     Send: "Send",
     Config: {
-      Reset: "Fjern minne",
       SaveAs: "Lagre som maske",
     },
     IsContext: "Forhåndsdefinerte oppfordringer",
@@ -129,11 +117,7 @@ const no: PartialLocaleType = {
   },
   Memory: {
     Title: "Historisk sammendrag",
-    EmptyContent: "Samtaleinnholdet er for kort, ingen oppsummering nødvendig",
     Send: "Automatisk komprimere samtalehistorikk og sende som kontekst",
-    Copy: "Kopier sammendrag",
-    Reset: "[unused]",
-    ResetConfirm: "Er du sikker på at du vil tømme historisk sammendrag?",
   },
   Home: {
     NewChat: "Ny samtale",
@@ -148,8 +132,7 @@ const no: PartialLocaleType = {
     Danger: {
       Reset: {
         Title: "Tilbakestill alle innstillinger",
-        SubTitle:
-          "Tilbakestill alle innstillingsalternativer til standardverdier",
+        SubTitle: "Tilbakestill alle innstillingsalternativer til standardverdier",
         Action: "Tilbakestill nå",
         Confirm: "Bekreft tilbakestilling av alle innstillinger?",
       },
@@ -171,19 +154,16 @@ const no: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Chat-skrifttype",
-      SubTitle:
-        "Skrifttypen for chatinnhold, la stå tom for å bruke global standardskrifttype",
+      SubTitle: "Skrifttypen for chatinnhold, la stå tom for å bruke global standardskrifttype",
       Placeholder: "Skriftnavn",
     },
     InjectSystemPrompts: {
       Title: "Injiser systemprompter",
-      SubTitle:
-        "Tving inn et systemprompt som simulerer ChatGPT i starten av hver forespørsel",
+      SubTitle: "Tving inn et systemprompt som simulerer ChatGPT i starten av hver forespørsel",
     },
     InputTemplate: {
       Title: "Forhåndsbehandling av brukerinput",
-      SubTitle:
-        "Den nyeste meldingen fra brukeren vil bli fylt ut i denne malen",
+      SubTitle: "Den nyeste meldingen fra brukeren vil bli fylt ut i denne malen",
     },
 
     Update: {
@@ -196,7 +176,6 @@ const no: PartialLocaleType = {
     },
     SendKey: "Send-knapp",
     Theme: "Tema",
-    TightBorder: "Ingen ramme-modus",
     SendPreviewBubble: {
       Title: "Forhåndsvisningsboble",
       SubTitle: "Forhåndsvis Markdown-innhold i en forhåndsvisningsboble",
@@ -322,8 +301,7 @@ const no: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert OpenAI-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert OpenAI-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "OpenAI API-nøkkel",
         },
 
@@ -335,8 +313,7 @@ const no: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert Azure-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert Azure-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "Azure API-nøkkel",
         },
 
@@ -353,8 +330,7 @@ const no: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "API-nøkkel",
-          SubTitle:
-            "Bruk egendefinert Anthropic-nøkkel for å omgå passordtilgangsbegrensninger",
+          SubTitle: "Bruk egendefinert Anthropic-nøkkel for å omgå passordtilgangsbegrensninger",
           Placeholder: "Anthropic API-nøkkel",
         },
 
@@ -402,8 +378,7 @@ const no: PartialLocaleType = {
         },
         Endpoint: {
           Title: "API-adresse",
-          SubTitle:
-            "Støtter ikke egendefinerte konfigurasjoner. Se .env-konfigurasjon.",
+          SubTitle: "Støtter ikke egendefinerte konfigurasjoner. Se .env-konfigurasjon.",
         },
       },
       ByteDance: {
@@ -456,8 +431,7 @@ const no: PartialLocaleType = {
     },
     TopP: {
       Title: "Kjerneprøvetaking (top_p)",
-      SubTitle:
-        "Ligner på tilfeldighet, men endre ikke sammen med tilfeldighet",
+      SubTitle: "Ligner på tilfeldighet, men endre ikke sammen med tilfeldighet",
     },
     MaxTokens: {
       Title: "Maksimalt antall tokens per svar (max_tokens)",
@@ -465,23 +439,17 @@ const no: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Emnens ferskhet (presence_penalty)",
-      SubTitle:
-        "Høyere verdi gir større sannsynlighet for å utvide til nye emner",
+      SubTitle: "Høyere verdi gir større sannsynlighet for å utvide til nye emner",
     },
     FrequencyPenalty: {
       Title: "Frekvensstraff (frequency_penalty)",
-      SubTitle:
-        "Høyere verdi gir større sannsynlighet for å redusere gjentakende ord",
+      SubTitle: "Høyere verdi gir større sannsynlighet for å redusere gjentakende ord",
     },
   },
   Store: {
     DefaultTopic: "Ny samtale",
     BotHello: "Hva kan jeg hjelpe deg med?",
-    Error: "Noe gikk galt, prøv igjen senere",
     Prompt: {
-      History: (content: string) =>
-        "Dette er oppsummeringen av historiske samtaler som bakgrunn:" +
-        content,
       Topic:
         'Bruk fire til fem ord for å returnere en kort oppsummering av temaet, uten forklaring, uten tegnsetting, uten fyllord, uten ekstra tekst, uten fet skrift. Hvis det ikke er noe tema, returner bare "sladder".',
       Summarize:
@@ -500,8 +468,6 @@ const no: PartialLocaleType = {
     Toast: (x: any) => `Inneholder ${x} forhåndsinnstilte oppfordringer`,
     Edit: "Nåværende samtaleinnstillinger",
     Add: "Legg til en ny samtale",
-    Clear: "Konteksten er tømt",
-    Revert: "Gjenopprett konteksten",
   },
   Plugin: {
     Name: "Plugin",
@@ -510,13 +476,9 @@ const no: PartialLocaleType = {
     Sysmessage: "Du er en assistent",
   },
   SearchChat: {
-    Name: "Søk",
     Page: {
       Title: "Søk i chatthistorikk",
       Search: "Skriv inn søkeord",
-      NoResult: "Ingen resultater funnet",
-      NoData: "Ingen data",
-      Loading: "Laster inn",
 
       SubTitle: (count: number) => `Fant ${count} resultater`,
     },
@@ -528,8 +490,7 @@ const no: PartialLocaleType = {
     Name: "Maske",
     Page: {
       Title: "Forhåndsdefinerte rollemasker",
-      SubTitle: (count: number) =>
-        `${count} forhåndsdefinerte rolledefinisjoner`,
+      SubTitle: (count: number) => `${count} forhåndsdefinerte rolledefinisjoner`,
       Search: "Søk etter rollemasker",
       Create: "Opprett ny",
     },
@@ -558,8 +519,7 @@ const no: PartialLocaleType = {
       },
       HideContext: {
         Title: "Skjul forhåndsdefinerte samtaler",
-        SubTitle:
-          "Når skjult, vil forhåndsdefinerte samtaler ikke vises i chat-grensesnittet",
+        SubTitle: "Når skjult, vil forhåndsdefinerte samtaler ikke vises i chat-grensesnittet",
       },
       Share: {
         Title: "Del denne masken",
@@ -589,8 +549,6 @@ const no: PartialLocaleType = {
     Confirm: "Bekreft",
     Cancel: "Avbryt",
     Close: "Lukk",
-    Create: "Opprett",
-    Edit: "Rediger",
     Export: "Eksporter",
     Import: "Importer",
     Sync: "Synkroniser",

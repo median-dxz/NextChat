@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const fr: PartialLocaleType = {
-  WIP: "Prochainement...",
   Error: {
     Unauthorized: isApp
       ? `😆 La conversation a rencontré quelques problèmes, pas de panique :
@@ -23,10 +22,8 @@ const fr: PartialLocaleType = {
     SubTips: "Ou entrez votre clé API OpenAI ou Google",
     Input: "Entrez le code d'accès ici",
     Confirm: "Confirmer",
-    Later: "Plus tard",
     Return: "Retour",
-    SaasTips:
-      "La configuration est trop compliquée, je veux l'utiliser immédiatement",
+    SaasTips: "La configuration est trop compliquée, je veux l'utiliser immédiatement",
     TopTips:
       "🥳 Offre de lancement NextChat AI, débloquez OpenAI o1, GPT-4o, Claude-3.5 et les derniers grands modèles",
   },
@@ -44,12 +41,10 @@ const fr: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Voir la liste des messages",
-      CompressedHistory: "Voir l'historique des prompts compressés",
       Export: "Exporter l'historique de la discussion",
       Copy: "Copier",
       Stop: "Arrêter",
       Retry: "Réessayer",
-      Pin: "Épingler",
       PinToastContent: "1 conversation épinglée aux prompts prédéfinis",
       PinToastAction: "Voir",
       Delete: "Supprimer",
@@ -62,7 +57,6 @@ const fr: PartialLocaleType = {
       newm: "Créer une discussion à partir du masque",
       next: "Discussion suivante",
       prev: "Discussion précédente",
-      clear: "Effacer le contexte",
       del: "Supprimer la discussion",
     },
     InputActions: {
@@ -75,11 +69,9 @@ const fr: PartialLocaleType = {
       },
       Prompt: "Commandes rapides",
       Masks: "Tous les masques",
-      Clear: "Effacer la discussion",
       Settings: "Paramètres de la discussion",
       UploadImage: "Télécharger une image",
     },
-    Rename: "Renommer la discussion",
     Typing: "En train d'écrire…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} pour envoyer`;
@@ -90,7 +82,6 @@ const fr: PartialLocaleType = {
     },
     Send: "Envoyer",
     Config: {
-      Reset: "Effacer la mémoire",
       SaveAs: "Enregistrer comme masque",
     },
     IsContext: "Prompt prédéfini",
@@ -115,8 +106,7 @@ const fr: PartialLocaleType = {
     },
     Image: {
       Toast: "Génération de la capture d'écran",
-      Modal:
-        "Appuyez longuement ou faites un clic droit pour enregistrer l'image",
+      Modal: "Appuyez longuement ou faites un clic droit pour enregistrer l'image",
     },
   },
   Select: {
@@ -127,11 +117,7 @@ const fr: PartialLocaleType = {
   },
   Memory: {
     Title: "Résumé historique",
-    EmptyContent: "Le contenu de la discussion est trop court pour être résumé",
     Send: "Compresser automatiquement l'historique des discussions et l'envoyer comme contexte",
-    Copy: "Copier le résumé",
-    Reset: "[unused]",
-    ResetConfirm: "Confirmer la suppression du résumé historique ?",
   },
   Home: {
     NewChat: "Nouvelle discussion",
@@ -146,18 +132,15 @@ const fr: PartialLocaleType = {
     Danger: {
       Reset: {
         Title: "Réinitialiser tous les paramètres",
-        SubTitle:
-          "Réinitialiser toutes les options de configuration aux valeurs par défaut",
+        SubTitle: "Réinitialiser toutes les options de configuration aux valeurs par défaut",
         Action: "Réinitialiser maintenant",
         Confirm: "Confirmer la réinitialisation de tous les paramètres ?",
       },
       Clear: {
         Title: "Effacer toutes les données",
-        SubTitle:
-          "Effacer toutes les discussions et les données de configuration",
+        SubTitle: "Effacer toutes les discussions et les données de configuration",
         Action: "Effacer maintenant",
-        Confirm:
-          "Confirmer l'effacement de toutes les discussions et données de configuration ?",
+        Confirm: "Confirmer l'effacement de toutes les discussions et données de configuration ?",
       },
     },
     Lang: {
@@ -182,8 +165,7 @@ const fr: PartialLocaleType = {
     },
     InputTemplate: {
       Title: "Prétraitement des entrées utilisateur",
-      SubTitle:
-        "Le dernier message de l'utilisateur sera intégré dans ce modèle",
+      SubTitle: "Le dernier message de l'utilisateur sera intégré dans ce modèle",
     },
 
     Update: {
@@ -196,15 +178,13 @@ const fr: PartialLocaleType = {
     },
     SendKey: "Touche d'envoi",
     Theme: "Thème",
-    TightBorder: "Mode sans bordure",
     SendPreviewBubble: {
       Title: "Bulle d'aperçu",
       SubTitle: "Aperçu du contenu Markdown dans la bulle d'aperçu",
     },
     AutoGenerateTitle: {
       Title: "Génération automatique de titres",
-      SubTitle:
-        "Générer un titre approprié en fonction du contenu de la discussion",
+      SubTitle: "Générer un titre approprié en fonction du contenu de la discussion",
     },
     Sync: {
       CloudState: "Données cloud",
@@ -228,8 +208,7 @@ const fr: PartialLocaleType = {
         },
         ProxyUrl: {
           Title: "Adresse du proxy",
-          SubTitle:
-            "Uniquement pour le proxy de domaine croisé fourni par le projet",
+          SubTitle: "Uniquement pour le proxy de domaine croisé fourni par le projet",
         },
 
         WebDav: {
@@ -259,15 +238,13 @@ const fr: PartialLocaleType = {
       },
       Builtin: {
         Title: "Masquer les masques intégrés",
-        SubTitle:
-          "Masquer les masques intégrés dans toutes les listes de masques",
+        SubTitle: "Masquer les masques intégrés dans toutes les listes de masques",
       },
     },
     Prompt: {
       Disable: {
         Title: "Désactiver la complétion automatique des invites",
-        SubTitle:
-          "Saisir / au début de la zone de texte pour déclencher la complétion automatique",
+        SubTitle: "Saisir / au début de la zone de texte pour déclencher la complétion automatique",
       },
       List: "Liste des invites personnalisées",
       ListCount: (builtin: number, custom: number) =>
@@ -288,8 +265,7 @@ const fr: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Seuil de compression des messages historiques",
-      SubTitle:
-        "Compresser les messages historiques lorsque leur longueur dépasse cette valeur",
+      SubTitle: "Compresser les messages historiques lorsque leur longueur dépasse cette valeur",
     },
 
     Usage: {
@@ -299,8 +275,7 @@ const fr: PartialLocaleType = {
       },
       IsChecking: "Vérification en cours…",
       Check: "Re-vérifier",
-      NoAccess:
-        "Entrez la clé API ou le mot de passe d'accès pour vérifier le solde",
+      NoAccess: "Entrez la clé API ou le mot de passe d'accès pour vérifier le solde",
     },
 
     Access: {
@@ -408,8 +383,7 @@ const fr: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Adresse de l'interface",
-          SubTitle:
-            "Non pris en charge pour les configurations personnalisées dans .env",
+          SubTitle: "Non pris en charge pour les configurations personnalisées dans .env",
         },
       },
       ByteDance: {
@@ -447,8 +421,7 @@ const fr: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Nom du modèle personnalisé",
-        SubTitle:
-          "Ajouter des options de modèles personnalisés, séparées par des virgules",
+        SubTitle: "Ajouter des options de modèles personnalisés, séparées par des virgules",
       },
     },
 
@@ -463,8 +436,7 @@ const fr: PartialLocaleType = {
     },
     TopP: {
       Title: "Échantillonnage par noyau (top_p)",
-      SubTitle:
-        "Semblable à l'aléatoire, mais ne pas modifier en même temps que l'aléatoire",
+      SubTitle: "Semblable à l'aléatoire, mais ne pas modifier en même temps que l'aléatoire",
     },
     MaxTokens: {
       Title: "Limite de réponse unique (max_tokens)",
@@ -472,22 +444,17 @@ const fr: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Nouveauté du sujet (presence_penalty)",
-      SubTitle:
-        "Plus la valeur est élevée, plus il est probable d'élargir aux nouveaux sujets",
+      SubTitle: "Plus la valeur est élevée, plus il est probable d'élargir aux nouveaux sujets",
     },
     FrequencyPenalty: {
       Title: "Pénalité de fréquence (frequency_penalty)",
-      SubTitle:
-        "Plus la valeur est élevée, plus il est probable de réduire les répétitions",
+      SubTitle: "Plus la valeur est élevée, plus il est probable de réduire les répétitions",
     },
   },
   Store: {
     DefaultTopic: "Nouvelle discussion",
     BotHello: "Comment puis-je vous aider ?",
-    Error: "Une erreur est survenue, veuillez réessayer plus tard",
     Prompt: {
-      History: (content: string) =>
-        "Voici le résumé de la discussion précédente : " + content,
       Topic:
         "Utilisez quatre à cinq mots pour retourner le sujet succinct de cette phrase, sans explication, sans ponctuation, sans interjections, sans texte superflu, sans gras. Si aucun sujet, retournez simplement « discussion informelle »",
       Summarize:
@@ -506,8 +473,6 @@ const fr: PartialLocaleType = {
     Toast: (x: any) => `Contient ${x} invites prédéfinies`,
     Edit: "Paramètres de la discussion actuelle",
     Add: "Ajouter une discussion",
-    Clear: "Contexte effacé",
-    Revert: "Restaurer le contexte",
   },
   Plugin: {
     Name: "Plugin",
@@ -516,13 +481,9 @@ const fr: PartialLocaleType = {
     Sysmessage: "Vous êtes un assistant",
   },
   SearchChat: {
-    Name: "Recherche",
     Page: {
       Title: "Rechercher dans l'historique des discussions",
       Search: "Entrez le mot-clé de recherche",
-      NoResult: "Aucun résultat trouvé",
-      NoData: "Aucune donnée",
-      Loading: "Chargement",
 
       SubTitle: (count: number) => `${count} résultats trouvés`,
     },
@@ -557,8 +518,7 @@ const fr: PartialLocaleType = {
       Name: "Nom du rôle",
       Sync: {
         Title: "Utiliser les paramètres globaux",
-        SubTitle:
-          "Cette discussion utilise-t-elle les paramètres du modèle globaux ?",
+        SubTitle: "Cette discussion utilise-t-elle les paramètres du modèle globaux ?",
         Confirm:
           "Les paramètres personnalisés de cette discussion seront automatiquement remplacés. Confirmer l'activation des paramètres globaux ?",
       },
@@ -595,8 +555,6 @@ const fr: PartialLocaleType = {
     Confirm: "Confirmer",
     Cancel: "Annuler",
     Close: "Fermer",
-    Create: "Créer",
-    Edit: "Modifier",
     Export: "Exporter",
     Import: "Importer",
     Sync: "Synchroniser",
@@ -604,8 +562,7 @@ const fr: PartialLocaleType = {
   },
   Exporter: {
     Description: {
-      Title:
-        "Seuls les messages après avoir effacé le contexte seront affichés",
+      Title: "Seuls les messages après avoir effacé le contexte seront affichés",
     },
     Model: "Modèle",
     Messages: "Messages",

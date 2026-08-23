@@ -43,12 +43,7 @@ import {
   useAppConfig,
 } from "../store";
 
-import Locale, {
-  AllLangs,
-  ALL_LANG_OPTIONS,
-  changeLang,
-  getLang,
-} from "../locales";
+import Locale, { AllLangs, ALL_LANG_OPTIONS, changeLang, getLang } from "../locales";
 import { copyToClipboard, clientUpdate, semverCompare } from "../utils";
 import Link from "next/link";
 import {
@@ -99,14 +94,7 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
       <Modal
         title={Locale.Settings.Prompt.EditModal.Title}
         onClose={props.onClose}
-        actions={[
-          <IconButton
-            key=""
-            onClick={props.onClose}
-            text={Locale.UI.Confirm}
-            bordered
-          />,
-        ]}
+        actions={[<IconButton key="" onClick={props.onClose} text={Locale.UI.Confirm} bordered />]}
       >
         <div className={styles["edit-prompt-modal"]}>
           <input
@@ -115,10 +103,7 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
             readOnly={!prompt.isUser}
             className={styles["edit-prompt-title"]}
             onInput={(e) =>
-              promptStore.updatePrompt(
-                props.id,
-                (prompt) => (prompt.title = e.currentTarget.value),
-              )
+              promptStore.updatePrompt(props.id, (prompt) => (prompt.title = e.currentTarget.value))
             }
           ></input>
           <Input
@@ -145,8 +130,7 @@ function UserPromptModal(props: { onClose?: () => void }) {
   const builtinPrompts = SearchService.builtinPrompts;
   const allPrompts = userPrompts.concat(builtinPrompts);
   const [searchInput, setSearchInput] = useState("");
-  const prompts =
-    searchInput.length > 0 ? SearchService.search(searchInput) : allPrompts;
+  const prompts = searchInput.length > 0 ? SearchService.search(searchInput) : allPrompts;
 
   const [editingPromptId, setEditingPromptId] = useState<string>();
 
@@ -187,9 +171,7 @@ function UserPromptModal(props: { onClose?: () => void }) {
               <div className={styles["user-prompt-item"]} key={v.id ?? v.title}>
                 <div className={styles["user-prompt-header"]}>
                   <div className={styles["user-prompt-title"]}>{v.title}</div>
-                  <div className={styles["user-prompt-content"] + " one-line"}>
-                    {v.content}
-                  </div>
+                  <div className={styles["user-prompt-content"] + " one-line"}>{v.content}</div>
                 </div>
 
                 <div className={styles["user-prompt-buttons"]}>
@@ -226,10 +208,7 @@ function UserPromptModal(props: { onClose?: () => void }) {
       </Modal>
 
       {editingPromptId !== undefined && (
-        <EditPromptModal
-          id={editingPromptId!}
-          onClose={() => setEditingPromptId(undefined)}
-        />
+        <EditPromptModal id={editingPromptId!} onClose={() => setEditingPromptId(undefined)} />
       )}
     </div>
   );
@@ -282,9 +261,7 @@ function CheckButton() {
     return syncStore.cloudSync();
   }, [syncStore]);
 
-  const [checkState, setCheckState] = useState<
-    "none" | "checking" | "success" | "failed"
-  >("none");
+  const [checkState, setCheckState] = useState<"none" | "checking" | "success" | "failed">("none");
 
   async function check() {
     setCheckState("checking");
@@ -343,10 +320,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
             <select
               value={syncStore.provider}
               onChange={(e) => {
-                syncStore.update(
-                  (config) =>
-                    (config.provider = e.target.value as ProviderType),
-                );
+                syncStore.update((config) => (config.provider = e.target.value as ProviderType));
               }}
             >
               {Object.entries(ProviderType).map(([k, v]) => (
@@ -365,9 +339,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
               type="checkbox"
               checked={syncStore.useProxy}
               onChange={(e) => {
-                syncStore.update(
-                  (config) => (config.useProxy = e.currentTarget.checked),
-                );
+                syncStore.update((config) => (config.useProxy = e.currentTarget.checked));
               }}
             ></input>
           </ListItem>
@@ -380,9 +352,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                 type="text"
                 value={syncStore.proxyUrl}
                 onChange={(e) => {
-                  syncStore.update(
-                    (config) => (config.proxyUrl = e.currentTarget.value),
-                  );
+                  syncStore.update((config) => (config.proxyUrl = e.currentTarget.value));
                 }}
               ></input>
             </ListItem>
@@ -397,10 +367,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                   type="text"
                   value={syncStore.webdav.endpoint}
                   onChange={(e) => {
-                    syncStore.update(
-                      (config) =>
-                        (config.webdav.endpoint = e.currentTarget.value),
-                    );
+                    syncStore.update((config) => (config.webdav.endpoint = e.currentTarget.value));
                   }}
                 ></input>
               </ListItem>
@@ -410,10 +377,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                   type="text"
                   value={syncStore.webdav.username}
                   onChange={(e) => {
-                    syncStore.update(
-                      (config) =>
-                        (config.webdav.username = e.currentTarget.value),
-                    );
+                    syncStore.update((config) => (config.webdav.username = e.currentTarget.value));
                   }}
                 ></input>
               </ListItem>
@@ -421,10 +385,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                 <PasswordInput
                   value={syncStore.webdav.password}
                   onChange={(e) => {
-                    syncStore.update(
-                      (config) =>
-                        (config.webdav.password = e.currentTarget.value),
-                    );
+                    syncStore.update((config) => (config.webdav.password = e.currentTarget.value));
                   }}
                 ></PasswordInput>
               </ListItem>
@@ -439,10 +400,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                 type="text"
                 value={syncStore.upstash.endpoint}
                 onChange={(e) => {
-                  syncStore.update(
-                    (config) =>
-                      (config.upstash.endpoint = e.currentTarget.value),
-                  );
+                  syncStore.update((config) => (config.upstash.endpoint = e.currentTarget.value));
                 }}
               ></input>
             </ListItem>
@@ -453,10 +411,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
                 value={syncStore.upstash.username}
                 placeholder={STORAGE_KEY}
                 onChange={(e) => {
-                  syncStore.update(
-                    (config) =>
-                      (config.upstash.username = e.currentTarget.value),
-                  );
+                  syncStore.update((config) => (config.upstash.username = e.currentTarget.value));
                 }}
               ></input>
             </ListItem>
@@ -464,9 +419,7 @@ function SyncConfigModal(props: { onClose?: () => void }) {
               <PasswordInput
                 value={syncStore.upstash.apiKey}
                 onChange={(e) => {
-                  syncStore.update(
-                    (config) => (config.upstash.apiKey = e.currentTarget.value),
-                  );
+                  syncStore.update((config) => (config.upstash.apiKey = e.currentTarget.value));
                 }}
               ></PasswordInput>
             </ListItem>
@@ -507,9 +460,7 @@ function SyncItems() {
           title={Locale.Settings.Sync.CloudState}
           subTitle={
             syncStore.lastProvider
-              ? `${new Date(syncStore.lastSyncTime).toLocaleString()} [${
-                  syncStore.lastProvider
-                }]`
+              ? `${new Date(syncStore.lastSyncTime).toLocaleString()} [${syncStore.lastProvider}]`
               : Locale.Settings.Sync.NotSyncYet
           }
         >
@@ -565,9 +516,7 @@ function SyncItems() {
         </ListItem>
       </List>
 
-      {showSyncConfigModal && (
-        <SyncConfigModal onClose={() => setShowSyncConfigModal(false)} />
-      )}
+      {showSyncConfigModal && <SyncConfigModal onClose={() => setShowSyncConfigModal(false)} />}
     </>
   );
 }
@@ -600,15 +549,9 @@ export function Settings() {
     const isOpenAiUrl = accessStore.openaiUrl.includes(OPENAI_BASE_URL);
 
     return (
-      accessStore.hideBalanceQuery ||
-      isOpenAiUrl ||
-      accessStore.provider === ServiceProvider.Azure
+      accessStore.hideBalanceQuery || isOpenAiUrl || accessStore.provider === ServiceProvider.Azure
     );
-  }, [
-    accessStore.hideBalanceQuery,
-    accessStore.openaiUrl,
-    accessStore.provider,
-  ]);
+  }, [accessStore.hideBalanceQuery, accessStore.openaiUrl, accessStore.provider]);
 
   const usage = {
     used: updateStore.used,
@@ -680,9 +623,7 @@ export function Settings() {
         type="text"
         placeholder={Locale.Settings.Access.AccessCode.Placeholder}
         onChange={(e) => {
-          accessStore.update(
-            (access) => (access.accessCode = e.currentTarget.value),
-          );
+          accessStore.update((access) => (access.accessCode = e.currentTarget.value));
         }}
       />
     </ListItem>
@@ -691,17 +632,11 @@ export function Settings() {
   const saasStartComponent = (
     <ListItem
       className={styles["subtitle-button"]}
-      title={
-        Locale.Settings.Access.SaasStart.Title +
-        `${Locale.Settings.Access.SaasStart.Label}`
-      }
+      title={Locale.Settings.Access.SaasStart.Title + `${Locale.Settings.Access.SaasStart.Label}`}
       subTitle={Locale.Settings.Access.SaasStart.SubTitle}
     >
       <IconButton
-        aria={
-          Locale.Settings.Access.SaasStart.Title +
-          Locale.Settings.Access.SaasStart.ChatNow
-        }
+        aria={Locale.Settings.Access.SaasStart.Title + Locale.Settings.Access.SaasStart.ChatNow}
         icon={<FireIcon />}
         type={"primary"}
         text={Locale.Settings.Access.SaasStart.ChatNow}
@@ -724,16 +659,13 @@ export function Settings() {
           type="checkbox"
           checked={accessStore.useCustomConfig}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.useCustomConfig = e.currentTarget.checked),
-            )
+            accessStore.update((access) => (access.useCustomConfig = e.currentTarget.checked))
           }
         ></input>
       </ListItem>
     );
 
-  const openAIConfigComponent = accessStore.provider ===
-    ServiceProvider.OpenAI && (
+  const openAIConfigComponent = accessStore.provider === ServiceProvider.OpenAI && (
     <>
       <ListItem
         title={Locale.Settings.Access.OpenAI.Endpoint.Title}
@@ -745,9 +677,7 @@ export function Settings() {
           value={accessStore.openaiUrl}
           placeholder={OPENAI_BASE_URL}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.openaiUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.openaiUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -762,23 +692,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.openaiApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.openaiApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const azureConfigComponent = accessStore.provider ===
-    ServiceProvider.Azure && (
+  const azureConfigComponent = accessStore.provider === ServiceProvider.Azure && (
     <>
       <ListItem
         title={Locale.Settings.Access.Azure.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Azure.Endpoint.SubTitle + Azure.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Azure.Endpoint.SubTitle + Azure.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Azure.Endpoint.Title}
@@ -786,9 +711,7 @@ export function Settings() {
           value={accessStore.azureUrl}
           placeholder={Azure.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.azureUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.azureUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -802,9 +725,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Azure.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.azureApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.azureApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -818,24 +739,18 @@ export function Settings() {
           value={accessStore.azureApiVersion}
           placeholder="2023-08-01-preview"
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.azureApiVersion = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.azureApiVersion = e.currentTarget.value))
           }
         ></input>
       </ListItem>
     </>
   );
 
-  const googleConfigComponent = accessStore.provider ===
-    ServiceProvider.Google && (
+  const googleConfigComponent = accessStore.provider === ServiceProvider.Google && (
     <>
       <ListItem
         title={Locale.Settings.Access.Google.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Google.Endpoint.SubTitle +
-          Google.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Google.Endpoint.SubTitle + Google.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Google.Endpoint.Title}
@@ -843,9 +758,7 @@ export function Settings() {
           value={accessStore.googleUrl}
           placeholder={Google.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.googleUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.googleUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -859,9 +772,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Google.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.googleApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.googleApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -875,9 +786,7 @@ export function Settings() {
           value={accessStore.googleApiVersion}
           placeholder="2023-08-01-preview"
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.googleApiVersion = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.googleApiVersion = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -891,8 +800,7 @@ export function Settings() {
           onChange={(e) => {
             accessStore.update(
               (access) =>
-                (access.googleSafetySettings = e.target
-                  .value as GoogleSafetySettingsThreshold),
+                (access.googleSafetySettings = e.target.value as GoogleSafetySettingsThreshold),
             );
           }}
         >
@@ -906,15 +814,11 @@ export function Settings() {
     </>
   );
 
-  const anthropicConfigComponent = accessStore.provider ===
-    ServiceProvider.Anthropic && (
+  const anthropicConfigComponent = accessStore.provider === ServiceProvider.Anthropic && (
     <>
       <ListItem
         title={Locale.Settings.Access.Anthropic.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Anthropic.Endpoint.SubTitle +
-          Anthropic.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Anthropic.Endpoint.SubTitle + Anthropic.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Anthropic.Endpoint.Title}
@@ -922,9 +826,7 @@ export function Settings() {
           value={accessStore.anthropicUrl}
           placeholder={Anthropic.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.anthropicUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.anthropicUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -938,9 +840,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Anthropic.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.anthropicApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.anthropicApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -954,17 +854,14 @@ export function Settings() {
           value={accessStore.anthropicApiVersion}
           placeholder={Anthropic.Vision}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.anthropicApiVersion = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.anthropicApiVersion = e.currentTarget.value))
           }
         ></input>
       </ListItem>
     </>
   );
 
-  const baiduConfigComponent = accessStore.provider ===
-    ServiceProvider.Baidu && (
+  const baiduConfigComponent = accessStore.provider === ServiceProvider.Baidu && (
     <>
       <ListItem
         title={Locale.Settings.Access.Baidu.Endpoint.Title}
@@ -976,9 +873,7 @@ export function Settings() {
           value={accessStore.baiduUrl}
           placeholder={Baidu.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.baiduUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.baiduUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -992,9 +887,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Baidu.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.baiduApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.baiduApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -1008,17 +901,14 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Baidu.SecretKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.baiduSecretKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.baiduSecretKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const tencentConfigComponent = accessStore.provider ===
-    ServiceProvider.Tencent && (
+  const tencentConfigComponent = accessStore.provider === ServiceProvider.Tencent && (
     <>
       <ListItem
         title={Locale.Settings.Access.Tencent.Endpoint.Title}
@@ -1030,9 +920,7 @@ export function Settings() {
           value={accessStore.tencentUrl}
           placeholder={Tencent.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.tencentUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.tencentUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1046,9 +934,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Tencent.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.tencentSecretId = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.tencentSecretId = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -1062,24 +948,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Tencent.SecretKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.tencentSecretKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.tencentSecretKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const byteDanceConfigComponent = accessStore.provider ===
-    ServiceProvider.ByteDance && (
+  const byteDanceConfigComponent = accessStore.provider === ServiceProvider.ByteDance && (
     <>
       <ListItem
         title={Locale.Settings.Access.ByteDance.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.ByteDance.Endpoint.SubTitle +
-          ByteDance.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.ByteDance.Endpoint.SubTitle + ByteDance.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.ByteDance.Endpoint.Title}
@@ -1087,9 +967,7 @@ export function Settings() {
           value={accessStore.bytedanceUrl}
           placeholder={ByteDance.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.bytedanceUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.bytedanceUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1103,24 +981,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.ByteDance.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.bytedanceApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.bytedanceApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const alibabaConfigComponent = accessStore.provider ===
-    ServiceProvider.Alibaba && (
+  const alibabaConfigComponent = accessStore.provider === ServiceProvider.Alibaba && (
     <>
       <ListItem
         title={Locale.Settings.Access.Alibaba.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Alibaba.Endpoint.SubTitle +
-          Alibaba.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Alibaba.Endpoint.SubTitle + Alibaba.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Alibaba.Endpoint.Title}
@@ -1128,9 +1000,7 @@ export function Settings() {
           value={accessStore.alibabaUrl}
           placeholder={Alibaba.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.alibabaUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.alibabaUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1144,24 +1014,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Alibaba.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.alibabaApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.alibabaApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const moonshotConfigComponent = accessStore.provider ===
-    ServiceProvider.Moonshot && (
+  const moonshotConfigComponent = accessStore.provider === ServiceProvider.Moonshot && (
     <>
       <ListItem
         title={Locale.Settings.Access.Moonshot.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Moonshot.Endpoint.SubTitle +
-          Moonshot.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Moonshot.Endpoint.SubTitle + Moonshot.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Moonshot.Endpoint.Title}
@@ -1169,9 +1033,7 @@ export function Settings() {
           value={accessStore.moonshotUrl}
           placeholder={Moonshot.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.moonshotUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.moonshotUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1185,24 +1047,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Moonshot.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.moonshotApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.moonshotApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const deepseekConfigComponent = accessStore.provider ===
-    ServiceProvider.DeepSeek && (
+  const deepseekConfigComponent = accessStore.provider === ServiceProvider.DeepSeek && (
     <>
       <ListItem
         title={Locale.Settings.Access.DeepSeek.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.DeepSeek.Endpoint.SubTitle +
-          DeepSeek.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.DeepSeek.Endpoint.SubTitle + DeepSeek.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.DeepSeek.Endpoint.Title}
@@ -1210,9 +1066,7 @@ export function Settings() {
           value={accessStore.deepseekUrl}
           placeholder={DeepSeek.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.deepseekUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.deepseekUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1226,9 +1080,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.DeepSeek.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.deepseekApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.deepseekApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -1239,20 +1091,14 @@ export function Settings() {
     <>
       <ListItem
         title={Locale.Settings.Access.XAI.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.XAI.Endpoint.SubTitle + XAI.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.XAI.Endpoint.Title}
           type="text"
           value={accessStore.xaiUrl}
           placeholder={XAI.ExampleEndpoint}
-          onChange={(e) =>
-            accessStore.update(
-              (access) => (access.xaiUrl = e.currentTarget.value),
-            )
-          }
+          onChange={(e) => accessStore.update((access) => (access.xaiUrl = e.currentTarget.value))}
         ></input>
       </ListItem>
       <ListItem
@@ -1265,24 +1111,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.XAI.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.xaiApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.xaiApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const chatglmConfigComponent = accessStore.provider ===
-    ServiceProvider.ChatGLM && (
+  const chatglmConfigComponent = accessStore.provider === ServiceProvider.ChatGLM && (
     <>
       <ListItem
         title={Locale.Settings.Access.ChatGLM.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.ChatGLM.Endpoint.SubTitle +
-          ChatGLM.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.ChatGLM.Endpoint.SubTitle + ChatGLM.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.ChatGLM.Endpoint.Title}
@@ -1290,9 +1130,7 @@ export function Settings() {
           value={accessStore.chatglmUrl}
           placeholder={ChatGLM.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.chatglmUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.chatglmUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1306,22 +1144,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.ChatGLM.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.chatglmApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.chatglmApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
-  const siliconflowConfigComponent = accessStore.provider ===
-    ServiceProvider.SiliconFlow && (
+  const siliconflowConfigComponent = accessStore.provider === ServiceProvider.SiliconFlow && (
     <>
       <ListItem
         title={Locale.Settings.Access.SiliconFlow.Endpoint.Title}
         subTitle={
-          Locale.Settings.Access.SiliconFlow.Endpoint.SubTitle +
-          SiliconFlow.ExampleEndpoint
+          Locale.Settings.Access.SiliconFlow.Endpoint.SubTitle + SiliconFlow.ExampleEndpoint
         }
       >
         <input
@@ -1330,9 +1164,7 @@ export function Settings() {
           value={accessStore.siliconflowUrl}
           placeholder={SiliconFlow.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.siliconflowUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.siliconflowUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1346,24 +1178,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.SiliconFlow.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.siliconflowApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.siliconflowApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const stabilityConfigComponent = accessStore.provider ===
-    ServiceProvider.Stability && (
+  const stabilityConfigComponent = accessStore.provider === ServiceProvider.Stability && (
     <>
       <ListItem
         title={Locale.Settings.Access.Stability.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Stability.Endpoint.SubTitle +
-          Stability.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Stability.Endpoint.SubTitle + Stability.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Stability.Endpoint.Title}
@@ -1371,9 +1197,7 @@ export function Settings() {
           value={accessStore.stabilityUrl}
           placeholder={Stability.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.stabilityUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.stabilityUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1387,23 +1211,17 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Stability.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.stabilityApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.stabilityApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
-  const lflytekConfigComponent = accessStore.provider ===
-    ServiceProvider.Iflytek && (
+  const lflytekConfigComponent = accessStore.provider === ServiceProvider.Iflytek && (
     <>
       <ListItem
         title={Locale.Settings.Access.Iflytek.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.Iflytek.Endpoint.SubTitle +
-          Iflytek.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.Iflytek.Endpoint.SubTitle + Iflytek.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.Iflytek.Endpoint.Title}
@@ -1411,9 +1229,7 @@ export function Settings() {
           value={accessStore.iflytekUrl}
           placeholder={Iflytek.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.iflytekUrl = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.iflytekUrl = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1427,9 +1243,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Iflytek.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.iflytekApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.iflytekApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -1444,23 +1258,18 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.Iflytek.ApiSecret.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.iflytekApiSecret = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.iflytekApiSecret = e.currentTarget.value));
           }}
         />
       </ListItem>
     </>
   );
 
-  const ai302ConfigComponent = accessStore.provider ===
-    ServiceProvider["302.AI"] && (
+  const ai302ConfigComponent = accessStore.provider === ServiceProvider["302.AI"] && (
     <>
       <ListItem
         title={Locale.Settings.Access.AI302.Endpoint.Title}
-        subTitle={
-          Locale.Settings.Access.AI302.Endpoint.SubTitle + AI302.ExampleEndpoint
-        }
+        subTitle={Locale.Settings.Access.AI302.Endpoint.SubTitle + AI302.ExampleEndpoint}
       >
         <input
           aria-label={Locale.Settings.Access.AI302.Endpoint.Title}
@@ -1468,9 +1277,7 @@ export function Settings() {
           value={accessStore.ai302Url}
           placeholder={AI302.ExampleEndpoint}
           onChange={(e) =>
-            accessStore.update(
-              (access) => (access.ai302Url = e.currentTarget.value),
-            )
+            accessStore.update((access) => (access.ai302Url = e.currentTarget.value))
           }
         ></input>
       </ListItem>
@@ -1484,9 +1291,7 @@ export function Settings() {
           type="text"
           placeholder={Locale.Settings.Access.AI302.ApiKey.Placeholder}
           onChange={(e) => {
-            accessStore.update(
-              (access) => (access.ai302ApiKey = e.currentTarget.value),
-            );
+            accessStore.update((access) => (access.ai302ApiKey = e.currentTarget.value));
           }}
         />
       </ListItem>
@@ -1497,12 +1302,8 @@ export function Settings() {
     <ErrorBoundary>
       <div className="window-header" data-tauri-drag-region>
         <div className="window-header-title">
-          <div className="window-header-main-title">
-            {Locale.Settings.Title}
-          </div>
-          <div className="window-header-sub-title">
-            {Locale.Settings.SubTitle}
-          </div>
+          <div className="window-header-main-title">{Locale.Settings.Title}</div>
+          <div className="window-header-sub-title">{Locale.Settings.SubTitle}</div>
         </div>
         <div className="window-actions">
           <div className="window-action-button"></div>
@@ -1583,10 +1384,7 @@ export function Settings() {
               aria-label={Locale.Settings.SendKey}
               value={config.submitKey}
               onChange={(e) => {
-                updateConfig(
-                  (config) =>
-                    (config.submitKey = e.target.value as any as SubmitKey),
-                );
+                updateConfig((config) => (config.submitKey = e.target.value as any as SubmitKey));
               }}
             >
               {Object.values(SubmitKey).map((v) => (
@@ -1602,9 +1400,7 @@ export function Settings() {
               aria-label={Locale.Settings.Theme}
               value={config.theme}
               onChange={(e) => {
-                updateConfig(
-                  (config) => (config.theme = e.target.value as any as Theme),
-                );
+                updateConfig((config) => (config.theme = e.target.value as any as Theme));
               }}
             >
               {Object.values(Theme).map((v) => (
@@ -1643,10 +1439,7 @@ export function Settings() {
               max="40"
               step="1"
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.fontSize = Number.parseInt(e.currentTarget.value)),
-                )
+                updateConfig((config) => (config.fontSize = Number.parseInt(e.currentTarget.value)))
               }
             ></InputRange>
           </ListItem>
@@ -1661,9 +1454,7 @@ export function Settings() {
               value={config.fontFamily}
               placeholder={Locale.Settings.FontFamily.Placeholder}
               onChange={(e) =>
-                updateConfig(
-                  (config) => (config.fontFamily = e.currentTarget.value),
-                )
+                updateConfig((config) => (config.fontFamily = e.currentTarget.value))
               }
             ></input>
           </ListItem>
@@ -1677,10 +1468,7 @@ export function Settings() {
               type="checkbox"
               checked={config.enableAutoGenerateTitle}
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableAutoGenerateTitle = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.enableAutoGenerateTitle = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
@@ -1694,10 +1482,7 @@ export function Settings() {
               type="checkbox"
               checked={config.sendPreviewBubble}
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.sendPreviewBubble = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.sendPreviewBubble = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
@@ -1711,10 +1496,7 @@ export function Settings() {
               type="checkbox"
               checked={config.enableArtifacts}
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableArtifacts = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.enableArtifacts = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
@@ -1728,9 +1510,7 @@ export function Settings() {
               checked={config.enableCodeFold}
               data-testid="enable-code-fold-checkbox"
               onChange={(e) =>
-                updateConfig(
-                  (config) => (config.enableCodeFold = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.enableCodeFold = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
@@ -1749,9 +1529,7 @@ export function Settings() {
               checked={!config.dontShowMaskSplashScreen}
               onChange={(e) =>
                 updateConfig(
-                  (config) =>
-                    (config.dontShowMaskSplashScreen =
-                      !e.currentTarget.checked),
+                  (config) => (config.dontShowMaskSplashScreen = !e.currentTarget.checked),
                 )
               }
             ></input>
@@ -1766,10 +1544,7 @@ export function Settings() {
               type="checkbox"
               checked={config.hideBuiltinMasks}
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.hideBuiltinMasks = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.hideBuiltinMasks = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
@@ -1785,20 +1560,14 @@ export function Settings() {
               type="checkbox"
               checked={config.disablePromptHint}
               onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.disablePromptHint = e.currentTarget.checked),
-                )
+                updateConfig((config) => (config.disablePromptHint = e.currentTarget.checked))
               }
             ></input>
           </ListItem>
 
           <ListItem
             title={Locale.Settings.Prompt.List}
-            subTitle={Locale.Settings.Prompt.ListCount(
-              builtinCount,
-              customCount,
-            )}
+            subTitle={Locale.Settings.Prompt.ListCount(builtinCount, customCount)}
           >
             <IconButton
               aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
@@ -1828,9 +1597,7 @@ export function Settings() {
                       value={accessStore.provider}
                       onChange={(e) => {
                         accessStore.update(
-                          (access) =>
-                            (access.provider = e.target
-                              .value as ServiceProvider),
+                          (access) => (access.provider = e.target.value as ServiceProvider),
                         );
                       }}
                     >
@@ -1901,9 +1668,7 @@ export function Settings() {
               value={config.customModels}
               placeholder="model1,model2,model3"
               onChange={(e) =>
-                config.update(
-                  (config) => (config.customModels = e.currentTarget.value),
-                )
+                config.update((config) => (config.customModels = e.currentTarget.value))
               }
             ></input>
           </ListItem>
@@ -1920,18 +1685,14 @@ export function Settings() {
           />
         </List>
 
-        {shouldShowPromptModal && (
-          <UserPromptModal onClose={() => setShowPromptModal(false)} />
-        )}
+        {shouldShowPromptModal && <UserPromptModal onClose={() => setShowPromptModal(false)} />}
         <List>
           <RealtimeConfigList
             realtimeConfig={config.realtimeConfig}
             updateConfig={(updater) => {
               const realtimeConfig = { ...config.realtimeConfig };
               updater(realtimeConfig);
-              config.update(
-                (config) => (config.realtimeConfig = realtimeConfig),
-              );
+              config.update((config) => (config.realtimeConfig = realtimeConfig));
             }}
           />
         </List>

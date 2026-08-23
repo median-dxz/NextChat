@@ -1,5 +1,6 @@
 import {
   GoogleSafetySettingsThreshold,
+  ACCESS_CODE_PREFIX,
   ServiceProvider,
   StoreKey,
   ApiPath,
@@ -19,7 +20,6 @@ import {
   SILICONFLOW_BASE_URL,
   AI302_BASE_URL,
 } from "../constant";
-import { getHeaders } from "../client/api";
 import { getClientConfig } from "../config/client";
 import type { DangerConfig } from "../config/types";
 import { createPersistStore } from "../utils/store";
@@ -57,9 +57,7 @@ const DEFAULT_XAI_URL = isApp ? XAI_BASE_URL : ApiPath.XAI;
 
 const DEFAULT_CHATGLM_URL = isApp ? CHATGLM_BASE_URL : ApiPath.ChatGLM;
 
-const DEFAULT_SILICONFLOW_URL = isApp
-  ? SILICONFLOW_BASE_URL
-  : ApiPath.SiliconFlow;
+const DEFAULT_SILICONFLOW_URL = isApp ? SILICONFLOW_BASE_URL : ApiPath.SiliconFlow;
 
 const DEFAULT_AI302_URL = isApp ? AI302_BASE_URL : ApiPath["302.AI"];
 
@@ -253,11 +251,19 @@ export const useAccessStore = createPersistStore(
     fetch() {
       if (fetchState > 0 || getClientConfig()?.buildMode === "export") return;
       fetchState = 1;
+      const access = get();
+      const credential = access.openaiApiKey.trim()
+        ? access.openaiApiKey.trim()
+        : this.enabledAccessControl() && access.accessCode.trim()
+          ? ACCESS_CODE_PREFIX + access.accessCode.trim()
+          : "";
       fetch("/api/config", {
         method: "post",
         body: null,
         headers: {
-          ...getHeaders(),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
         },
       })
         .then((res) => res.json())

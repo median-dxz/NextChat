@@ -1,13 +1,9 @@
-export type ThinkingContentSegment = {
-  isThinking: boolean;
+export interface StreamingContentSegment {
+  kind: "reasoning" | "content";
   content: string;
-};
+}
 
-export function formatReasoningForExport(
-  content: string,
-  reasoning: string,
-  label: string,
-) {
+export function formatReasoningForExport(content: string, reasoning: string, label: string) {
   const quotedReasoning = reasoning
     .split("\n")
     .map((line) => `> ${line}`)
@@ -15,72 +11,95 @@ export function formatReasoningForExport(
   return `> **${label}**\n>\n${quotedReasoning}\n\n${content}`;
 }
 
-function pendingTagPrefixLength(content: string, tag: string) {
-  const maxLength = Math.min(content.length, tag.length - 1);
-  for (let length = maxLength; length > 0; length -= 1) {
-    if (content.endsWith(tag.slice(0, length))) {
-      return length;
-    }
-  }
-  return 0;
-}
+const openingTag = "<think>";
+const closingTag = "</think>";
 
 /**
- * Separates provider-native reasoning chunks and textual <think> blocks while
- * retaining partial tags between streamed chunks.
+ * Separates provider-native reasoning chunks and a leading textual <think>
+ * block while retaining partial tags between streamed chunks.
  */
-export function createThinkingContentParser() {
-  let isTaggedThinking = false;
-  let pendingContent = "";
+export class ThinkingContentParser {
+  private mode: "unknown" | "reasoning" | "content" = "unknown";
+  private pendingContent = "";
 
-  const parsePending = (flush: boolean): ThinkingContentSegment[] => {
-    const segments: ThinkingContentSegment[] = [];
+  push({
+    isThinking: isReasoning,
+    content,
+  }: {
+    isThinking: boolean;
+    content: string | undefined;
+  }): StreamingContentSegment[] {
+    if (!content) return [];
 
-    while (pendingContent.length > 0) {
-      const tag = isTaggedThinking ? "</think>" : "<think>";
-      const tagIndex = pendingContent.indexOf(tag);
-
-      if (tagIndex >= 0) {
-        if (tagIndex > 0) {
-          segments.push({
-            isThinking: isTaggedThinking,
-            content: pendingContent.slice(0, tagIndex),
-          });
-        }
-        pendingContent = pendingContent.slice(tagIndex + tag.length);
-        isTaggedThinking = !isTaggedThinking;
-        continue;
-      }
-
-      const retainedLength = flush
-        ? 0
-        : pendingTagPrefixLength(pendingContent, tag);
-      const safeLength = pendingContent.length - retainedLength;
-      if (safeLength > 0) {
-        segments.push({
-          isThinking: isTaggedThinking,
-          content: pendingContent.slice(0, safeLength),
-        });
-        pendingContent = pendingContent.slice(safeLength);
-      }
-      break;
+    if (isReasoning) {
+      this.mode = "content";
+      return [{ kind: "reasoning", content }];
     }
 
-    return segments;
-  };
+    if (this.mode === "content") return [{ kind: "content", content }];
 
-  return {
-    push(content: string, isThinking: boolean): ThinkingContentSegment[] {
-      if (isThinking) {
-        return [...parsePending(true), { isThinking: true, content }].filter(
-          (segment) => segment.content.length > 0,
-        );
+    this.pendingContent += content;
+
+    if (this.mode === "unknown") {
+      if (this.pendingContent.startsWith(openingTag)) {
+        this.pendingContent = this.pendingContent.slice(openingTag.length);
+        this.mode = "reasoning";
+      } else if (openingTag.startsWith(this.pendingContent)) {
+        // 还未接收到完整的 openingTag
+        return [];
+      } else {
+        this.mode = "content";
+        return [this.takePending("content")];
       }
-      pendingContent += content;
-      return parsePending(false);
-    },
-    finish(): ThinkingContentSegment[] {
-      return parsePending(true);
-    },
-  };
+    }
+
+    return this.parseReasoning();
+  }
+
+  finish(): StreamingContentSegment[] {
+    if (this.pendingContent.length === 0) {
+      return [];
+    }
+
+    return [this.takePending(this.mode === "reasoning" ? "reasoning" : "content")];
+  }
+
+  private parseReasoning(): StreamingContentSegment[] {
+    const closingTagIndex = this.pendingContent.indexOf(closingTag);
+    if (closingTagIndex >= 0) {
+      const reasoning = this.pendingContent.slice(0, closingTagIndex);
+      const content = this.pendingContent.slice(closingTagIndex + closingTag.length);
+
+      this.pendingContent = "";
+      this.mode = "content";
+
+      const segments: StreamingContentSegment[] = [
+        { kind: "reasoning", content: reasoning },
+        { kind: "content", content },
+      ];
+
+      return segments.filter(({ content }) => content.length > 0);
+    }
+
+    const retainedLength = this.pendingTagPrefixLength();
+    const reasoning = this.pendingContent.slice(0, this.pendingContent.length - retainedLength);
+    this.pendingContent = this.pendingContent.slice(reasoning.length);
+    return reasoning ? [{ kind: "reasoning", content: reasoning }] : [];
+  }
+
+  private takePending(kind: StreamingContentSegment["kind"]) {
+    const segment = { kind, content: this.pendingContent };
+    this.pendingContent = "";
+    return segment;
+  }
+
+  private pendingTagPrefixLength() {
+    const maxLength = Math.min(this.pendingContent.length, closingTag.length - 1);
+    for (let length = maxLength; length > 0; length -= 1) {
+      if (this.pendingContent.endsWith(closingTag.slice(0, length))) {
+        return length;
+      }
+    }
+    return 0;
+  }
 }

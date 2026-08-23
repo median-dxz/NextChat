@@ -12,10 +12,13 @@ import MaskIcon from "../icons/mask.svg";
 import McpIcon from "../icons/mcp.svg";
 import DragIcon from "../icons/drag.svg";
 import DiscoveryIcon from "../icons/discovery.svg";
+import LightIcon from "../icons/light.svg";
+import DarkIcon from "../icons/dark.svg";
+import AutoIcon from "../icons/auto.svg";
 
 import Locale from "../locales";
 
-import { useAppConfig, useChatStore } from "../store";
+import { Theme, useAppConfig, useChatStore } from "../store";
 
 import {
   DEFAULT_SIDEBAR_WIDTH,
@@ -119,8 +122,7 @@ export function useDragSideBar() {
   };
 
   const isMobileScreen = useMobileScreen();
-  const shouldNarrow =
-    !isMobileScreen && config.sidebarWidth < MIN_SIDEBAR_WIDTH;
+  const shouldNarrow = !isMobileScreen && config.sidebarWidth < MIN_SIDEBAR_WIDTH;
 
   useEffect(() => {
     const barWidth = shouldNarrow
@@ -143,10 +145,7 @@ export function SideBarContainer(props: {
   className?: string;
 }) {
   const isMobileScreen = useMobileScreen();
-  const isIOSMobile = useMemo(
-    () => isIOS() && isMobileScreen,
-    [isMobileScreen],
-  );
+  const isIOSMobile = useMemo(() => isIOS() && isMobileScreen, [isMobileScreen]);
   const { children, className, onDragStart, shouldNarrow } = props;
   return (
     <div
@@ -159,10 +158,7 @@ export function SideBarContainer(props: {
       }}
     >
       {children}
-      <div
-        className={styles["sidebar-drag"]}
-        onPointerDown={(e) => onDragStart(e as any)}
-      >
+      <div className={styles["sidebar-drag"]} onPointerDown={(e) => onDragStart(e as any)}>
         <DragIcon />
       </div>
     </div>
@@ -232,6 +228,12 @@ export function SideBar(props: { className?: string }) {
   const config = useAppConfig();
   const chatStore = useChatStore();
   const [mcpEnabled, setMcpEnabled] = useState(false);
+  const theme = config.theme;
+  const nextTheme = () => {
+    const themes = [Theme.Auto, Theme.Light, Theme.Dark];
+    const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+    config.update((draft) => (draft.theme = next));
+  };
 
   useEffect(() => {
     // 检查 MCP 是否启用
@@ -244,11 +246,7 @@ export function SideBar(props: { className?: string }) {
   }, []);
 
   return (
-    <SideBarContainer
-      onDragStart={onDragStart}
-      shouldNarrow={shouldNarrow}
-      {...props}
-    >
+    <SideBarContainer onDragStart={onDragStart} shouldNarrow={shouldNarrow} {...props}>
       <SideBarHeader
         title="NextChat"
         subTitle="Build your own AI assistant."
@@ -328,21 +326,30 @@ export function SideBar(props: { className?: string }) {
               />
             </div>
             <div className={styles["sidebar-action"]}>
+              <IconButton
+                aria={Locale.Chat.InputActions.Theme[theme]}
+                title={Locale.Chat.InputActions.Theme[theme]}
+                icon={
+                  theme === Theme.Auto ? (
+                    <AutoIcon />
+                  ) : theme === Theme.Light ? (
+                    <LightIcon />
+                  ) : (
+                    <DarkIcon />
+                  )
+                }
+                onClick={nextTheme}
+                shadow
+              />
+            </div>
+            <div className={styles["sidebar-action"]}>
               <Link to={Path.Settings}>
-                <IconButton
-                  aria={Locale.Settings.Title}
-                  icon={<SettingsIcon />}
-                  shadow
-                />
+                <IconButton aria={Locale.Settings.Title} icon={<SettingsIcon />} shadow />
               </Link>
             </div>
             <div className={styles["sidebar-action"]}>
               <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-                <IconButton
-                  aria={Locale.Export.MessageFromChatGPT}
-                  icon={<GithubIcon />}
-                  shadow
-                />
+                <IconButton aria={Locale.Export.MessageFromChatGPT} icon={<GithubIcon />} shadow />
               </a>
             </div>
           </>

@@ -3,10 +3,7 @@ import { getServerSideConfig } from "@/app/config/server";
 import { ModelProvider, STABILITY_BASE_URL } from "@/app/constant";
 import { auth } from "@/app/api/auth";
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[Stability] params ", params);
 
   if (req.method === "OPTIONS") {

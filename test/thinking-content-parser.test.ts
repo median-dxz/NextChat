@@ -1,28 +1,26 @@
 import { describe, expect, test } from "vitest";
 import {
-  createThinkingContentParser,
   formatReasoningForExport,
+  ThinkingContentParser,
 } from "../app/utils/thinking";
 
 function collect(chunks: Array<{ content: string; isThinking: boolean }>) {
-  const parser = createThinkingContentParser();
-  const segments = chunks.flatMap((chunk) =>
-    parser.push(chunk.content, chunk.isThinking),
-  );
+  const parser = new ThinkingContentParser();
+  const segments = chunks.flatMap((chunk) => parser.push(chunk));
   segments.push(...parser.finish());
   return {
     reasoning: segments
-      .filter((segment) => segment.isThinking)
+      .filter((segment) => segment.kind === "reasoning")
       .map((segment) => segment.content)
       .join(""),
     content: segments
-      .filter((segment) => !segment.isThinking)
+      .filter((segment) => segment.kind === "content")
       .map((segment) => segment.content)
       .join(""),
   };
 }
 
-describe("createThinkingContentParser", () => {
+describe("ThinkingContentParser", () => {
   test("keeps provider-native reasoning separate from final content", () => {
     expect(
       collect([
@@ -36,11 +34,11 @@ describe("createThinkingContentParser", () => {
     expect(
       collect([
         {
-          content: "before<think>reasoning</think>after",
+          content: "<think>reasoning</think>answer",
           isThinking: false,
         },
       ]),
-    ).toEqual({ reasoning: "reasoning", content: "beforeafter" });
+    ).toEqual({ reasoning: "reasoning", content: "answer" });
   });
 
   test("retains think tags split across chunks", () => {
@@ -51,15 +49,6 @@ describe("createThinkingContentParser", () => {
         { content: "nk>answer", isThinking: false },
       ]),
     ).toEqual({ reasoning: "step", content: "answer" });
-  });
-
-  test("supports multiple reasoning blocks and reasoning-only replies", () => {
-    expect(
-      collect([
-        { content: "<think>one</think>", isThinking: false },
-        { content: "<think>two</think>", isThinking: false },
-      ]),
-    ).toEqual({ reasoning: "onetwo", content: "" });
   });
 });
 

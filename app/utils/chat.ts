@@ -1,17 +1,13 @@
-import {
-  CACHE_URL_PREFIX,
-  UPLOAD_URL,
-  REQUEST_TIMEOUT_MS,
-} from "@/app/constant";
-import { MultimodalContent, RequestMessage } from "@/app/client/api";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
+
+import type { MultimodalContent } from "@/app/client/api";
+import { CACHE_URL_PREFIX, REQUEST_TIMEOUT_MS, UPLOAD_URL } from "@/app/constant";
 import Locale from "@/app/locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import type { Conversation } from "@/app/utils/conversation";
+
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./stream";
-import { createThinkingContentParser } from "./thinking";
+import { ThinkingContentParser } from "./thinking";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -72,7 +68,7 @@ export function compressImage(file: Blob, maxSize: number): Promise<string> {
 }
 
 export async function preProcessImageContentBase(
-  content: RequestMessage["content"],
+  content: Conversation.Content,
   transformImageUrl: (url: string) => Promise<{ [key: string]: any }>,
 ) {
   if (typeof content === "string") {
@@ -94,18 +90,14 @@ export async function preProcessImageContentBase(
   return result;
 }
 
-export async function preProcessImageContent(
-  content: RequestMessage["content"],
-) {
+export async function preProcessImageContent(content: Conversation.Content) {
   return preProcessImageContentBase(content, async (url) => ({
     type: "image_url",
     image_url: { url },
   })) as Promise<MultimodalContent[] | string>;
 }
 
-export async function preProcessImageContentForAlibabaDashScope(
-  content: RequestMessage["content"],
-) {
+export async function preProcessImageContentForAlibabaDashScope(content: Conversation.Content) {
   return preProcessImageContentBase(content, async (url) => ({
     image: url,
   }));
@@ -122,10 +114,7 @@ export function cacheImageToBase64Image(imageUrl: string) {
         credentials: "include",
       })
         .then((res) => res.blob())
-        .then(
-          async (blob) =>
-            (imageCaches[imageUrl] = await compressImage(blob, 256 * 1024)),
-        ); // compressImage
+        .then(async (blob) => (imageCaches[imageUrl] = await compressImage(blob, 256 * 1024))); // compressImage
     }
     return Promise.resolve(imageCaches[imageUrl]);
   }
@@ -181,11 +170,7 @@ export function stream(
   funcs: Record<string, Function>,
   controller: AbortController,
   parseSSE: (text: string, runTools: any[]) => string | undefined,
-  processToolMessage: (
-    requestPayload: any,
-    toolCallMessage: any,
-    toolCallResult: any[],
-  ) => void,
+  processToolMessage: (requestPayload: any, toolCallMessage: any, toolCallResult: any[]) => void,
   options: any,
 ) {
   let responseText = "";
@@ -236,18 +221,13 @@ export function stream(
               // @ts-ignore
               funcs[tool.function.name](
                 // @ts-ignore
-                tool?.function?.arguments
-                  ? JSON.parse(tool?.function?.arguments)
-                  : {},
+                tool?.function?.arguments ? JSON.parse(tool?.function?.arguments) : {},
               ),
             )
               .then((res) => {
                 let content = res.data || res?.statusText;
                 // hotfix #5614
-                content =
-                  typeof content === "string"
-                    ? content
-                    : JSON.stringify(content);
+                content = typeof content === "string" ? content : JSON.stringify(content);
                 if (res.status >= 300) {
                   return Promise.reject(content);
                 }
@@ -298,12 +278,7 @@ export function stream(
 
   controller.signal.onabort = finish;
 
-  function chatApi(
-    chatPath: string,
-    headers: any,
-    requestPayload: any,
-    tools: any,
-  ) {
+  function chatApi(chatPath: string, headers: any, requestPayload: any, tools: any) {
     const chatPayload = {
       method: "POST",
       body: JSON.stringify({
@@ -313,10 +288,7 @@ export function stream(
       signal: controller.signal,
       headers,
     };
-    const requestTimeoutId = setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS,
-    );
+    const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     fetchEventSource(chatPath, {
       fetch: tauriFetch as any,
       ...chatPayload,
@@ -333,9 +305,7 @@ export function stream(
 
         if (
           !res.ok ||
-          !res.headers
-            .get("content-type")
-            ?.startsWith(EventStreamContentType) ||
+          !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
           res.status !== 200
         ) {
           const responseTexts = [responseText];
@@ -404,11 +374,7 @@ export function streamWithThink(
     isThinking: boolean;
     content: string | undefined;
   },
-  processToolMessage: (
-    requestPayload: any,
-    toolCallMessage: any,
-    toolCallResult: any[],
-  ) => void,
+  processToolMessage: (requestPayload: any, toolCallMessage: any, toolCallResult: any[]) => void,
   options: any,
 ) {
   let responseText = "";
@@ -419,7 +385,7 @@ export function streamWithThink(
   let running = false;
   let runTools: any[] = [];
   let responseRes: Response;
-  const thinkingParser = createThinkingContentParser();
+  const thinkingParser = new ThinkingContentParser();
 
   // animate response to make it looks smooth
   function animateResponseText() {
@@ -432,23 +398,20 @@ export function streamWithThink(
       return;
     }
 
+    if (reasoningRemainText.length > 0) {
+      const fetchCount = Math.max(1, Math.round(reasoningRemainText.length / 60));
+      const fetchText = reasoningRemainText.slice(0, fetchCount);
+      reasoningText += fetchText;
+      reasoningRemainText = reasoningRemainText.slice(fetchCount);
+      options.onReasoningUpdate?.(reasoningText, fetchText);
+    }
+
     if (remainText.length > 0) {
       const fetchCount = Math.max(1, Math.round(remainText.length / 60));
       const fetchText = remainText.slice(0, fetchCount);
       responseText += fetchText;
       remainText = remainText.slice(fetchCount);
       options.onUpdate?.(responseText, fetchText);
-    }
-
-    if (reasoningRemainText.length > 0) {
-      const fetchCount = Math.max(
-        1,
-        Math.round(reasoningRemainText.length / 60),
-      );
-      const fetchText = reasoningRemainText.slice(0, fetchCount);
-      reasoningText += fetchText;
-      reasoningRemainText = reasoningRemainText.slice(fetchCount);
-      options.onReasoningUpdate?.(reasoningText, fetchText);
     }
 
     requestAnimationFrame(animateResponseText);
@@ -473,18 +436,13 @@ export function streamWithThink(
               // @ts-ignore
               funcs[tool.function.name](
                 // @ts-ignore
-                tool?.function?.arguments
-                  ? JSON.parse(tool?.function?.arguments)
-                  : {},
+                tool?.function?.arguments ? JSON.parse(tool?.function?.arguments) : {},
               ),
             )
               .then((res) => {
                 let content = res.data || res?.statusText;
                 // hotfix #5614
-                content =
-                  typeof content === "string"
-                    ? content
-                    : JSON.stringify(content);
+                content = typeof content === "string" ? content : JSON.stringify(content);
                 if (res.status >= 300) {
                   return Promise.reject(content);
                 }
@@ -528,7 +486,7 @@ export function streamWithThink(
         return;
       }
       for (const segment of thinkingParser.finish()) {
-        if (segment.isThinking) {
+        if (segment.kind === "reasoning") {
           reasoningRemainText += segment.content;
         } else {
           remainText += segment.content;
@@ -548,12 +506,7 @@ export function streamWithThink(
 
   controller.signal.onabort = finish;
 
-  function chatApi(
-    chatPath: string,
-    headers: any,
-    requestPayload: any,
-    tools: any,
-  ) {
+  function chatApi(chatPath: string, headers: any, requestPayload: any, tools: any) {
     const chatPayload = {
       method: "POST",
       body: JSON.stringify({
@@ -563,10 +516,7 @@ export function streamWithThink(
       signal: controller.signal,
       headers,
     };
-    const requestTimeoutId = setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS,
-    );
+    const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     fetchEventSource(chatPath, {
       fetch: tauriFetch as any,
       ...chatPayload,
@@ -583,9 +533,7 @@ export function streamWithThink(
 
         if (
           !res.ok ||
-          !res.headers
-            .get("content-type")
-            ?.startsWith(EventStreamContentType) ||
+          !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
           res.status !== 200
         ) {
           const responseTexts = [responseText];
@@ -624,11 +572,8 @@ export function streamWithThink(
             return;
           }
 
-          for (const segment of thinkingParser.push(
-            chunk.content,
-            chunk.isThinking,
-          )) {
-            if (segment.isThinking) {
+          for (const segment of thinkingParser.push(chunk)) {
+            if (segment.kind === "reasoning") {
               reasoningRemainText += segment.content;
             } else {
               remainText += segment.content;

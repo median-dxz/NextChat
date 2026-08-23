@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-async function handle(
-  req: NextRequest,
-  context: RouteContext<"/api/upstash/[action]/[...key]">,
-) {
+async function handle(req: NextRequest, context: RouteContext<"/api/upstash/[action]/[...key]">) {
   const params = await context.params;
   const requestUrl = new URL(req.url);
   const endpoint = requestUrl.searchParams.get("endpoint");
@@ -42,9 +39,7 @@ async function handle(
   const targetUrl = `${endpoint}/${params.action}/${params.key.join("/")}`;
 
   const method = req.method;
-  const shouldNotHaveBody = ["get", "head"].includes(
-    method?.toLowerCase() ?? "",
-  );
+  const shouldNotHaveBody = ["get", "head"].includes(method?.toLowerCase() ?? "");
 
   const fetchOptions: RequestInit = {
     headers: {

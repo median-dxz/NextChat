@@ -1,19 +1,15 @@
-import { Anthropic, ApiPath } from "@/app/constant";
-import { ChatOptions, getHeaders, LLMApi, SpeechOptions } from "../api";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  usePluginStore,
-  ChatMessageTool,
-} from "@/app/store";
 import { getClientConfig } from "@/app/config/client";
-import { ANTHROPIC_BASE_URL } from "@/app/constant";
-import { getMessageTextContent, isVisionModel } from "@/app/utils";
+import { ANTHROPIC_BASE_URL, Anthropic, ApiPath, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, isVisionModel } from "@/app/utils";
 import { preProcessImageContent, stream } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
-import { RequestPayload } from "./openai";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+import { RequestPayload } from "./openai";
 
 export type MultiBlockContent = {
   type: "image" | "text";
@@ -73,7 +69,8 @@ const ClaudeMapper = {
 
 const keys = ["claude-2, claude-instant-1"];
 
-export class ClaudeApi implements LLMApi {
+export class ClaudeApi extends LLMApi {
+  readonly providerName = ServiceProvider.Anthropic;
   speech(options: SpeechOptions): Promise<ArrayBuffer> {
     throw new Error("Method not implemented.");
   }
@@ -90,19 +87,17 @@ export class ClaudeApi implements LLMApi {
 
     const shouldStream = !!options.config.stream;
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
-    };
+    const modelConfig = options.config;
 
     // try get base64image from local cache image_url
-    const messages: ChatOptions["messages"] = [];
+    const messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: ChatOptions["messages"][number]["content"];
+    }> = [];
     for (const v of options.messages) {
       const content = await preProcessImageContent(v.content);
-      messages.push({ role: v.role, content });
+      const role = v.role;
+      messages.push({ role, content });
     }
 
     const keys = ["system", "user"];
@@ -137,38 +132,36 @@ export class ClaudeApi implements LLMApi {
         if (!visionModel || typeof content === "string") {
           return {
             role: insideRole,
-            content: getMessageTextContent(v),
+            content: getMessageText(v.content),
           };
         }
         return {
           role: insideRole,
-          content: content
-            .filter((v) => v.image_url || v.text)
-            .map(({ type, text, image_url }) => {
-              if (type === "text") {
-                return {
-                  type,
-                  text: text!,
-                };
-              }
-              const { url = "" } = image_url || {};
-              const colonIndex = url.indexOf(":");
-              const semicolonIndex = url.indexOf(";");
-              const comma = url.indexOf(",");
-
-              const mimeType = url.slice(colonIndex + 1, semicolonIndex);
-              const encodeType = url.slice(semicolonIndex + 1, comma);
-              const data = url.slice(comma + 1);
-
+          content: content.map((part) => {
+            if (part.type === "text") {
               return {
-                type: "image" as const,
-                source: {
-                  type: encodeType,
-                  media_type: mimeType,
-                  data,
-                },
+                type: part.type,
+                text: part.text,
               };
-            }),
+            }
+            const { url } = part.image_url;
+            const colonIndex = url.indexOf(":");
+            const semicolonIndex = url.indexOf(";");
+            const comma = url.indexOf(",");
+
+            const mimeType = url.slice(colonIndex + 1, semicolonIndex);
+            const encodeType = url.slice(semicolonIndex + 1, comma);
+            const data = url.slice(comma + 1);
+
+            return {
+              type: "image" as const,
+              source: {
+                type: encodeType,
+                media_type: mimeType,
+                data,
+              },
+            };
+          }),
         };
       });
 
@@ -198,16 +191,13 @@ export class ClaudeApi implements LLMApi {
 
     if (shouldStream) {
       let index = -1;
-      const [tools, funcs] = usePluginStore
-        .getState()
-        .getAsTools(
-          useChatStore.getState().currentSession().mask?.plugin || [],
-        );
+      const tools = options.tools?.definitions ?? [];
+      const funcs = options.tools?.handlers ?? {};
       return stream(
         path,
         requestBody,
         {
-          ...getHeaders(),
+          ...this.getHeaders(),
           "anthropic-version": accessStore.anthropicApiVersion,
         },
         // @ts-ignore
@@ -219,12 +209,13 @@ export class ClaudeApi implements LLMApi {
         funcs,
         controller,
         // parseSSE
-        (text: string, runTools: ChatMessageTool[]) => {
+        (text: string, runTools: Conversation.MessageTool[]) => {
           // console.log("parseSSE", text, runTools);
           let chunkJson:
             | undefined
             | {
-                type: "content_block_delta" | "content_block_stop" | "message_delta" | "message_stop";
+                type:
+                  "content_block_delta" | "content_block_stop" | "message_delta" | "message_stop";
                 content_block?: {
                   type: "tool_use";
                   id: string;
@@ -243,7 +234,8 @@ export class ClaudeApi implements LLMApi {
           // Handle refusal stop reason in message_delta
           if (chunkJson?.delta?.stop_reason === "refusal") {
             // Return a message to display to the user
-            const refusalMessage = "\n\n[Assistant refused to respond. Please modify your request and try again.]";
+            const refusalMessage =
+              "\n\n[Assistant refused to respond. Please modify your request and try again.]";
             options.onError?.(new Error("Content policy violation: " + refusalMessage));
             return refusalMessage;
           }
@@ -261,22 +253,14 @@ export class ClaudeApi implements LLMApi {
               },
             });
           }
-          if (
-            chunkJson?.delta?.type == "input_json_delta" &&
-            chunkJson?.delta?.partial_json
-          ) {
+          if (chunkJson?.delta?.type == "input_json_delta" && chunkJson?.delta?.partial_json) {
             // @ts-ignore
-            runTools[index]["function"]["arguments"] +=
-              chunkJson?.delta?.partial_json;
+            runTools[index]["function"]["arguments"] += chunkJson?.delta?.partial_json;
           }
           return chunkJson?.delta?.text;
         },
         // processToolMessage, include tool_calls message and tool call results
-        (
-          requestPayload: RequestPayload,
-          toolCallMessage: any,
-          toolCallResult: any[],
-        ) => {
+        (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
           // reset index value
           index = -1;
           // @ts-ignore
@@ -286,16 +270,12 @@ export class ClaudeApi implements LLMApi {
             0,
             {
               role: "assistant",
-              content: toolCallMessage.tool_calls.map(
-                (tool: ChatMessageTool) => ({
-                  type: "tool_use",
-                  id: tool.id,
-                  name: tool?.function?.name,
-                  input: tool?.function?.arguments
-                    ? JSON.parse(tool?.function?.arguments)
-                    : {},
-                }),
-              ),
+              content: toolCallMessage.tool_calls.map((tool: Conversation.MessageTool) => ({
+                type: "tool_use",
+                id: tool.id,
+                name: tool?.function?.name,
+                input: tool?.function?.arguments ? JSON.parse(tool?.function?.arguments) : {},
+              })),
             },
             // @ts-ignore
             ...toolCallResult.map((result) => ({
@@ -318,7 +298,7 @@ export class ClaudeApi implements LLMApi {
         body: JSON.stringify(requestBody),
         signal: controller.signal,
         headers: {
-          ...getHeaders(), // get common headers
+          ...this.getHeaders(),
           "anthropic-version": accessStore.anthropicApiVersion,
           // do not send `anthropicApiKey` in browser!!!
           // Authorization: getAuthKey(accessStore.anthropicApiKey),
@@ -326,8 +306,7 @@ export class ClaudeApi implements LLMApi {
       };
 
       try {
-        controller.signal.onabort = () =>
-          options.onFinish("", new Response(null, { status: 400 }));
+        controller.signal.onabort = () => options.onFinish("", new Response(null, { status: 400 }));
 
         const res = await fetch(path, payload);
         const resJson = await res.json();

@@ -21,10 +21,7 @@ export function MermaidRenderer({ code }: { code: string }) {
       })
       .catch((error: unknown) => {
         setHasError(true);
-        console.error(
-          "[Mermaid]",
-          error instanceof Error ? error.message : error,
-        );
+        console.error("[Mermaid]", error instanceof Error ? error.message : error);
       });
   }, [code]);
 

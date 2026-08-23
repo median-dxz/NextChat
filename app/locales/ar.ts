@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const ar: PartialLocaleType = {
-  WIP: "قريبًا...",
   Error: {
     Unauthorized: isApp
       ? `😆 واجهت المحادثة بعض المشكلات، لا داعي للقلق:
@@ -23,7 +22,6 @@ const ar: PartialLocaleType = {
     SubTips: "أو إدخال مفتاح API الخاص بـ OpenAI أو Google",
     Input: "أدخل رمز الوصول هنا",
     Confirm: "تأكيد",
-    Later: "في وقت لاحق",
     Return: "عودة",
     SaasTips: "الإعدادات معقدة، أريد استخدامه على الفور",
     TopTips:
@@ -43,12 +41,10 @@ const ar: PartialLocaleType = {
     },
     Actions: {
       ChatList: "عرض قائمة الرسائل",
-      CompressedHistory: "عرض التاريخ المضغوط",
       Export: "تصدير سجل الدردشة",
       Copy: "نسخ",
       Stop: "إيقاف",
       Retry: "إعادة المحاولة",
-      Pin: "تثبيت",
       PinToastContent: "تم تثبيت 1 محادثة في الإشعارات المسبقة",
       PinToastAction: "عرض",
       Delete: "حذف",
@@ -61,7 +57,6 @@ const ar: PartialLocaleType = {
       newm: "إنشاء دردشة من القناع",
       next: "الدردشة التالية",
       prev: "الدردشة السابقة",
-      clear: "مسح السياق",
       del: "حذف الدردشة",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const ar: PartialLocaleType = {
       },
       Prompt: "الأوامر السريعة",
       Masks: "جميع الأقنعة",
-      Clear: "مسح الدردشة",
       Settings: "إعدادات الدردشة",
       UploadImage: "تحميل صورة",
     },
-    Rename: "إعادة تسمية الدردشة",
     Typing: "يكتب…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} إرسال`;
@@ -89,7 +82,6 @@ const ar: PartialLocaleType = {
     },
     Send: "إرسال",
     Config: {
-      Reset: "مسح الذاكرة",
       SaveAs: "حفظ كقناع",
     },
     IsContext: "الإشعارات المسبقة",
@@ -125,11 +117,7 @@ const ar: PartialLocaleType = {
   },
   Memory: {
     Title: "ملخص التاريخ",
-    EmptyContent: "محتوى المحادثة قصير جداً، لا حاجة للتلخيص",
     Send: "ضغط تلقائي لسجل الدردشة كـ سياق",
-    Copy: "نسخ الملخص",
-    Reset: "[غير مستخدم]",
-    ResetConfirm: "تأكيد مسح ملخص التاريخ؟",
   },
   Home: {
     NewChat: "دردشة جديدة",
@@ -171,8 +159,7 @@ const ar: PartialLocaleType = {
     },
     InjectSystemPrompts: {
       Title: "حقن الرسائل النصية النظامية",
-      SubTitle:
-        "فرض إضافة رسالة نظامية تحاكي ChatGPT في بداية قائمة الرسائل لكل طلب",
+      SubTitle: "فرض إضافة رسالة نظامية تحاكي ChatGPT في بداية قائمة الرسائل لكل طلب",
     },
     InputTemplate: {
       Title: "معالجة الإدخال من قبل المستخدم",
@@ -189,7 +176,6 @@ const ar: PartialLocaleType = {
     },
     SendKey: "زر الإرسال",
     Theme: "السمة",
-    TightBorder: "وضع بدون حدود",
     SendPreviewBubble: {
       Title: "فقاعة المعاينة",
       SubTitle: "معاينة محتوى Markdown في فقاعة المعاينة",
@@ -257,8 +243,7 @@ const ar: PartialLocaleType = {
         SubTitle: "استخدم / في بداية مربع النص لتفعيل الإكمال التلقائي",
       },
       List: "قائمة الإشعارات المخصصة",
-      ListCount: (builtin: number, custom: number) =>
-        `مدمج ${builtin} إشعار، مخصص ${custom} إشعار`,
+      ListCount: (builtin: number, custom: number) => `مدمج ${builtin} إشعار، مخصص ${custom} إشعار`,
       Edit: "تحرير",
       Modal: {
         Title: "قائمة الإشعارات",
@@ -275,8 +260,7 @@ const ar: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "عتبة ضغط طول الرسائل التاريخية",
-      SubTitle:
-        "عندما يتجاوز طول الرسائل التاريخية غير المضغوطة هذه القيمة، سيتم الضغط",
+      SubTitle: "عندما يتجاوز طول الرسائل التاريخية غير المضغوطة هذه القيمة، سيتم الضغط",
     },
 
     Usage: {
@@ -461,10 +445,7 @@ const ar: PartialLocaleType = {
   Store: {
     DefaultTopic: "دردشة جديدة",
     BotHello: "كيف يمكنني مساعدتك؟",
-    Error: "حدث خطأ، يرجى المحاولة مرة أخرى لاحقًا",
     Prompt: {
-      History: (content: string) =>
-        "هذا ملخص للدردشة السابقة كنقطة انطلاق: " + content,
       Topic:
         "استخدم أربع إلى خمس كلمات لإرجاع ملخص مختصر لهذه الجملة، بدون شرح، بدون علامات ترقيم، بدون كلمات تعبيرية، بدون نص إضافي، بدون تنسيق عريض، إذا لم يكن هناك موضوع، يرجى العودة إلى 'دردشة عامة'",
       Summarize:
@@ -483,8 +464,6 @@ const ar: PartialLocaleType = {
     Toast: (x: any) => `يحتوي على ${x} إشعارات مخصصة`,
     Edit: "إعدادات الدردشة الحالية",
     Add: "إضافة دردشة جديدة",
-    Clear: "تم مسح السياق",
-    Revert: "استعادة السياق",
   },
   Plugin: {
     Name: "الإضافات",
@@ -493,13 +472,9 @@ const ar: PartialLocaleType = {
     Sysmessage: "أنت مساعد",
   },
   SearchChat: {
-    Name: "بحث",
     Page: {
       Title: "البحث في سجلات الدردشة",
       Search: "أدخل كلمات البحث",
-      NoResult: "لم يتم العثور على نتائج",
-      NoData: "لا توجد بيانات",
-      Loading: "جارٍ التحميل",
 
       SubTitle: (count: number) => `تم العثور على ${count} نتائج`,
     },
@@ -524,8 +499,7 @@ const ar: PartialLocaleType = {
       DeleteConfirm: "تأكيد الحذف؟",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `تحرير القناع المخصص ${readonly ? " (للقراءة فقط)" : ""}`,
+      Title: (readonly: boolean) => `تحرير القناع المخصص ${readonly ? " (للقراءة فقط)" : ""}`,
       Download: "تنزيل القناع المخصص",
       Clone: "استنساخ القناع",
     },
@@ -553,8 +527,7 @@ const ar: PartialLocaleType = {
     Return: "العودة",
     Skip: "بدء الآن",
     NotShow: "عدم العرض مرة أخرى",
-    ConfirmNoShow:
-      "تأكيد إلغاء العرض؟ بعد الإلغاء، يمكنك إعادة تفعيله في الإعدادات في أي وقت.",
+    ConfirmNoShow: "تأكيد إلغاء العرض؟ بعد الإلغاء، يمكنك إعادة تفعيله في الإعدادات في أي وقت.",
     Title: "اختر قناعًا",
     SubTitle: "ابدأ الآن وتفاعل مع الأفكار خلف القناع",
     More: "عرض الكل",
@@ -569,8 +542,6 @@ const ar: PartialLocaleType = {
     Confirm: "تأكيد",
     Cancel: "إلغاء",
     Close: "إغلاق",
-    Create: "إنشاء",
-    Edit: "تحرير",
     Export: "تصدير",
     Import: "استيراد",
     Sync: "مزامنة",

@@ -4,29 +4,23 @@ import {
   IFLYTEK_BASE_URL,
   Iflytek,
   REQUEST_TIMEOUT_MS,
+  ServiceProvider,
 } from "@/app/constant";
-import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
+import { useAccessStore } from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import Locale from "../../locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent } from "@/app/utils";
+import { getMessageText } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
 
 import { RequestPayload } from "./openai";
 
-export class SparkApi implements LLMApi {
+export class SparkApi extends LLMApi {
+  readonly providerName = ServiceProvider.Iflytek;
   private disableListModels = true;
 
   path(path: string): string {
@@ -65,20 +59,14 @@ export class SparkApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const content = getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+      const content = getMessageText(v.content);
+      const role = v.role;
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -104,14 +92,11 @@ export class SparkApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // Make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       if (shouldStream) {
         let responseText = "";
@@ -166,9 +151,7 @@ export class SparkApi implements LLMApi {
             // Handle different error scenarios
             if (
               !res.ok ||
-              !res.headers
-                .get("content-type")
-                ?.startsWith(EventStreamContentType) ||
+              !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
               res.status !== 200
             ) {
               let extraInfo = await res.clone().text();
@@ -182,9 +165,7 @@ export class SparkApi implements LLMApi {
               }
 
               options.onError?.(
-                new Error(
-                  `Request failed with status ${res.status}: ${extraInfo}`,
-                ),
+                new Error(`Request failed with status ${res.status}: ${extraInfo}`),
               );
               return finish();
             }
@@ -224,9 +205,7 @@ export class SparkApi implements LLMApi {
 
         if (!res.ok) {
           const errorText = await res.text();
-          options.onError?.(
-            new Error(`Request failed with status ${res.status}: ${errorText}`),
-          );
+          options.onError?.(new Error(`Request failed with status ${res.status}: ${errorText}`));
           return;
         }
 

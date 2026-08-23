@@ -1,8 +1,7 @@
 import type { LLMModel } from "../client/api";
 
 export function getModelKey(model: Pick<LLMModel, "name" | "provider">) {
-  const providerId =
-    model.provider?.id ?? model.provider?.providerName ?? "unknown";
+  const providerId = model.provider?.id ?? model.provider?.providerName ?? "unknown";
   return `${model.name}@${providerId}`;
 }
 

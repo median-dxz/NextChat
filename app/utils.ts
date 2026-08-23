@@ -1,20 +1,23 @@
-import { useEffect, useState } from "react";
-import { showToast } from "./components/ui-lib";
-import Locale from "./locales";
-import { RequestMessage } from "./client/api";
-import {
-  REQUEST_TIMEOUT_MS,
-  REQUEST_TIMEOUT_MS_FOR_THINKING,
-  ServiceProvider,
-} from "./constant";
-import { fetch as tauriStreamFetch } from "./utils/stream";
-import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
-import { useAccessStore } from "./store";
-import { ModelSize } from "./typing";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { check } from "@tauri-apps/plugin-updater";
+import { useEffect, useState } from "react";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import { showToast } from "./components/ui-lib";
+import {
+  EXCLUDE_VISION_MODEL_REGEXES,
+  REQUEST_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS_FOR_THINKING,
+  ServiceProvider,
+  VISION_MODEL_REGEXES,
+} from "./constant";
+import Locale from "./locales";
+import { useAccessStore } from "./store";
+import { ModelSize } from "./typing";
+import { fetch as tauriStreamFetch } from "./utils/stream";
 
 export function trimTopic(topic: string) {
   // Fix an issue where double quotes still show in the Indonesian language
@@ -81,10 +84,7 @@ export async function downloadAs(text: string, filename: string) {
     }
   } else {
     const element = document.createElement("a");
-    element.setAttribute(
-      "href",
-      "data:text/plain;charset=utf-8," + encodeURIComponent(text),
-    );
+    element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(text));
     element.setAttribute("download", filename);
 
     element.style.display = "none";
@@ -153,9 +153,7 @@ export function useMobileScreen() {
 }
 
 export function isFirefox() {
-  return (
-    typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent)
-  );
+  return typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
 }
 
 export function selectOrCopy(el: HTMLElement, content: string) {
@@ -172,8 +170,7 @@ export function selectOrCopy(el: HTMLElement, content: string) {
 
 function getDomContentWidth(dom: HTMLElement) {
   const style = window.getComputedStyle(dom);
-  const paddingWidth =
-    parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const paddingWidth = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   const width = dom.clientWidth - paddingWidth;
   return width;
 }
@@ -210,12 +207,9 @@ export function autoGrowTextArea(dom: HTMLTextAreaElement) {
   measureDom.style.fontFamily = dom.style.fontFamily;
   const endWithEmptyLine = dom.value.endsWith("\n");
   const height = parseFloat(window.getComputedStyle(measureDom).height);
-  const singleLineHeight = parseFloat(
-    window.getComputedStyle(singleLineDom).height,
-  );
+  const singleLineHeight = parseFloat(window.getComputedStyle(singleLineDom).height);
 
-  const rows =
-    Math.round(height / singleLineHeight) + (endWithEmptyLine ? 1 : 0);
+  const rows = Math.round(height / singleLineHeight) + (endWithEmptyLine ? 1 : 0);
 
   return rows;
 }
@@ -236,11 +230,11 @@ export function isMacOS(): boolean {
   return false;
 }
 
-export function getMessageTextContent(message: RequestMessage) {
-  if (typeof message.content === "string") {
-    return message.content;
+export function getMessageText(content: Conversation.Content) {
+  if (typeof content === "string") {
+    return content;
   }
-  for (const c of message.content) {
+  for (const c of content) {
     if (c.type === "text") {
       return c.text ?? "";
     }
@@ -248,34 +242,12 @@ export function getMessageTextContent(message: RequestMessage) {
   return "";
 }
 
-export function getMessageTextContentWithoutThinking(message: RequestMessage) {
-  let content = "";
-
-  if (typeof message.content === "string") {
-    content = message.content;
-  } else {
-    for (const c of message.content) {
-      if (c.type === "text") {
-        content = c.text ?? "";
-        break;
-      }
-    }
-  }
-
-  // Filter out thinking lines (starting with "> ")
-  return content
-    .split("\n")
-    .filter((line) => !line.startsWith("> ") && line.trim() !== "")
-    .join("\n")
-    .trim();
-}
-
-export function getMessageImages(message: RequestMessage): string[] {
-  if (typeof message.content === "string") {
+export function getMessageImages(content: Conversation.Content): string[] {
+  if (typeof content === "string") {
     return [];
   }
   const urls: string[] = [];
-  for (const c of message.content) {
+  for (const c of content) {
     if (c.type === "image_url") {
       urls.push(c.image_url?.url ?? "");
     }
@@ -318,15 +290,7 @@ export function getModelSizes(model: string): ModelSize[] {
     return ["1024x1024", "1792x1024", "1024x1792"];
   }
   if (model.toLowerCase().includes("cogview")) {
-    return [
-      "1024x1024",
-      "768x1344",
-      "864x1152",
-      "1344x768",
-      "1152x864",
-      "1440x720",
-      "720x1440",
-    ];
+    return ["1024x1024", "768x1344", "864x1152", "1344x768", "1152x864", "1440x720", "720x1440"];
   }
   return [];
 }
@@ -353,10 +317,7 @@ export function showPlugins(provider: ServiceProvider, model: string) {
   return false;
 }
 
-export function fetch(
-  url: string,
-  options?: Record<string, unknown>,
-): Promise<any> {
+export function fetch(url: string, options?: Record<string, unknown>): Promise<any> {
   if (window.__TAURI__) {
     return tauriStreamFetch(url, options);
   }
@@ -366,14 +327,10 @@ export function fetch(
 export function adapter(config: Record<string, unknown>) {
   const { baseURL, url, params, data: body, ...rest } = config;
   const path = baseURL ? `${baseURL}${url}` : url;
-  const fetchUrl = params
-    ? `${path}?${new URLSearchParams(params as any).toString()}`
-    : path;
+  const fetchUrl = params ? `${path}?${new URLSearchParams(params as any).toString()}` : path;
   return fetch(fetchUrl as string, { ...rest, body }).then((res) => {
     const { status, headers, statusText } = res;
-    return res
-      .text()
-      .then((data: string) => ({ status, statusText, headers, data }));
+    return res.text().then((data: string) => ({ status, statusText, headers, data }));
   });
 }
 
@@ -429,19 +386,13 @@ export function safeLocalStorage(): {
       if (storage) {
         storage.clear();
       } else {
-        console.warn(
-          "Attempted to clear localStorage, but localStorage is not available.",
-        );
+        console.warn("Attempted to clear localStorage, but localStorage is not available.");
       }
     },
   };
 }
 
-export function getOperationId(operation: {
-  operationId?: string;
-  method: string;
-  path: string;
-}) {
+export function getOperationId(operation: { operationId?: string; method: string; path: string }) {
   // pattern '^[a-zA-Z0-9_-]+$'
   return (
     operation?.operationId ||

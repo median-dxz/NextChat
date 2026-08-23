@@ -1,10 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+import type { PartialLocaleType } from "./en";
 const isApp = !!getClientConfig()?.isApp;
 
-const tw = {
-  WIP: "此功能仍在開發中……",
+const tw: PartialLocaleType = {
   Error: {
     Unauthorized: isApp
       ? `😆 對話遇到了一些問題，不用慌:
@@ -23,11 +23,9 @@ const tw = {
     SubTips: "或者輸入你的 OpenAI 或 Google API 金鑰",
     Input: "在此處填寫存取密碼",
     Confirm: "確認",
-    Later: "稍候再說",
     Return: "返回",
     SaasTips: "設定太麻煩，想要立即使用",
-    TopTips:
-      "🥳 NextChat AI 首發優惠，立刻解鎖 OpenAI o1, GPT-4o, Claude-3.5 等最新的大型語言模型",
+    TopTips: "🥳 NextChat AI 首發優惠，立刻解鎖 OpenAI o1, GPT-4o, Claude-3.5 等最新的大型語言模型",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} 則對話`,
@@ -43,12 +41,10 @@ const tw = {
     },
     Actions: {
       ChatList: "檢視訊息列表",
-      CompressedHistory: "檢視壓縮後的歷史 Prompt",
       Export: "匯出聊天紀錄",
       Copy: "複製",
       Stop: "停止",
       Retry: "重試",
-      Pin: "固定",
       PinToastContent: "已將 1 條對話固定至預設提示詞",
       PinToastAction: "檢視",
       Delete: "刪除",
@@ -61,7 +57,6 @@ const tw = {
       newm: "從角色範本新建聊天",
       next: "下一個聊天",
       prev: "上一個聊天",
-      clear: "清除上下文",
       del: "刪除聊天",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const tw = {
       },
       Prompt: "快捷指令",
       Masks: "所有角色範本",
-      Clear: "清除聊天",
       Settings: "對話設定",
       UploadImage: "上傳圖片",
     },
-    Rename: "重新命名對話",
     Typing: "正在輸入…",
     Input: (submitKey: string) => {
       var inputHints = `輸入訊息後，按下 ${submitKey} 鍵即可傳送`;
@@ -89,7 +82,6 @@ const tw = {
     },
     Send: "傳送",
     Config: {
-      Reset: "重設",
       SaveAs: "另存新檔",
     },
     IsContext: "預設提示詞",
@@ -100,7 +92,6 @@ const tw = {
       copyLastMessage: "複製最後一個回覆",
       copyLastCode: "複製最後一個程式碼區塊",
       showShortcutKey: "顯示快捷方式",
-      clearContext: "清除上下文",
     },
   },
   Export: {
@@ -133,12 +124,8 @@ const tw = {
     Clear: "清除選取",
   },
   Memory: {
-    Title: "上下文記憶 Prompt",
-    EmptyContent: "尚未記憶",
-    Copy: "複製全部",
-    Send: "傳送記憶",
-    Reset: "重設對話",
-    ResetConfirm: "重設後將清除目前對話記錄以及歷史記憶，確認重設？",
+    Title: "對話摘要",
+    Send: "自動摘要聊天記錄並納入上下文",
   },
   Home: {
     NewChat: "開新對話",
@@ -197,7 +184,6 @@ const tw = {
     },
     SendKey: "傳送鍵",
     Theme: "主題",
-    TightBorder: "緊湊邊框",
     SendPreviewBubble: {
       Title: "預覽氣泡",
       SubTitle: "在預覽氣泡中預覽 Markdown 內容",
@@ -265,8 +251,7 @@ const tw = {
         SubTitle: "在輸入框開頭輸入 / 即可觸發自動補齊",
       },
       List: "自訂提示詞列表",
-      ListCount: (builtin: number, custom: number) =>
-        `內建 ${builtin} 條，使用者自訂 ${custom} 條`,
+      ListCount: (builtin: number, custom: number) => `內建 ${builtin} 條，使用者自訂 ${custom} 條`,
       Edit: "編輯",
       Modal: {
         Title: "提示詞列表",
@@ -278,12 +263,12 @@ const tw = {
       },
     },
     HistoryCount: {
-      Title: "附帶歷史訊息數",
-      SubTitle: "每次請求附帶的歷史訊息數",
+      Title: "附帶歷史訊息",
+      SubTitle: "每次提問時直接發送的最近對話條數",
     },
     CompressThreshold: {
-      Title: "歷史訊息長度壓縮閾值",
-      SubTitle: "當未壓縮的歷史訊息超過該值時，將進行壓縮",
+      Title: "自動總結觸發長度",
+      SubTitle: "當未總結的較早對話達到該 Token 數量時自動壓縮",
     },
 
     Usage: {
@@ -427,10 +412,7 @@ const tw = {
   Store: {
     DefaultTopic: "新的對話",
     BotHello: "請問需要我的協助嗎？",
-    Error: "出錯了，請稍後再嘗試",
     Prompt: {
-      History: (content: string) =>
-        "這是 AI 與使用者的歷史聊天總結，作為前情提要：" + content,
       Topic:
         "Use the language used by the user (e.g. en for english conversation, zh-hant for chinese conversation, etc.) to generate a title (at most 6 words) summarizing our conversation without any lead-in, quotation marks, preamble like 'Title:', direct text copies, single-word replies, quotation marks, translations, or brackets. Remove enclosing quotation marks. The title should make third-party grasp the essence of the conversation in first sight.",
       Summarize:
@@ -449,8 +431,6 @@ const tw = {
     Toast: (x: any) => `已設定 ${x} 條前置上下文`,
     Edit: "前置上下文和歷史記憶",
     Add: "新增一則",
-    Clear: "上下文已清除",
-    Revert: "恢復上下文",
   },
   Plugin: { Name: "外掛" },
   FineTuned: { Sysmessage: "你是一個助手" },
@@ -471,8 +451,7 @@ const tw = {
       DeleteConfirm: "確認刪除？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `編輯預設角色範本 ${readonly ? "（唯讀）" : ""}`,
+      Title: (readonly: boolean) => `編輯預設角色範本 ${readonly ? "（唯讀）" : ""}`,
       Download: "下載預設值",
       Clone: "以此預設值建立副本",
     },
@@ -496,13 +475,9 @@ const tw = {
     },
   },
   SearchChat: {
-    Name: "搜尋聊天記錄",
     Page: {
       Title: "搜尋聊天記錄",
       Search: "輸入搜尋關鍵詞",
-      NoResult: "沒有找到結果",
-      NoData: "沒有資料",
-      Loading: "載入中",
 
       SubTitle: (count: number) => `找到 ${count} 條結果`,
     },
@@ -527,8 +502,6 @@ const tw = {
     Confirm: "確認",
     Cancel: "取消",
     Close: "關閉",
-    Create: "新增",
-    Edit: "編輯",
     Export: "匯出",
     Import: "匯入",
     Sync: "同步",
@@ -536,7 +509,7 @@ const tw = {
   },
   Exporter: {
     Description: {
-      Title: "只有清除上下文之後的訊息會被顯示",
+      Title: "選擇要匯出的訊息",
     },
     Model: "模型",
     Messages: "訊息",
@@ -544,15 +517,6 @@ const tw = {
     Time: "時間",
   },
 };
-
-type DeepPartial<T> = T extends object
-  ? {
-      [P in keyof T]?: DeepPartial<T[P]>;
-    }
-  : T;
-
-export type LocaleType = typeof tw;
-export type PartialLocaleType = DeepPartial<typeof tw>;
 
 export default tw;
 // Translated by @chunkiuuu, feel free the submit new pr if there are typo/incorrect translations :D

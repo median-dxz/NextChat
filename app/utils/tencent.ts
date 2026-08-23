@@ -14,11 +14,7 @@ function getDate(timestamp: number) {
   return `${year}-${month}-${day}`;
 }
 
-export async function getHeader(
-  payload: any,
-  SECRET_ID: string,
-  SECRET_KEY: string,
-) {
+export async function getHeader(payload: any, SECRET_ID: string, SECRET_KEY: string) {
   // https://cloud.tencent.com/document/api/1729/105701
 
   const endpoint = "hunyuan.tencentcloudapi.com";
@@ -61,13 +57,7 @@ export async function getHeader(
   const hashedCanonicalRequest = getHash(canonicalRequest);
   const credentialScope = date + "/" + service + "/" + "tc3_request";
   const stringToSign =
-    algorithm +
-    "\n" +
-    timestamp +
-    "\n" +
-    credentialScope +
-    "\n" +
-    hashedCanonicalRequest;
+    algorithm + "\n" + timestamp + "\n" + credentialScope + "\n" + hashedCanonicalRequest;
 
   // ************* 步骤 3：计算签名 *************
   const kDate = sha256(date, "TC3" + SECRET_KEY);

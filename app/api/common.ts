@@ -14,12 +14,7 @@ export async function requestOpenai(req: NextRequest) {
   var authValue,
     authHeaderName = "";
   if (isAzure) {
-    authValue =
-      req.headers
-        .get("Authorization")
-        ?.trim()
-        .replaceAll("Bearer ", "")
-        .trim() ?? "";
+    authValue = req.headers.get("Authorization")?.trim().replaceAll("Bearer ", "").trim() ?? "";
 
     authHeaderName = "api-key";
   } else {
@@ -29,8 +24,7 @@ export async function requestOpenai(req: NextRequest) {
 
   let path = `${req.nextUrl.pathname}`.replaceAll("/api/openai/", "");
 
-  let baseUrl =
-    (isAzure ? serverConfig.azureUrl : serverConfig.baseUrl) || OPENAI_BASE_URL;
+  let baseUrl = (isAzure ? serverConfig.azureUrl : serverConfig.baseUrl) || OPENAI_BASE_URL;
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -52,13 +46,9 @@ export async function requestOpenai(req: NextRequest) {
 
   if (isAzure) {
     const azureApiVersion =
-      req?.nextUrl?.searchParams?.get("api-version") ||
-      serverConfig.azureApiVersion;
+      req?.nextUrl?.searchParams?.get("api-version") || serverConfig.azureApiVersion;
     baseUrl = baseUrl.split("/deployments").shift() as string;
-    path = `${req.nextUrl.pathname.replaceAll(
-      "/api/azure/",
-      "",
-    )}?api-version=${azureApiVersion}`;
+    path = `${req.nextUrl.pathname.replaceAll("/api/azure/", "")}?api-version=${azureApiVersion}`;
 
     // Forward compatibility:
     // if display_name(deployment_name) not set, and '{deploy-id}' in AZURE_URL
@@ -73,9 +63,7 @@ export async function requestOpenai(req: NextRequest) {
           const [fullName, displayName] = m.split("=");
           const [_, providerName] = getModelProvider(fullName);
           if (providerName === "azure" && !displayName) {
-            const [_, deployId] = (serverConfig?.azureUrl ?? "").split(
-              "deployments/",
-            );
+            const [_, deployId] = (serverConfig?.azureUrl ?? "").split("deployments/");
             if (deployId) {
               realDeployName = deployId;
             }
@@ -118,15 +106,11 @@ export async function requestOpenai(req: NextRequest) {
 
       // not undefined and is false
       if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          [
-            ServiceProvider.OpenAI,
-            ServiceProvider.Azure,
-            jsonBody?.model as string, // support provider-unspecified model
-          ],
-        )
+        isModelNotavailableInServer(serverConfig.customModels, jsonBody?.model as string, [
+          ServiceProvider.OpenAI,
+          ServiceProvider.Azure,
+          jsonBody?.model as string, // support provider-unspecified model
+        ])
       ) {
         return NextResponse.json(
           {

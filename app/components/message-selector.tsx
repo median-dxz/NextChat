@@ -1,14 +1,16 @@
+import clsx from "clsx";
 import { useEffect, useMemo, useState } from "react";
-import { ChatMessage, useAppConfig, useChatStore } from "../store";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import Locale from "../locales";
+import { useAppConfig, useChatStore } from "../store";
 import { Updater } from "../typing";
+import { getMessageText } from "../utils";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
 import { MaskAvatar } from "./mask";
-import Locale from "../locales";
-
 import styles from "./message-selector.module.scss";
-import { getMessageTextContent } from "../utils";
-import clsx from "clsx";
 
 function useShiftRange() {
   const [startIndex, setStartIndex] = useState<number>();
@@ -70,29 +72,21 @@ export function MessageSelector(props: {
   selection: Set<string>;
   updateSelection: Updater<Set<string>>;
   defaultSelectAll?: boolean;
-  onSelected?: (messages: ChatMessage[]) => void;
+  onSelected?: (messages: Conversation.Message[]) => void;
 }) {
   const LATEST_COUNT = 4;
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const isValid = (m: ChatMessage) => m.content && !m.isError && !m.streaming;
-  const allMessages = useMemo(() => {
-    let startIndex = Math.max(0, session.clearContextIndex ?? 0);
-    if (startIndex === session.messages.length - 1) {
-      startIndex = 0;
-    }
-    return session.messages.slice(startIndex);
-  }, [session.messages, session.clearContextIndex]);
-
+  const isValid = (m: Conversation.Message) => m.content && !m.isError && !m.streaming;
   const messages = useMemo(
     () =>
-      allMessages.filter(
+      session.messages.filter(
         (m, i) =>
           m.id && // message must have id
           isValid(m) &&
-          (i >= allMessages.length - 1 || isValid(allMessages[i + 1])),
+          (i >= session.messages.length - 1 || isValid(session.messages[i + 1])),
       ),
-    [allMessages],
+    [session.messages],
   );
   const messageCount = messages.length;
   const config = useAppConfig();
@@ -106,9 +100,7 @@ export function MessageSelector(props: {
     const searchResults = new Set<string>();
     if (text.length > 0) {
       messages.forEach((m) =>
-        getMessageTextContent(m).includes(text)
-          ? searchResults.add(m.id!)
-          : null,
+        getMessageText(m.content).includes(text) ? searchResults.add(m.id!) : null,
       );
     }
     setSearchIds(searchResults);
@@ -118,9 +110,7 @@ export function MessageSelector(props: {
   const { startIndex, endIndex, onClickIndex } = useShiftRange();
 
   const selectAll = () => {
-    props.updateSelection((selection) =>
-      messages.forEach((m) => selection.add(m.id!)),
-    );
+    props.updateSelection((selection) => messages.forEach((m) => selection.add(m.id!)));
   };
 
   useEffect(() => {
@@ -171,9 +161,7 @@ export function MessageSelector(props: {
             onClick={() =>
               props.updateSelection((selection) => {
                 selection.clear();
-                messages
-                  .slice(messageCount - LATEST_COUNT)
-                  .forEach((m) => selection.add(m.id!));
+                messages.slice(messageCount - LATEST_COUNT).forEach((m) => selection.add(m.id!));
               })
             }
           />
@@ -181,9 +169,7 @@ export function MessageSelector(props: {
             text={Locale.Select.Clear}
             bordered
             className={styles["filter-item"]}
-            onClick={() =>
-              props.updateSelection((selection) => selection.clear())
-            }
+            onClick={() => props.updateSelection((selection) => selection.clear())}
           />
         </div>
       </div>
@@ -218,11 +204,9 @@ export function MessageSelector(props: {
                 )}
               </div>
               <div className={styles["body"]}>
-                <div className={styles["date"]}>
-                  {new Date(m.date).toLocaleString()}
-                </div>
+                <div className={styles["date"]}>{new Date(m.date).toLocaleString()}</div>
                 <div className={clsx(styles["content"], "one-line")}>
-                  {getMessageTextContent(m)}
+                  {getMessageText(m.content)}
                 </div>
               </div>
 

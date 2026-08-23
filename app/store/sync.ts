@@ -58,9 +58,7 @@ export const useSyncStore = createPersistStore(
     export() {
       const state = getLocalAppState();
       const datePart = isApp
-        ? `${new Date().toLocaleDateString().replace(/\//g, "_")} ${new Date()
-            .toLocaleTimeString()
-            .replace(/:/g, "_")}`
+        ? `${new Date().toLocaleDateString().replace(/\//g, "_")} ${new Date().toLocaleTimeString().replace(/:/g, "_")}`
         : new Date().toLocaleString();
 
       const fileName = `Backup-${datePart}.json`;
@@ -98,14 +96,10 @@ export const useSyncStore = createPersistStore(
         const remoteState = await client.get(config.username);
         if (!remoteState || remoteState === "") {
           await client.set(config.username, JSON.stringify(localState));
-          console.log(
-            "[Sync] Remote state is empty, using local state instead.",
-          );
+          console.log("[Sync] Remote state is empty, using local state instead.");
           return;
         } else {
-          const parsedRemoteState = JSON.parse(
-            await client.get(config.username),
-          ) as AppState;
+          const parsedRemoteState = JSON.parse(await client.get(config.username)) as AppState;
           mergeAppState(localState, parsedRemoteState);
           setLocalAppState(localState);
         }
@@ -136,10 +130,7 @@ export const useSyncStore = createPersistStore(
       }
 
       if (version < 1.2) {
-        if (
-          (persistedState as typeof DEFAULT_SYNC_STATE).proxyUrl ===
-          "/api/cors/"
-        ) {
+        if ((persistedState as typeof DEFAULT_SYNC_STATE).proxyUrl === "/api/cors/") {
           newState.proxyUrl = "";
         }
       }

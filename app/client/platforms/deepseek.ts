@@ -1,31 +1,20 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
-import { ApiPath, DEEPSEEK_BASE_URL, DeepSeek } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
-import { streamWithThink } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
-  getTimeoutMSByModel,
-} from "@/app/utils";
-import { RequestPayload } from "./openai";
+import { ApiPath, DeepSeek, DEEPSEEK_BASE_URL, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel } from "@/app/utils";
+import { streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
 
-export class DeepSeekApi implements LLMApi {
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
+import { RequestPayload } from "./openai";
+
+export class DeepSeekApi extends LLMApi {
+  readonly providerName = ServiceProvider.DeepSeek;
   private disableListModels = true;
 
   path(path: string): string {
@@ -64,19 +53,15 @@ export class DeepSeekApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      if (v.role === "assistant") {
-        const content = getMessageTextContentWithoutThinking(v);
-        messages.push({ role: v.role, content });
-      } else {
-        const content = getMessageTextContent(v);
-        messages.push({ role: v.role, content });
-      }
+      const role = v.role;
+      const content = getMessageText(v.content);
+      messages.push({ role, content });
     }
 
     // 检测并修复消息顺序，确保除system外的第一个消息是user
-    const filteredMessages: ChatOptions["messages"] = [];
+    const filteredMessages: RequestPayload["messages"] = [];
     let hasFoundFirstUser = false;
 
     for (const msg of messages) {
@@ -94,14 +79,7 @@ export class DeepSeekApi implements LLMApi {
       // If hasFoundFirstUser is false and it is not a system message, it will be skipped.
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages: filteredMessages,
@@ -127,7 +105,7 @@ export class DeepSeekApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -137,26 +115,23 @@ export class DeepSeekApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -183,10 +158,7 @@ export class DeepSeekApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -211,11 +183,7 @@ export class DeepSeekApi implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

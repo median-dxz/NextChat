@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const ko: PartialLocaleType = {
-  WIP: "곧 출시 예정...",
   Error: {
     Unauthorized: isApp
       ? `😆 대화 중 문제가 발생했습니다, 걱정하지 마세요:
@@ -23,7 +22,6 @@ const ko: PartialLocaleType = {
     SubTips: "또는 OpenAI 또는 Google API 키를 입력하십시오.",
     Input: "여기에 접근 코드를 입력하십시오.",
     Confirm: "확인",
-    Later: "나중에 하기",
     Return: "돌아가기",
     SaasTips: "설정이 너무 복잡합니다. 즉시 사용하고 싶습니다.",
     TopTips:
@@ -43,12 +41,10 @@ const ko: PartialLocaleType = {
     },
     Actions: {
       ChatList: "메시지 목록 보기",
-      CompressedHistory: "압축된 히스토리 프롬프트 보기",
       Export: "채팅 기록 내보내기",
       Copy: "복사",
       Stop: "정지",
       Retry: "다시 시도",
-      Pin: "고정",
       PinToastContent: "1 개의 대화를 프롬프트에 고정했습니다.",
       PinToastAction: "보기",
       Delete: "삭제",
@@ -64,7 +60,6 @@ const ko: PartialLocaleType = {
       newm: "마스크에서 새 채팅",
       next: "다음 채팅",
       prev: "이전 채팅",
-      clear: "컨텍스트 지우기",
       fork: "채팅 복사",
       del: "채팅 삭제",
     },
@@ -78,11 +73,9 @@ const ko: PartialLocaleType = {
       },
       Prompt: "빠른 명령",
       Masks: "모든 마스크",
-      Clear: "채팅 지우기",
       Settings: "채팅 설정",
       UploadImage: "이미지 업로드",
     },
-    Rename: "채팅 이름 변경",
     Typing: "입력 중…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} 전송`;
@@ -92,10 +85,7 @@ const ko: PartialLocaleType = {
       return inputHints + "，/ 자동 완성，: 명령어 입력";
     },
     Send: "전송",
-    StartSpeak: "재생 시작",
-    StopSpeak: "재생 정지",
     Config: {
-      Reset: "기억 지우기",
       SaveAs: "마스크로 저장",
     },
     IsContext: "프롬프트 설정",
@@ -106,7 +96,6 @@ const ko: PartialLocaleType = {
       copyLastMessage: "마지막 답변 복사",
       copyLastCode: "마지막 코드 블록 복사",
       showShortcutKey: "단축키 보기",
-      clearContext: "컨텍스트 지우기",
     },
   },
   Export: {
@@ -144,11 +133,7 @@ const ko: PartialLocaleType = {
   },
   Memory: {
     Title: "기록 요약",
-    EmptyContent: "대화 내용이 너무 짧아 요약할 필요 없음",
     Send: "자동으로 채팅 기록을 압축하여 컨텍스트로 전송",
-    Copy: "요약 복사",
-    Reset: "[사용되지 않음]",
-    ResetConfirm: "기록 요약을 지우겠습니까?",
   },
   Home: {
     NewChat: "새 채팅",
@@ -190,8 +175,7 @@ const ko: PartialLocaleType = {
     },
     InjectSystemPrompts: {
       Title: "시스템 수준 프롬프트 삽입",
-      SubTitle:
-        "각 요청 메시지 목록의 시작 부분에 ChatGPT 시스템 프롬프트를 강제로 추가",
+      SubTitle: "각 요청 메시지 목록의 시작 부분에 ChatGPT 시스템 프롬프트를 강제로 추가",
     },
     InputTemplate: {
       Title: "사용자 입력 전처리",
@@ -210,7 +194,6 @@ const ko: PartialLocaleType = {
     },
     SendKey: "키 전송",
     Theme: "테마",
-    TightBorder: "테두리 없는 모드",
     SendPreviewBubble: {
       Title: "미리보기 버블",
       SubTitle: "미리보기 버블에서 Markdown 콘텐츠 미리보기",
@@ -236,8 +219,7 @@ const ko: PartialLocaleType = {
         },
         Proxy: {
           Title: "프록시 사용",
-          SubTitle:
-            "브라우저에서 동기화할 때 프록시를 활성화하여 교차 출처 제한을 피해야 함",
+          SubTitle: "브라우저에서 동기화할 때 프록시를 활성화하여 교차 출처 제한을 피해야 함",
         },
         ProxyUrl: {
           Title: "프록시 주소",
@@ -584,8 +566,7 @@ const ko: PartialLocaleType = {
       },
       Autoplay: {
         Title: "자동 재생 활성화",
-        SubTitle:
-          "자동으로 음성을 생성하고 재생, 먼저 TTS 스위치를 활성화해야 함",
+        SubTitle: "자동으로 음성을 생성하고 재생, 먼저 TTS 스위치를 활성화해야 함",
       },
       Model: "모델",
       Voice: {
@@ -635,9 +616,7 @@ const ko: PartialLocaleType = {
   Store: {
     DefaultTopic: "새 채팅",
     BotHello: "무엇을 도와드릴까요?",
-    Error: "오류가 발생했습니다. 나중에 다시 시도해 주세요.",
     Prompt: {
-      History: (content: string) => "이전 채팅 요약: " + content,
       Topic:
         "네 글자에서 다섯 글자로 이 문장의 간략한 주제를 반환하세요. 설명이나 문장 부호, 어미, 불필요한 텍스트, 굵은 글씨는 필요 없습니다. 주제가 없다면 '잡담'이라고만 반환하세요.",
       Summarize:
@@ -656,8 +635,6 @@ const ko: PartialLocaleType = {
     Toast: (x: any) => ` ${x} 개의 프리셋 프롬프트 포함됨`,
     Edit: "현재 대화 설정",
     Add: "대화 추가",
-    Clear: "컨텍스트가 지워졌습니다.",
-    Revert: "컨텍스트 복원",
   },
   Discovery: {
     Name: "디스커버리",
@@ -669,13 +646,9 @@ const ko: PartialLocaleType = {
     Sysmessage: "당신은 보조자입니다.",
   },
   SearchChat: {
-    Name: "검색",
     Page: {
       Title: "채팅 기록 검색",
       Search: "검색어 입력",
-      NoResult: "결과를 찾을 수 없습니다",
-      NoData: "데이터가 없습니다",
-      Loading: "로딩 중...",
 
       SubTitle: (count: number) => `${count}개의 결과를 찾았습니다`,
     },
@@ -694,7 +667,6 @@ const ko: PartialLocaleType = {
     },
     Item: {
       Info: (count: number) => `${count} 개의 메서드`,
-      View: "보기",
       Edit: "편집",
       Delete: "삭제",
       DeleteConfirm: "삭제하시겠습니까?",
@@ -706,21 +678,16 @@ const ko: PartialLocaleType = {
       Custom: "커스텀",
       CustomHeader: "파라미터 이름",
       Token: "토큰",
-      Proxy: "프록시 사용",
-      ProxyDescription: "CORS 오류 해결을 위해 프록시 사용",
       Location: "위치",
       LocationHeader: "헤더",
       LocationQuery: "쿼리",
       LocationBody: "바디",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `플러그인 편집 ${readonly ? "(읽기 전용)" : ""}`,
-      Download: "다운로드",
+      Title: (readonly: boolean) => `플러그인 편집 ${readonly ? "(읽기 전용)" : ""}`,
       Auth: "인증 유형",
       Content: "OpenAPI Schema",
       Load: "URL에서 로드",
-      Method: "메서드",
       Error: "OpenAPI Schema 오류",
     },
   },
@@ -741,8 +708,7 @@ const ko: PartialLocaleType = {
       DeleteConfirm: "삭제를 확인하시겠습니까?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `프리셋 마스크 편집 ${readonly ? "（읽기 전용）" : ""}`,
+      Title: (readonly: boolean) => `프리셋 마스크 편집 ${readonly ? "（읽기 전용）" : ""}`,
       Download: "프리셋 다운로드",
       Clone: "프리셋 복제",
     },
@@ -770,8 +736,7 @@ const ko: PartialLocaleType = {
     Return: "돌아가기",
     Skip: "바로 시작",
     NotShow: "다시 보지 않기",
-    ConfirmNoShow:
-      "비활성화하시겠습니까? 비활성화 후 언제든지 설정에서 다시 활성화할 수 있습니다.",
+    ConfirmNoShow: "비활성화하시겠습니까? 비활성화 후 언제든지 설정에서 다시 활성화할 수 있습니다.",
     Title: "마스크 선택",
     SubTitle: "지금 시작하여 마스크 뒤의 사고와 교류해보세요.",
     More: "모두 보기",
@@ -779,16 +744,13 @@ const ko: PartialLocaleType = {
 
   URLCommand: {
     Code: "링크에 액세스 코드가 포함되어 있습니다. 자동으로 입력하시겠습니까?",
-    Settings:
-      "링크에 프리셋 설정이 포함되어 있습니다. 자동으로 입력하시겠습니까?",
+    Settings: "링크에 프리셋 설정이 포함되어 있습니다. 자동으로 입력하시겠습니까?",
   },
 
   UI: {
     Confirm: "확인",
     Cancel: "취소",
     Close: "닫기",
-    Create: "새로 만들기",
-    Edit: "편집",
     Export: "내보내기",
     Import: "가져오기",
     Sync: "동기화",

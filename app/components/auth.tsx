@@ -71,9 +71,7 @@ export function AuthPage() {
         type="text"
         placeholder={Locale.Auth.Input}
         onChange={(e) => {
-          accessStore.update(
-            (access) => (access.accessCode = e.currentTarget.value),
-          );
+          accessStore.update((access) => (access.accessCode = e.currentTarget.value));
         }}
       />
 
@@ -88,9 +86,7 @@ export function AuthPage() {
             type="text"
             placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
             onChange={(e) => {
-              accessStore.update(
-                (access) => (access.openaiApiKey = e.currentTarget.value),
-              );
+              accessStore.update((access) => (access.openaiApiKey = e.currentTarget.value));
             }}
           />
           <PasswordInput
@@ -101,20 +97,14 @@ export function AuthPage() {
             type="text"
             placeholder={Locale.Settings.Access.Google.ApiKey.Placeholder}
             onChange={(e) => {
-              accessStore.update(
-                (access) => (access.googleApiKey = e.currentTarget.value),
-              );
+              accessStore.update((access) => (access.googleApiKey = e.currentTarget.value));
             }}
           />
         </>
       ) : null}
 
       <div className={styles["auth-actions"]}>
-        <IconButton
-          text={Locale.Auth.Confirm}
-          type="primary"
-          onClick={goChat}
-        />
+        <IconButton text={Locale.Auth.Confirm} type="primary" onClick={goChat} />
         <IconButton
           text={Locale.Auth.SaasTips}
           onClick={() => {

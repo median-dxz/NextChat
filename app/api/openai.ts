@@ -26,10 +26,7 @@ function getModels(remoteModelRes: OpenAIListModelResponse) {
   return remoteModelRes;
 }
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[OpenAI Route] params ", params);
 
   if (req.method === "OPTIONS") {
@@ -73,6 +70,6 @@ export async function handle(
     return response;
   } catch (e) {
     console.error("[OpenAI] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }

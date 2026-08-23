@@ -136,6 +136,12 @@ export enum ServiceProvider {
   "302.AI" = "302.AI",
 }
 
+export type ServiceProviderName = `${ServiceProvider}`;
+
+export function isServiceProviderName(value: string): value is ServiceProviderName {
+  return Object.values(ServiceProvider).includes(value as ServiceProvider);
+}
+
 // Google API safety settings, see https://ai.google.dev/gemini-api/docs/safety-settings
 // BLOCK_NONE will not block any content, and BLOCK_ONLY_HIGH will block only high-risk content.
 export enum GoogleSafetySettingsThreshold {
@@ -195,8 +201,7 @@ export const Azure = {
 
 export const Google = {
   ExampleEndpoint: "https://generativelanguage.googleapis.com/",
-  ChatPath: (modelName: string) =>
-    `v1beta/models/${modelName}:streamGenerateContent`,
+  ChatPath: (modelName: string) => `v1beta/models/${modelName}:streamGenerateContent`,
 };
 
 export const Baidu = {
@@ -466,14 +471,7 @@ export const DEFAULT_TTS_ENGINES = ["OpenAI-TTS", "Edge-TTS"];
 export const DEFAULT_TTS_MODEL = "tts-1";
 export const DEFAULT_TTS_VOICE = "alloy";
 export const DEFAULT_TTS_MODELS = ["tts-1", "tts-1-hd"];
-export const DEFAULT_TTS_VOICES = [
-  "alloy",
-  "echo",
-  "fable",
-  "onyx",
-  "nova",
-  "shimmer",
-];
+export const DEFAULT_TTS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 export const VISION_MODEL_REGEXES = [
   /vision/,
@@ -493,7 +491,7 @@ export const VISION_MODEL_REGEXES = [
   /o3/,
   /o4-mini/,
   /grok-4/i,
-  /gpt-5/
+  /gpt-5/,
 ];
 
 export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
@@ -539,7 +537,7 @@ const openaiModels = [
   "o3-mini",
   "o3",
   "o4-mini",
-];
+] as const;
 
 const googleModels = [
   "gemini-1.5-pro-latest",
@@ -561,8 +559,8 @@ const googleModels = [
   "gemini-2.0-pro-exp",
   "gemini-2.0-pro-exp-02-05",
   "gemini-2.5-pro-preview-06-05",
-  "gemini-2.5-pro"
-];
+  "gemini-2.5-pro",
+] as const;
 
 const anthropicModels = [
   "claude-instant-1.2",
@@ -581,7 +579,7 @@ const anthropicModels = [
   "claude-3-7-sonnet-latest",
   "claude-sonnet-4-20250514",
   "claude-opus-4-20250514",
-];
+] as const;
 
 const baiduModels = [
   "ernie-4.0-turbo-8k",
@@ -595,7 +593,7 @@ const baiduModels = [
   "ernie-speed-8k",
   "ernie-lite-8k",
   "ernie-tiny-8k",
-];
+] as const;
 
 const bytedanceModels = [
   "Doubao-lite-4k",
@@ -604,7 +602,7 @@ const bytedanceModels = [
   "Doubao-pro-4k",
   "Doubao-pro-32k",
   "Doubao-pro-128k",
-];
+] as const;
 
 const alibabaModes = [
   "qwen-turbo",
@@ -617,7 +615,7 @@ const alibabaModes = [
   "qwen-omni-turbo",
   "qwen-vl-plus",
   "qwen-vl-max",
-];
+] as const;
 
 const tencentModels = [
   "hunyuan-pro",
@@ -627,7 +625,7 @@ const tencentModels = [
   "hunyuan-functioncall",
   "hunyuan-code",
   "hunyuan-vision",
-];
+] as const;
 
 const moonshotModels = [
   "moonshot-v1-auto",
@@ -640,17 +638,11 @@ const moonshotModels = [
   "kimi-thinking-preview",
   "kimi-k2-0711-preview",
   "kimi-latest",
-];
+] as const;
 
-const iflytekModels = [
-  "general",
-  "generalv3",
-  "pro-128k",
-  "generalv3.5",
-  "4.0Ultra",
-];
+const iflytekModels = ["general", "generalv3", "pro-128k", "generalv3.5", "4.0Ultra"] as const;
 
-const deepseekModels = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"];
+const deepseekModels = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"] as const;
 
 const xAIModes = [
   "grok-beta",
@@ -678,7 +670,7 @@ const xAIModes = [
   "grok-4-fast-non-reasoning",
   "grok-4-fast-reasoning",
   "grok-code-fast-1",
-];
+] as const;
 
 const chatglmModels = [
   "glm-4-plus",
@@ -698,7 +690,7 @@ const chatglmModels = [
   // 目前无法适配轮询任务
   //   "cogvideox",
   //   "cogvideox-flash", // free
-];
+] as const;
 
 const siliconflowModels = [
   "Qwen/Qwen2.5-7B-Instruct",
@@ -715,7 +707,7 @@ const siliconflowModels = [
   "THUDM/glm-4-9b-chat",
   "Pro/deepseek-ai/DeepSeek-R1",
   "Pro/deepseek-ai/DeepSeek-V3",
-];
+] as const;
 
 const ai302Models = [
   "deepseek-chat",
@@ -740,7 +732,7 @@ const ai302Models = [
   "claude-sonnet-4-20250514",
   "claude-opus-4-20250514",
   "gemini-2.5-pro",
-];
+] as const;
 
 let seq = 1000; // 内置的模型序号生成器从1000开始
 export const DEFAULT_MODELS = [

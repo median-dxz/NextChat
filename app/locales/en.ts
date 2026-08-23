@@ -1,12 +1,10 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
-import { LocaleType } from "./index";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 // if you are adding a new translation, please use PartialLocaleType instead of LocaleType
 
 const isApp = !!getClientConfig()?.isApp;
-const en: LocaleType = {
-  WIP: "Coming Soon...",
+const en = {
   Error: {
     Unauthorized: isApp
       ? `😆 Oops, there's an issue. No worries:
@@ -25,7 +23,6 @@ const en: LocaleType = {
     SubTips: "Or enter your OpenAI or Google API Key",
     Input: "access code",
     Confirm: "Confirm",
-    Later: "Later",
     SaasTips: "Too Complex, Use Immediately Now",
     TopTips:
       "🥳 NextChat AI launch promotion: Instantly unlock the latest models like OpenAI o1, GPT-4o, Claude-3.5!",
@@ -37,12 +34,9 @@ const en: LocaleType = {
     SubTitle: (count: number) => `${count} messages`,
     Reasoning: "Reasoning",
     ReasoningThinking: (duration: string) => `Thinking… (${duration})`,
-    ReasoningThought: (duration?: string) =>
-      duration ? `Thought for ${duration}` : "Thought",
+    ReasoningThought: (duration?: string) => (duration ? `Thought for ${duration}` : "Thought"),
     ReasoningDuration: (minutes: number, seconds: number) =>
-      minutes > 0
-        ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec`
-        : `${seconds} sec`,
+      minutes > 0 ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec` : `${seconds} sec`,
     EditMessage: {
       Title: "Edit All Messages",
       Topic: {
@@ -52,12 +46,10 @@ const en: LocaleType = {
     },
     Actions: {
       ChatList: "Go To Chat List",
-      CompressedHistory: "Compressed History Memory Prompt",
       Export: "Export All Messages as Markdown",
       Copy: "Copy",
       Stop: "Stop",
       Retry: "Retry",
-      Pin: "Pin",
       PinToastContent: "Pinned 1 messages to contextual prompts",
       PinToastAction: "View",
       Delete: "Delete",
@@ -73,7 +65,6 @@ const en: LocaleType = {
       newm: "Start a new chat with mask",
       next: "Next Chat",
       prev: "Previous Chat",
-      clear: "Clear Context",
       fork: "Copy Chat",
       del: "Delete Chat",
     },
@@ -87,11 +78,36 @@ const en: LocaleType = {
       },
       Prompt: "Prompts",
       Masks: "Masks",
-      Clear: "Clear Context",
       Settings: "Settings",
       UploadImage: "Upload Images",
+      OutlineIn: "Increase outline for next message",
+      OutlineOut: "Decrease outline for next message",
     },
-    Rename: "Rename Chat",
+    Graph: {
+      Node: "Node Details",
+      Branch: "Select Branch",
+      Continue: "Set Continue Point",
+      OutlineLevel: "Outline Level",
+      Segment: "Segment Summary",
+      Checkpoint: "Checkpoint Summary",
+      Save: "Save Node",
+      NoBranch: "No Active Child Branch",
+      NewBranch: "Create Child Branch",
+      BranchTitle: "Select Active Branch",
+      GenerateSummary: "Generate Node Summary",
+      Pin: "Pin to contextual prompts",
+      TemporaryMemoryModel: "Model for this update",
+      UseConfiguredMemoryModel: "Use the configured memory model",
+      GlobalMemory: "Global Memory",
+      Enabled: "Enabled",
+      Prompt: "Update Prompt",
+      Content: "Memory Content",
+      UpdateMemory: "Update Now",
+      SaveMemory: "Save Memory",
+      Insert: "Insert Here",
+      Drag: "Drag message",
+      Role: "Message role",
+    },
     Typing: "Typing…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} to send`;
@@ -101,10 +117,7 @@ const en: LocaleType = {
       return inputHints + ", / to search prompts, : to use commands";
     },
     Send: "Send",
-    StartSpeak: "Start Speak",
-    StopSpeak: "Stop Speak",
     Config: {
-      Reset: "Reset to Default",
       SaveAs: "Save as Mask",
     },
     IsContext: "Contextual Prompt",
@@ -115,7 +128,6 @@ const en: LocaleType = {
       copyLastMessage: "Copy Last Reply",
       copyLastCode: "Copy Last Code Block",
       showShortcutKey: "Show Shortcuts",
-      clearContext: "Clear Context",
     },
   },
   Export: {
@@ -156,13 +168,9 @@ const en: LocaleType = {
     Clear: "Clear",
   },
   Memory: {
-    Title: "Memory Prompt",
-    EmptyContent: "Nothing yet.",
-    Send: "Send Memory",
-    Copy: "Copy Memory",
-    Reset: "Reset Session",
-    ResetConfirm:
-      "Resetting will clear the current conversation history and historical memory. Are you sure you want to reset?",
+    Title: "Conversation Summaries",
+    Send: "Automatically summarize chat history and include it in context",
+    CompactFailed: "Unable to compact chat history into the context window",
   },
   Home: {
     NewChat: "New Chat",
@@ -199,8 +207,7 @@ const en: LocaleType = {
     },
     FontFamily: {
       Title: "Chat Font Family",
-      SubTitle:
-        "Font Family of the chat content, leave empty to apply global default font",
+      SubTitle: "Font Family of the chat content, leave empty to apply global default font",
       Placeholder: "Font Family Name",
     },
     InjectSystemPrompts: {
@@ -224,7 +231,6 @@ const en: LocaleType = {
     },
     SendKey: "Send Key",
     Theme: "Theme",
-    TightBorder: "Tight Border",
     SendPreviewBubble: {
       Title: "Send Preview Bubble",
       SubTitle: "Preview markdown in bubble",
@@ -254,8 +260,7 @@ const en: LocaleType = {
         },
         ProxyUrl: {
           Title: "Proxy Endpoint",
-          SubTitle:
-            "Only applicable to the built-in CORS proxy for this project",
+          SubTitle: "Only applicable to the built-in CORS proxy for this project",
         },
 
         WebDav: {
@@ -293,8 +298,7 @@ const en: LocaleType = {
         SubTitle: "Input / to trigger auto-completion",
       },
       List: "Prompt List",
-      ListCount: (builtin: number, custom: number) =>
-        `${builtin} built-in, ${custom} user-defined`,
+      ListCount: (builtin: number, custom: number) => `${builtin} built-in, ${custom} user-defined`,
       Edit: "Edit",
       Modal: {
         Title: "Prompt List",
@@ -307,12 +311,12 @@ const en: LocaleType = {
     },
     HistoryCount: {
       Title: "Attached Messages Count",
-      SubTitle: "Number of sent messages attached per request",
+      SubTitle: "Number of recent messages sent directly per request",
     },
     CompressThreshold: {
-      Title: "History Compression Threshold",
+      Title: "Auto-Summary Threshold",
       SubTitle:
-        "Will compress if uncompressed messages length exceeds the value",
+        "Automatically compress older unsummarized history when it reaches this token count",
     },
 
     Usage: {
@@ -378,8 +382,7 @@ const en: LocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Anthropic API Key",
-          SubTitle:
-            "Use a custom Anthropic Key to bypass password access restrictions",
+          SubTitle: "Use a custom Anthropic Key to bypass password access restrictions",
           Placeholder: "Anthropic API Key",
         },
 
@@ -568,9 +571,18 @@ const en: LocaleType = {
     },
 
     Model: "Model",
+    AutomaticModel: "Automatic",
     CompressModel: {
       Title: "Summary Model",
-      SubTitle: "Model used to compress history and generate title",
+      SubTitle: "Model used to compress earlier chat history",
+    },
+    MemoryModel: {
+      Title: "Conversation Memory Model",
+      SubTitle: "Model used to update the current conversation memory",
+    },
+    TitleModel: {
+      Title: "Chat Title Model",
+      SubTitle: "Model used to generate the current chat title",
     },
     Temperature: {
       Title: "Temperature",
@@ -584,15 +596,17 @@ const en: LocaleType = {
       Title: "Max Tokens",
       SubTitle: "Maximum length of input tokens and generated tokens",
     },
+    ContextWindow: {
+      Title: "Context Window",
+      SubTitle: "Total tokens accepted by the model, calculated separately from the response limit",
+    },
     PresencePenalty: {
       Title: "Presence Penalty",
-      SubTitle:
-        "A larger value increases the likelihood to talk about new topics",
+      SubTitle: "A larger value increases the likelihood to talk about new topics",
     },
     FrequencyPenalty: {
       Title: "Frequency Penalty",
-      SubTitle:
-        "A larger value decreasing the likelihood to repeat the same line",
+      SubTitle: "A larger value decreasing the likelihood to repeat the same line",
     },
     TTS: {
       Enable: {
@@ -652,10 +666,7 @@ const en: LocaleType = {
   Store: {
     DefaultTopic: "New Conversation",
     BotHello: "Hello! How can I assist you today?",
-    Error: "Something went wrong, please try again later.",
     Prompt: {
-      History: (content: string) =>
-        "This is a summary of the chat history as a recap: " + content,
       Topic:
         "Please generate a four to five word title summarizing our conversation without any lead-in, punctuation, quotation marks, periods, symbols, bold text, or additional text. Remove enclosing quotation marks.",
       Summarize:
@@ -674,8 +685,7 @@ const en: LocaleType = {
     Toast: (x: any) => `With ${x} contextual prompts`,
     Edit: "Current Chat Settings",
     Add: "Add a Prompt",
-    Clear: "Context Cleared",
-    Revert: "Revert",
+    PresetTitle: "Preset Conversation",
   },
   Discovery: {
     Name: "Discovery",
@@ -687,13 +697,9 @@ const en: LocaleType = {
     Sysmessage: "You are an assistant that",
   },
   SearchChat: {
-    Name: "Search",
     Page: {
       Title: "Search Chat History",
       Search: "Enter search query to search chat history",
-      NoResult: "No results found",
-      NoData: "No data",
-      Loading: "Loading...",
 
       SubTitle: (count: number) => `Found ${count} results`,
     },
@@ -712,7 +718,6 @@ const en: LocaleType = {
     },
     Item: {
       Info: (count: number) => `${count} method`,
-      View: "View",
       Edit: "Edit",
       Delete: "Delete",
       DeleteConfirm: "Confirm to delete?",
@@ -724,21 +729,16 @@ const en: LocaleType = {
       Custom: "Custom",
       CustomHeader: "Parameter Name",
       Token: "Token",
-      Proxy: "Using Proxy",
-      ProxyDescription: "Using proxies to solve CORS error",
       Location: "Location",
       LocationHeader: "Header",
       LocationQuery: "Query",
       LocationBody: "Body",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Plugin ${readonly ? "(readonly)" : ""}`,
-      Download: "Download",
+      Title: (readonly: boolean) => `Edit Plugin ${readonly ? "(readonly)" : ""}`,
       Auth: "Authentication Type",
       Content: "OpenAPI Schema",
       Load: "Load From URL",
-      Method: "Method",
       Error: "OpenAPI Schema Error",
     },
   },
@@ -759,8 +759,7 @@ const en: LocaleType = {
       DeleteConfirm: "Confirm to delete?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Prompt Template ${readonly ? "(readonly)" : ""}`,
+      Title: (readonly: boolean) => `Edit Prompt Template ${readonly ? "(readonly)" : ""}`,
       Download: "Download",
       Clone: "Clone",
     },
@@ -782,8 +781,7 @@ const en: LocaleType = {
       },
       CodeFold: {
         Title: "Enable CodeFold",
-        SubTitle:
-          "Automatically collapse/expand overly long code blocks when CodeFold is enabled",
+        SubTitle: "Automatically collapse/expand overly long code blocks when CodeFold is enabled",
       },
       Share: {
         Title: "Share This Mask",
@@ -806,8 +804,8 @@ const en: LocaleType = {
     Confirm: "Confirm",
     Cancel: "Cancel",
     Close: "Close",
-    Create: "Create",
-    Edit: "Edit",
+    Maximize: "Maximize",
+    Restore: "Restore",
     Export: "Export",
     Import: "Import",
     Sync: "Sync",
@@ -815,7 +813,7 @@ const en: LocaleType = {
   },
   Exporter: {
     Description: {
-      Title: "Only messages after clearing the context will be displayed",
+      Title: "Select messages to export",
     },
     Model: "Model",
     Messages: "Messages",
@@ -882,5 +880,14 @@ const en: LocaleType = {
     Detail: "Detail",
   },
 };
+
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+export type LocaleType = typeof en;
+export type PartialLocaleType = DeepPartial<typeof en>;
 
 export default en;

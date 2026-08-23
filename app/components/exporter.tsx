@@ -1,62 +1,47 @@
 /* eslint-disable @next/next/no-img-element */
-import { ChatMessage, useAppConfig, useChatStore } from "../store";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import clsx from "clsx";
+import { toBlob, toPng } from "html-to-image";
+import dynamic from "next/dynamic";
+import NextImage from "next/image";
+import { useMemo, useRef, useState } from "react";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import { getClientConfig } from "../config/client";
+import ChatGptIcon from "../icons/chatgpt.png";
+import CopyIcon from "../icons/copy.svg";
+import DownloadIcon from "../icons/download.svg";
+import LoadingIcon from "../icons/three-dots.svg";
 import Locale from "../locales";
-import styles from "./exporter.module.scss";
-import {
-  List,
-  ListItem,
-  Modal,
-  Select,
-  showImageModal,
-  showToast,
-} from "./ui-lib";
-import { IconButton } from "./button";
+import { useAppConfig, useChatStore } from "../store";
 import {
   copyToClipboard,
   downloadAs,
   getMessageImages,
+  getMessageText,
   useMobileScreen,
 } from "../utils";
-
-import CopyIcon from "../icons/copy.svg";
-import LoadingIcon from "../icons/three-dots.svg";
-import ChatGptIcon from "../icons/chatgpt.png";
-
-import DownloadIcon from "../icons/download.svg";
-import { useMemo, useRef, useState } from "react";
-import { MessageSelector, useMessageSelector } from "./message-selector";
-import { Avatar } from "./emoji";
-import dynamic from "next/dynamic";
-import NextImage from "next/image";
-
-import { toBlob, toPng } from "html-to-image";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
-
-import { getClientConfig } from "../config/client";
-import { getMessageTextContent } from "../utils";
 import { formatReasoningForExport } from "../utils/thinking";
+import { IconButton } from "./button";
+import { Avatar } from "./emoji";
 import { MaskAvatar } from "./mask";
-import clsx from "clsx";
+import { MessageSelector, useMessageSelector } from "./message-selector";
+import styles from "./exporter.module.scss";
+import { List, ListItem, Modal, Select, showImageModal, showToast } from "./ui-lib";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-export function getExportMessageContent(
-  message: ChatMessage,
-  includeReasoning: boolean,
-) {
-  const content = getMessageTextContent(message);
+export function getExportMessageContent(message: Conversation.Message, includeReasoning: boolean) {
+  const content = getMessageText(message.content);
   if (!includeReasoning || message.role !== "assistant" || !message.reasoning) {
     return content;
   }
 
-  return formatReasoningForExport(
-    content,
-    message.reasoning,
-    Locale.Chat.Reasoning,
-  );
+  return formatReasoningForExport(content, message.reasoning, Locale.Chat.Reasoning);
 }
 
 export function ExportMessageModal(props: { onClose: () => void }) {
@@ -94,10 +79,8 @@ function useSteps(
 ) {
   const stepCount = steps.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const nextStep = () =>
-    setCurrentStepIndex((currentStepIndex + 1) % stepCount);
-  const prevStep = () =>
-    setCurrentStepIndex((currentStepIndex - 1 + stepCount) % stepCount);
+  const nextStep = () => setCurrentStepIndex((currentStepIndex + 1) % stepCount);
+  const prevStep = () => setCurrentStepIndex((currentStepIndex - 1 + stepCount) % stepCount);
 
   return {
     currentStepIndex,
@@ -162,8 +145,7 @@ export function MessageExporter() {
       value: "preview",
     },
   ];
-  const { currentStep, setCurrentStepIndex, currentStepIndex } =
-    useSteps(steps);
+  const { currentStep, setCurrentStepIndex, currentStepIndex } = useSteps(steps);
   const formats = ["text", "image", "json"] as const;
   type ExportFormat = (typeof formats)[number];
 
@@ -183,18 +165,13 @@ export function MessageExporter() {
   const session = chatStore.currentSession();
   const { selection, updateSelection } = useMessageSelector();
   const selectedMessages = useMemo(() => {
-    const ret: ChatMessage[] = [];
+    const ret: Conversation.Message[] = [];
     if (exportConfig.includeContext) {
       ret.push(...session.mask.context);
     }
     ret.push(...session.messages.filter((m) => selection.has(m.id)));
     return ret;
-  }, [
-    exportConfig.includeContext,
-    session.messages,
-    session.mask.context,
-    selection,
-  ]);
+  }, [exportConfig.includeContext, session.messages, session.mask.context, selection]);
   function preview() {
     if (exportConfig.format === "text") {
       return (
@@ -224,26 +201,18 @@ export function MessageExporter() {
   }
   return (
     <>
-      <Steps
-        steps={steps}
-        index={currentStepIndex}
-        onStepChange={setCurrentStepIndex}
-      />
+      <Steps steps={steps} index={currentStepIndex} onStepChange={setCurrentStepIndex} />
       <div
         className={styles["message-exporter-body"]}
         style={currentStep.value !== "select" ? { display: "none" } : {}}
       >
         <List>
-          <ListItem
-            title={Locale.Export.Format.Title}
-            subTitle={Locale.Export.Format.SubTitle}
-          >
+          <ListItem title={Locale.Export.Format.Title} subTitle={Locale.Export.Format.SubTitle}>
             <Select
               value={exportConfig.format}
               onChange={(e) =>
                 updateExportConfig(
-                  (config) =>
-                    (config.format = e.currentTarget.value as ExportFormat),
+                  (config) => (config.format = e.currentTarget.value as ExportFormat),
                 )
               }
             >
@@ -262,9 +231,7 @@ export function MessageExporter() {
               type="checkbox"
               checked={exportConfig.includeContext}
               onChange={(e) => {
-                updateExportConfig(
-                  (config) => (config.includeContext = e.currentTarget.checked),
-                );
+                updateExportConfig((config) => (config.includeContext = e.currentTarget.checked));
               }}
             ></input>
           </ListItem>
@@ -276,19 +243,12 @@ export function MessageExporter() {
               type="checkbox"
               checked={exportConfig.includeReasoning}
               onChange={(e) => {
-                updateExportConfig(
-                  (config) =>
-                    (config.includeReasoning = e.currentTarget.checked),
-                );
+                updateExportConfig((config) => (config.includeReasoning = e.currentTarget.checked));
               }}
             />
           </ListItem>
         </List>
-        <MessageSelector
-          selection={selection}
-          updateSelection={updateSelection}
-          defaultSelectAll
-        />
+        <MessageSelector selection={selection} updateSelection={updateSelection} defaultSelectAll />
       </div>
       {currentStep.value === "preview" && (
         <div className={styles["message-exporter-body"]}>{preview()}</div>
@@ -325,7 +285,7 @@ export function PreviewActions(props: {
 }
 
 export function ImagePreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -423,32 +383,19 @@ export function ImagePreviewer(props: {
   return (
     <div className={styles["image-previewer"]}>
       <PreviewActions copy={copy} download={download} showCopy={!isMobile} />
-      <div
-        className={clsx(styles["preview-body"], styles["default-theme"])}
-        ref={previewRef}
-      >
+      <div className={clsx(styles["preview-body"], styles["default-theme"])} ref={previewRef}>
         <div className={styles["chat-info"]}>
           <div className={clsx(styles["logo"], "no-dark")}>
-            <NextImage
-              src={ChatGptIcon.src}
-              alt="logo"
-              width={50}
-              height={50}
-            />
+            <NextImage src={ChatGptIcon.src} alt="logo" width={50} height={50} />
           </div>
 
           <div>
             <div className={styles["main-title"]}>NextChat</div>
-            <div className={styles["sub-title"]}>
-              github.com/ChatGPTNextWeb/ChatGPT-Next-Web
-            </div>
+            <div className={styles["sub-title"]}>github.com/ChatGPTNextWeb/ChatGPT-Next-Web</div>
             <div className={styles["icons"]}>
               <MaskAvatar avatar={config.avatar} />
               <span className={styles["icon-space"]}>&</span>
-              <MaskAvatar
-                avatar={mask.avatar}
-                model={session.mask.modelConfig.model}
-              />
+              <MaskAvatar avatar={mask.avatar} model={session.mask.modelConfig.model} />
             </div>
           </div>
           <div>
@@ -463,18 +410,13 @@ export function ImagePreviewer(props: {
             </div>
             <div className={styles["chat-info-item"]}>
               {Locale.Exporter.Time}:{" "}
-              {new Date(
-                props.messages.at(-1)?.date ?? session.lastUpdate,
-              ).toLocaleString()}
+              {new Date(props.messages.at(-1)?.date ?? session.lastUpdate).toLocaleString()}
             </div>
           </div>
         </div>
         {props.messages.map((m, i) => {
           return (
-            <div
-              className={clsx(styles["message"], styles["message-" + m.role])}
-              key={i}
-            >
+            <div className={clsx(styles["message"], styles["message-" + m.role])} key={i}>
               <div className={styles["avatar"]}>
                 {m.role === "user" ? (
                   <Avatar avatar={config.avatar}></Avatar>
@@ -493,24 +435,24 @@ export function ImagePreviewer(props: {
                   fontFamily={config.fontFamily}
                   defaultShow
                 />
-                {getMessageImages(m).length == 1 && (
+                {getMessageImages(m.content).length == 1 && (
                   <img
                     key={i}
-                    src={getMessageImages(m)[0]}
+                    src={getMessageImages(m.content)[0]}
                     alt="message"
                     className={styles["message-image"]}
                   />
                 )}
-                {getMessageImages(m).length > 1 && (
+                {getMessageImages(m.content).length > 1 && (
                   <div
                     className={styles["message-images"]}
                     style={
                       {
-                        "--image-count": getMessageImages(m).length,
+                        "--image-count": getMessageImages(m.content).length,
                       } as React.CSSProperties
                     }
                   >
-                    {getMessageImages(m).map((src, i) => (
+                    {getMessageImages(m.content).map((src, i) => (
                       <img
                         key={i}
                         src={src}
@@ -530,7 +472,7 @@ export function ImagePreviewer(props: {
 }
 
 export function MarkdownPreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -539,11 +481,8 @@ export function MarkdownPreviewer(props: {
     props.messages
       .map((m) => {
         return m.role === "user"
-          ? `## ${Locale.Export.MessageFromYou}:\n${getMessageTextContent(m)}`
-          : `## ${Locale.Export.MessageFromChatGPT}:\n${getExportMessageContent(
-              m,
-              props.includeReasoning,
-            ).trim()}`;
+          ? `## ${Locale.Export.MessageFromYou}:\n${getMessageText(m.content)}`
+          : `## ${Locale.Export.MessageFromChatGPT}:\n${getExportMessageContent(m, props.includeReasoning).trim()}`;
       })
       .join("\n\n");
 
@@ -564,7 +503,7 @@ export function MarkdownPreviewer(props: {
 }
 
 export function JsonPreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {

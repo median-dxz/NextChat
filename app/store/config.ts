@@ -1,4 +1,4 @@
-import { LLMModel } from "../client/api";
+import type { LLMModel } from "../client/api";
 import { DalleQuality, DalleStyle, ModelSize } from "../typing";
 import { getClientConfig } from "../config/client";
 import {
@@ -13,12 +13,15 @@ import {
   DEFAULT_TTS_VOICES,
   StoreKey,
   ServiceProvider,
+  type ServiceProviderName,
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import { getModelKey, mergeModelLists } from "../utils/model-list";
 import type { Voice } from "rt-client";
 
-export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
+export type BuiltInModelType = (typeof DEFAULT_MODELS)[number]["name"];
+
+export type ModelType = BuiltInModelType | (string & {});
 export type TTSModelType = (typeof DEFAULT_TTS_MODELS)[number];
 export type TTSVoiceType = (typeof DEFAULT_TTS_VOICES)[number];
 export type TTSEngineType = (typeof DEFAULT_TTS_ENGINES)[number];
@@ -70,13 +73,21 @@ export const DEFAULT_CONFIG = {
     temperature: 0.5,
     top_p: 1,
     max_tokens: 4000,
+    contextWindowTokens: 32000,
     presence_penalty: 0,
     frequency_penalty: 0,
-    sendMemory: true,
-    historyMessageCount: 4,
-    compressMessageLengthThreshold: 1000,
+    enableConversationSummaries: true,
+    recentRawNodeCount: 4,
+    segmentTargetSourceTokens: 1000,
+    segmentMaxSourceNodes: 16,
+    checkpointTargetSegments: 4,
+    checkpointMergeTargetTokens: 1000,
     compressModel: "",
-    compressProviderName: "",
+    compressProviderName: "" as ServiceProviderName | "",
+    memoryModel: "",
+    memoryProviderName: "" as ServiceProviderName | "",
+    titleModel: "",
+    titleProviderName: "" as ServiceProviderName | "",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,
@@ -113,12 +124,7 @@ export type ModelConfig = ChatConfig["modelConfig"];
 export type TTSConfig = ChatConfig["ttsConfig"];
 export type RealtimeConfig = ChatConfig["realtimeConfig"];
 
-export function limitNumber(
-  x: number,
-  min: number,
-  max: number,
-  defaultValue: number,
-) {
+export function limitNumber(x: number, min: number, max: number, defaultValue: number) {
   if (isNaN(x)) {
     return defaultValue;
   }
@@ -147,6 +153,9 @@ export const ModalConfigValidator = {
   },
   max_tokens(x: number) {
     return limitNumber(x, 0, 512000, 1024);
+  },
+  contextWindowTokens(x: number) {
+    return limitNumber(x, 1024, 2_000_000, 32_000);
   },
   presence_penalty(x: number) {
     return limitNumber(x, -2, 2, 0);
@@ -196,7 +205,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.1,
+    version: 4.2,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -207,14 +216,15 @@ export const useAppConfig = createPersistStore(
 
     migrate(persistedState, version) {
       const state = persistedState as ChatConfig;
+      const legacyModelConfig = state.modelConfig as any;
 
       if (version < 3.4) {
-        state.modelConfig.sendMemory = true;
-        state.modelConfig.historyMessageCount = 4;
-        state.modelConfig.compressMessageLengthThreshold = 1000;
-        state.modelConfig.frequency_penalty = 0;
-        state.modelConfig.top_p = 1;
-        state.modelConfig.template = DEFAULT_INPUT_TEMPLATE;
+        legacyModelConfig.sendMemory = true;
+        legacyModelConfig.historyMessageCount = 4;
+        legacyModelConfig.compressMessageLengthThreshold = 1000;
+        legacyModelConfig.frequency_penalty = 0;
+        legacyModelConfig.top_p = 1;
+        legacyModelConfig.template = DEFAULT_INPUT_TEMPLATE;
         state.dontShowMaskSplashScreen = false;
         state.hideBuiltinMasks = false;
       }
@@ -224,7 +234,7 @@ export const useAppConfig = createPersistStore(
       }
 
       if (version < 3.6) {
-        state.modelConfig.enableInjectSystemPrompts = true;
+        legacyModelConfig.enableInjectSystemPrompts = true;
       }
 
       if (version < 3.7) {
@@ -236,17 +246,40 @@ export const useAppConfig = createPersistStore(
       }
 
       if (version < 3.9) {
-        state.modelConfig.template =
-          state.modelConfig.template !== DEFAULT_INPUT_TEMPLATE
-            ? state.modelConfig.template
-            : config?.template ?? DEFAULT_INPUT_TEMPLATE;
+        legacyModelConfig.template =
+          legacyModelConfig.template !== DEFAULT_INPUT_TEMPLATE
+            ? legacyModelConfig.template
+            : (config?.template ?? DEFAULT_INPUT_TEMPLATE);
       }
 
       if (version < 4.1) {
-        state.modelConfig.compressModel =
-          DEFAULT_CONFIG.modelConfig.compressModel;
-        state.modelConfig.compressProviderName =
-          DEFAULT_CONFIG.modelConfig.compressProviderName;
+        legacyModelConfig.compressModel = DEFAULT_CONFIG.modelConfig.compressModel;
+        legacyModelConfig.compressProviderName = DEFAULT_CONFIG.modelConfig.compressProviderName;
+      }
+
+      if (version < 4.2) {
+        state.modelConfig.enableConversationSummaries =
+          legacyModelConfig.sendMemory ?? DEFAULT_CONFIG.modelConfig.enableConversationSummaries;
+        state.modelConfig.contextWindowTokens = DEFAULT_CONFIG.modelConfig.contextWindowTokens;
+        state.modelConfig.titleModel = DEFAULT_CONFIG.modelConfig.titleModel;
+        state.modelConfig.titleProviderName = DEFAULT_CONFIG.modelConfig.titleProviderName;
+        state.modelConfig.memoryModel = DEFAULT_CONFIG.modelConfig.memoryModel;
+        state.modelConfig.memoryProviderName = DEFAULT_CONFIG.modelConfig.memoryProviderName;
+        state.modelConfig.recentRawNodeCount =
+          legacyModelConfig.historyMessageCount ?? DEFAULT_CONFIG.modelConfig.recentRawNodeCount;
+        state.modelConfig.segmentTargetSourceTokens =
+          legacyModelConfig.compressMessageLengthThreshold ??
+          DEFAULT_CONFIG.modelConfig.segmentTargetSourceTokens;
+        state.modelConfig.segmentMaxSourceNodes = DEFAULT_CONFIG.modelConfig.segmentMaxSourceNodes;
+        state.modelConfig.checkpointTargetSegments =
+          DEFAULT_CONFIG.modelConfig.checkpointTargetSegments;
+        state.modelConfig.checkpointMergeTargetTokens = Math.max(
+          DEFAULT_CONFIG.modelConfig.checkpointMergeTargetTokens,
+          state.modelConfig.segmentTargetSourceTokens,
+        );
+        delete legacyModelConfig.historyMessageCount;
+        delete legacyModelConfig.compressMessageLengthThreshold;
+        delete legacyModelConfig.sendMemory;
       }
 
       return state as any;

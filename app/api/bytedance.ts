@@ -1,10 +1,5 @@
 import { getServerSideConfig } from "@/app/config/server";
-import {
-  BYTEDANCE_BASE_URL,
-  ApiPath,
-  ModelProvider,
-  ServiceProvider,
-} from "@/app/constant";
+import { BYTEDANCE_BASE_URL, ApiPath, ModelProvider, ServiceProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
@@ -12,10 +7,7 @@ import { isModelNotavailableInServer } from "@/app/utils/model";
 
 const serverConfig = getServerSideConfig();
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[ByteDance Route] params ", params);
 
   if (req.method === "OPTIONS") {
@@ -34,7 +26,7 @@ export async function handle(
     return response;
   } catch (e) {
     console.error("[ByteDance] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }
 

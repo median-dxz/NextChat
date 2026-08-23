@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const de: PartialLocaleType = {
-  WIP: "In Bearbeitung...",
   Error: {
     Unauthorized: isApp
       ? `😆 Das Gespräch hatte einige Probleme, keine Sorge:
@@ -23,10 +22,8 @@ const de: PartialLocaleType = {
     SubTips: "Oder geben Sie Ihren OpenAI oder Google API-Schlüssel ein.",
     Input: "Geben Sie hier den Zugangscode ein",
     Confirm: "Bestätigen",
-    Later: "Später",
     Return: "Zurück",
-    SaasTips:
-      "Die Konfiguration ist zu kompliziert, ich möchte es sofort nutzen",
+    SaasTips: "Die Konfiguration ist zu kompliziert, ich möchte es sofort nutzen",
     TopTips:
       "🥳 NextChat AI Einführungsangebot, schalte jetzt OpenAI o1, GPT-4o, Claude-3.5 und die neuesten großen Modelle frei",
   },
@@ -44,12 +41,10 @@ const de: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Nachrichtliste anzeigen",
-      CompressedHistory: "Komprimierte Historie anzeigen",
       Export: "Chatverlauf exportieren",
       Copy: "Kopieren",
       Stop: "Stoppen",
       Retry: "Erneut versuchen",
-      Pin: "Anheften",
       PinToastContent: "1 Gespräch an den voreingestellten Prompt angeheftet",
       PinToastAction: "Ansehen",
       Delete: "Löschen",
@@ -62,7 +57,6 @@ const de: PartialLocaleType = {
       newm: "Neues Gespräch aus Maske erstellen",
       next: "Nächstes Gespräch",
       prev: "Vorheriges Gespräch",
-      clear: "Kontext löschen",
       del: "Gespräch löschen",
     },
     InputActions: {
@@ -75,11 +69,9 @@ const de: PartialLocaleType = {
       },
       Prompt: "Schnellbefehle",
       Masks: "Alle Masken",
-      Clear: "Chat löschen",
       Settings: "Gesprächseinstellungen",
       UploadImage: "Bild hochladen",
     },
-    Rename: "Gespräch umbenennen",
     Typing: "Tippt…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} senden`;
@@ -90,7 +82,6 @@ const de: PartialLocaleType = {
     },
     Send: "Senden",
     Config: {
-      Reset: "Erinnerung löschen",
       SaveAs: "Als Maske speichern",
     },
     IsContext: "Voreingestellter Prompt",
@@ -126,12 +117,7 @@ const de: PartialLocaleType = {
   },
   Memory: {
     Title: "Historische Zusammenfassung",
-    EmptyContent:
-      "Gesprächsinhalte sind zu kurz, keine Zusammenfassung erforderlich",
     Send: "Chatverlauf automatisch komprimieren und als Kontext senden",
-    Copy: "Zusammenfassung kopieren",
-    Reset: "[nicht verwendet]",
-    ResetConfirm: "Zusammenfassung löschen bestätigen?",
   },
   Home: {
     NewChat: "Neues Gespräch",
@@ -154,8 +140,7 @@ const de: PartialLocaleType = {
         Title: "Alle Daten löschen",
         SubTitle: "Löscht alle Chats und Einstellungsdaten",
         Action: "Jetzt löschen",
-        Confirm:
-          "Bestätigen Sie das Löschen aller Chats und Einstellungsdaten?",
+        Confirm: "Bestätigen Sie das Löschen aller Chats und Einstellungsdaten?",
       },
     },
     Lang: {
@@ -180,8 +165,7 @@ const de: PartialLocaleType = {
     },
     InputTemplate: {
       Title: "Benutzer-Eingabeverarbeitung",
-      SubTitle:
-        "Die neueste Nachricht des Benutzers wird in diese Vorlage eingefügt",
+      SubTitle: "Die neueste Nachricht des Benutzers wird in diese Vorlage eingefügt",
     },
 
     Update: {
@@ -194,15 +178,13 @@ const de: PartialLocaleType = {
     },
     SendKey: "Sende-Taste",
     Theme: "Thema",
-    TightBorder: "Randloser Modus",
     SendPreviewBubble: {
       Title: "Vorschau-Bubble",
       SubTitle: "Markdown-Inhalt in der Vorschau-Bubble anzeigen",
     },
     AutoGenerateTitle: {
       Title: "Titel automatisch generieren",
-      SubTitle:
-        "Basierend auf dem Chat-Inhalt einen passenden Titel generieren",
+      SubTitle: "Basierend auf dem Chat-Inhalt einen passenden Titel generieren",
     },
     Sync: {
       CloudState: "Cloud-Daten",
@@ -251,8 +233,7 @@ const de: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Masken-Startseite",
-        SubTitle:
-          "Zeige die Masken-Startseite beim Erstellen eines neuen Chats",
+        SubTitle: "Zeige die Masken-Startseite beim Erstellen eines neuen Chats",
       },
       Builtin: {
         Title: "Eingebaute Masken ausblenden",
@@ -280,8 +261,7 @@ const de: PartialLocaleType = {
     },
     HistoryCount: {
       Title: "Anzahl der historischen Nachrichten",
-      SubTitle:
-        "Anzahl der historischen Nachrichten, die bei jeder Anfrage mitgesendet werden",
+      SubTitle: "Anzahl der historischen Nachrichten, die bei jeder Anfrage mitgesendet werden",
     },
     CompressThreshold: {
       Title: "Komprimierungsschwelle für historische Nachrichtenlänge",
@@ -296,8 +276,7 @@ const de: PartialLocaleType = {
       },
       IsChecking: "Wird überprüft…",
       Check: "Erneut überprüfen",
-      NoAccess:
-        "Geben Sie API-Schlüssel oder Zugangspasswort ein, um das Guthaben einzusehen",
+      NoAccess: "Geben Sie API-Schlüssel oder Zugangspasswort ein, um das Guthaben einzusehen",
     },
 
     Access: {
@@ -311,8 +290,7 @@ const de: PartialLocaleType = {
 
       AccessCode: {
         Title: "Zugangscode",
-        SubTitle:
-          "Der Administrator hat die verschlüsselte Zugriffskontrolle aktiviert",
+        SubTitle: "Der Administrator hat die verschlüsselte Zugriffskontrolle aktiviert",
         Placeholder: "Geben Sie den Zugangscode ein",
       },
       CustomEndpoint: {
@@ -406,8 +384,7 @@ const de: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Schnittstellenadresse",
-          SubTitle:
-            "Keine benutzerdefinierten Adressen unterstützen, konfigurieren Sie in .env",
+          SubTitle: "Keine benutzerdefinierten Adressen unterstützen, konfigurieren Sie in .env",
         },
       },
       ByteDance: {
@@ -424,8 +401,7 @@ const de: PartialLocaleType = {
       Alibaba: {
         ApiKey: {
           Title: "Schnittstellenschlüssel",
-          SubTitle:
-            "Verwenden Sie benutzerdefinierten Alibaba Cloud API-Schlüssel",
+          SubTitle: "Verwenden Sie benutzerdefinierten Alibaba Cloud API-Schlüssel",
           Placeholder: "Alibaba Cloud API-Schlüssel",
         },
         Endpoint: {
@@ -446,8 +422,7 @@ const de: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Benutzerdefinierter Modellname",
-        SubTitle:
-          "Fügen Sie benutzerdefinierte Modelloptionen hinzu, getrennt durch Kommas",
+        SubTitle: "Fügen Sie benutzerdefinierte Modelloptionen hinzu, getrennt durch Kommas",
       },
     },
 
@@ -462,8 +437,7 @@ const de: PartialLocaleType = {
     },
     TopP: {
       Title: "Kern-Sampling (top_p)",
-      SubTitle:
-        "Ähnlich der Zufälligkeit, aber nicht zusammen mit Zufälligkeit ändern",
+      SubTitle: "Ähnlich der Zufälligkeit, aber nicht zusammen mit Zufälligkeit ändern",
     },
     MaxTokens: {
       Title: "Maximale Token-Anzahl pro Antwort",
@@ -471,24 +445,17 @@ const de: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Themenfrische (presence_penalty)",
-      SubTitle:
-        "Je höher der Wert, desto wahrscheinlicher wird auf neue Themen eingegangen",
+      SubTitle: "Je höher der Wert, desto wahrscheinlicher wird auf neue Themen eingegangen",
     },
     FrequencyPenalty: {
       Title: "Häufigkeitsstrafe (frequency_penalty)",
-      SubTitle:
-        "Je höher der Wert, desto wahrscheinlicher werden wiederholte Wörter reduziert",
+      SubTitle: "Je höher der Wert, desto wahrscheinlicher werden wiederholte Wörter reduziert",
     },
   },
   Store: {
     DefaultTopic: "Neuer Chat",
     BotHello: "Wie kann ich Ihnen helfen?",
-    Error:
-      "Ein Fehler ist aufgetreten, bitte versuchen Sie es später noch einmal",
     Prompt: {
-      History: (content: string) =>
-        "Dies ist eine Zusammenfassung des bisherigen Chats als Hintergrundinformation: " +
-        content,
       Topic:
         "Geben Sie ein kurzes Thema in vier bis fünf Wörtern zurück, ohne Erklärungen, ohne Satzzeichen, ohne Füllwörter, ohne zusätzliche Texte und ohne Fettdruck. Wenn kein Thema vorhanden ist, geben Sie bitte „Allgemeines Gespräch“ zurück.",
       Summarize:
@@ -497,8 +464,7 @@ const de: PartialLocaleType = {
   },
   Copy: {
     Success: "In die Zwischenablage geschrieben",
-    Failed:
-      "Kopieren fehlgeschlagen, bitte erlauben Sie Zugriff auf die Zwischenablage",
+    Failed: "Kopieren fehlgeschlagen, bitte erlauben Sie Zugriff auf die Zwischenablage",
   },
   Download: {
     Success: "Inhalt wurde in Ihrem Verzeichnis heruntergeladen.",
@@ -508,8 +474,6 @@ const de: PartialLocaleType = {
     Toast: (x: any) => `Beinhaltet ${x} vordefinierte Eingabeaufforderungen`,
     Edit: "Aktuelle Gesprächseinstellungen",
     Add: "Neues Gespräch hinzufügen",
-    Clear: "Kontext gelöscht",
-    Revert: "Kontext wiederherstellen",
   },
   Plugin: {
     Name: "Plugins",
@@ -518,13 +482,9 @@ const de: PartialLocaleType = {
     Sysmessage: "Du bist ein Assistent",
   },
   SearchChat: {
-    Name: "Suche",
     Page: {
       Title: "Chatverlauf durchsuchen",
       Search: "Suchbegriff eingeben",
-      NoResult: "Keine Ergebnisse gefunden",
-      NoData: "Keine Daten",
-      Loading: "Laden",
 
       SubTitle: (count: number) => `${count} Ergebnisse gefunden`,
     },
@@ -536,8 +496,7 @@ const de: PartialLocaleType = {
     Name: "Masken",
     Page: {
       Title: "Vordefinierte Rollenmasken",
-      SubTitle: (count: number) =>
-        `${count} vordefinierte Rollenbeschreibungen`,
+      SubTitle: (count: number) => `${count} vordefinierte Rollenbeschreibungen`,
       Search: "Rollenmasken suchen",
       Create: "Neu erstellen",
     },
@@ -560,15 +519,13 @@ const de: PartialLocaleType = {
       Name: "Rollenname",
       Sync: {
         Title: "Globale Einstellungen verwenden",
-        SubTitle:
-          "Soll das aktuelle Gespräch die globalen Modelleinstellungen verwenden?",
+        SubTitle: "Soll das aktuelle Gespräch die globalen Modelleinstellungen verwenden?",
         Confirm:
           "Die benutzerdefinierten Einstellungen des aktuellen Gesprächs werden automatisch überschrieben. Bestätigen Sie, dass Sie die globalen Einstellungen aktivieren möchten?",
       },
       HideContext: {
         Title: "Vordefinierte Gespräche ausblenden",
-        SubTitle:
-          "Nach dem Ausblenden werden vordefinierte Gespräche nicht mehr im Chat angezeigt",
+        SubTitle: "Nach dem Ausblenden werden vordefinierte Gespräche nicht mehr im Chat angezeigt",
       },
       Share: {
         Title: "Diese Maske teilen",
@@ -584,8 +541,7 @@ const de: PartialLocaleType = {
     ConfirmNoShow:
       "Bestätigen Sie die Deaktivierung? Nach der Deaktivierung können Sie jederzeit in den Einstellungen wieder aktivieren.",
     Title: "Wählen Sie eine Maske aus",
-    SubTitle:
-      "Starten Sie jetzt und lassen Sie sich von den Gedanken hinter der Maske inspirieren",
+    SubTitle: "Starten Sie jetzt und lassen Sie sich von den Gedanken hinter der Maske inspirieren",
     More: "Alle anzeigen",
   },
 
@@ -599,8 +555,6 @@ const de: PartialLocaleType = {
     Confirm: "Bestätigen",
     Cancel: "Abbrechen",
     Close: "Schließen",
-    Create: "Neu erstellen",
-    Edit: "Bearbeiten",
     Export: "Exportieren",
     Import: "Importieren",
     Sync: "Synchronisieren",

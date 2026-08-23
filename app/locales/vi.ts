@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const vi: PartialLocaleType = {
-  WIP: "Sắp ra mắt...",
   Error: {
     Unauthorized: isApp
       ? `😆 Cuộc trò chuyện gặp một số vấn đề, đừng lo lắng:
@@ -23,7 +22,6 @@ const vi: PartialLocaleType = {
     SubTips: "Hoặc nhập khóa API OpenAI hoặc Google của bạn",
     Input: "Nhập mã truy cập tại đây",
     Confirm: "Xác nhận",
-    Later: "Để sau",
     Return: "Trở lại",
     SaasTips: "Cấu hình quá phức tạp, tôi muốn sử dụng ngay lập tức",
     TopTips:
@@ -43,12 +41,10 @@ const vi: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Xem danh sách tin nhắn",
-      CompressedHistory: "Xem lịch sử Prompt đã nén",
       Export: "Xuất khẩu ghi chép trò chuyện",
       Copy: "Sao chép",
       Stop: "Dừng lại",
       Retry: "Thử lại",
-      Pin: "Ghim",
       PinToastContent: "Đã ghim 1 cuộc trò chuyện vào lời nhắc đã đặt sẵn",
       PinToastAction: "Xem",
       Delete: "Xóa",
@@ -61,7 +57,6 @@ const vi: PartialLocaleType = {
       newm: "Tạo cuộc trò chuyện từ mặt nạ",
       next: "Cuộc trò chuyện tiếp theo",
       prev: "Cuộc trò chuyện trước đó",
-      clear: "Xóa ngữ cảnh",
       del: "Xóa cuộc trò chuyện",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const vi: PartialLocaleType = {
       },
       Prompt: "Lệnh tắt",
       Masks: "Tất cả mặt nạ",
-      Clear: "Xóa cuộc trò chuyện",
       Settings: "Cài đặt trò chuyện",
       UploadImage: "Tải lên hình ảnh",
     },
-    Rename: "Đổi tên cuộc trò chuyện",
     Typing: "Đang nhập…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} gửi`;
@@ -89,7 +82,6 @@ const vi: PartialLocaleType = {
     },
     Send: "Gửi",
     Config: {
-      Reset: "Xóa trí nhớ",
       SaveAs: "Lưu dưới dạng mặt nạ",
     },
     IsContext: "Lời nhắc đã đặt sẵn",
@@ -125,11 +117,7 @@ const vi: PartialLocaleType = {
   },
   Memory: {
     Title: "Tóm tắt lịch sử",
-    EmptyContent: "Nội dung trò chuyện quá ngắn, không cần tóm tắt",
     Send: "Tự động nén ghi chép trò chuyện và gửi dưới dạng ngữ cảnh",
-    Copy: "Sao chép tóm tắt",
-    Reset: "[unused]",
-    ResetConfirm: "Xác nhận xóa tóm tắt lịch sử?",
   },
   Home: {
     NewChat: "Cuộc trò chuyện mới",
@@ -190,7 +178,6 @@ const vi: PartialLocaleType = {
     },
     SendKey: "Phím gửi",
     Theme: "Giao diện",
-    TightBorder: "Chế độ không viền",
     SendPreviewBubble: {
       Title: "Bong bóng xem trước",
       SubTitle: "Xem nội dung Markdown trong bong bóng xem trước",
@@ -216,8 +203,7 @@ const vi: PartialLocaleType = {
         },
         Proxy: {
           Title: "Kích hoạt proxy",
-          SubTitle:
-            "Khi đồng bộ qua trình duyệt, cần kích hoạt proxy để tránh hạn chế ngang miền",
+          SubTitle: "Khi đồng bộ qua trình duyệt, cần kích hoạt proxy để tránh hạn chế ngang miền",
         },
         ProxyUrl: {
           Title: "Địa chỉ proxy",
@@ -277,8 +263,7 @@ const vi: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Ngưỡng nén tin nhắn lịch sử",
-      SubTitle:
-        "Khi tin nhắn lịch sử chưa nén vượt quá giá trị này, sẽ thực hiện nén",
+      SubTitle: "Khi tin nhắn lịch sử chưa nén vượt quá giá trị này, sẽ thực hiện nén",
     },
 
     Usage: {
@@ -316,8 +301,7 @@ const vi: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API Key",
-          SubTitle:
-            "Sử dụng khóa OpenAI tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa OpenAI tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API OpenAI",
         },
 
@@ -329,8 +313,7 @@ const vi: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "Khóa giao diện",
-          SubTitle:
-            "Sử dụng khóa Azure tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa Azure tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API Azure",
         },
 
@@ -347,8 +330,7 @@ const vi: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Khóa giao diện",
-          SubTitle:
-            "Sử dụng khóa Anthropic tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
+          SubTitle: "Sử dụng khóa Anthropic tùy chỉnh để vượt qua hạn chế truy cập mật khẩu",
           Placeholder: "Khóa API Anthropic",
         },
 
@@ -434,8 +416,7 @@ const vi: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Tên mô hình tùy chỉnh",
-        SubTitle:
-          "Thêm tùy chọn mô hình tùy chỉnh, sử dụng dấu phẩy để phân cách",
+        SubTitle: "Thêm tùy chọn mô hình tùy chỉnh, sử dụng dấu phẩy để phân cách",
       },
     },
 
@@ -458,8 +439,7 @@ const vi: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Độ mới của chủ đề (presence_penalty)",
-      SubTitle:
-        "Giá trị càng lớn, khả năng mở rộng đến các chủ đề mới càng cao",
+      SubTitle: "Giá trị càng lớn, khả năng mở rộng đến các chủ đề mới càng cao",
     },
     FrequencyPenalty: {
       Title: "Hình phạt tần suất (frequency_penalty)",
@@ -469,10 +449,7 @@ const vi: PartialLocaleType = {
   Store: {
     DefaultTopic: "Trò chuyện mới",
     BotHello: "Có thể giúp gì cho bạn?",
-    Error: "Đã xảy ra lỗi, vui lòng thử lại sau",
     Prompt: {
-      History: (content: string) =>
-        "Đây là tóm tắt cuộc trò chuyện lịch sử như tiền đề: " + content,
       Topic:
         'Sử dụng bốn đến năm từ để trả lại chủ đề tóm tắt của câu này, không giải thích, không dấu câu, không từ cảm thán, không văn bản thừa, không in đậm, nếu không có chủ đề, hãy trả lại "Tán gẫu"',
       Summarize:
@@ -491,8 +468,6 @@ const vi: PartialLocaleType = {
     Toast: (x: any) => `Bao gồm ${x} lệnh gợi ý đã định sẵn`,
     Edit: "Cài đặt cuộc trò chuyện hiện tại",
     Add: "Thêm một cuộc trò chuyện",
-    Clear: "Ngữ cảnh đã được xóa",
-    Revert: "Khôi phục ngữ cảnh",
   },
   Plugin: {
     Name: "Plugin",
@@ -501,13 +476,9 @@ const vi: PartialLocaleType = {
     Sysmessage: "Bạn là một trợ lý",
   },
   SearchChat: {
-    Name: "Tìm kiếm",
     Page: {
       Title: "Tìm kiếm lịch sử trò chuyện",
       Search: "Nhập từ khóa tìm kiếm",
-      NoResult: "Không tìm thấy kết quả",
-      NoData: "Không có dữ liệu",
-      Loading: "Đang tải",
 
       SubTitle: (count: number) => `Tìm thấy ${count} kết quả`,
     },
@@ -532,8 +503,7 @@ const vi: PartialLocaleType = {
       DeleteConfirm: "Xác nhận xóa?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Chỉnh sửa mặt nạ định sẵn ${readonly ? "(chỉ đọc)" : ""}`,
+      Title: (readonly: boolean) => `Chỉnh sửa mặt nạ định sẵn ${readonly ? "(chỉ đọc)" : ""}`,
       Download: "Tải xuống mặt nạ",
       Clone: "Nhân bản mặt nạ",
     },
@@ -542,8 +512,7 @@ const vi: PartialLocaleType = {
       Name: "Tên vai trò",
       Sync: {
         Title: "Sử dụng cài đặt toàn cục",
-        SubTitle:
-          "Cuộc trò chuyện hiện tại có sử dụng cài đặt mô hình toàn cục không",
+        SubTitle: "Cuộc trò chuyện hiện tại có sử dụng cài đặt mô hình toàn cục không",
         Confirm:
           "Cài đặt tùy chỉnh của cuộc trò chuyện hiện tại sẽ bị ghi đè tự động, xác nhận bật cài đặt toàn cục?",
       },
@@ -572,16 +541,13 @@ const vi: PartialLocaleType = {
 
   URLCommand: {
     Code: "Phát hiện mã truy cập trong liên kết, có tự động điền không?",
-    Settings:
-      "Phát hiện cài đặt định sẵn trong liên kết, có tự động điền không?",
+    Settings: "Phát hiện cài đặt định sẵn trong liên kết, có tự động điền không?",
   },
 
   UI: {
     Confirm: "Xác nhận",
     Cancel: "Hủy",
     Close: "Đóng",
-    Create: "Tạo mới",
-    Edit: "Chỉnh sửa",
     Export: "Xuất",
     Import: "Nhập",
     Sync: "Đồng bộ",

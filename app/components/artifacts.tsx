@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useState,
-  useRef,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
+import { useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useParams } from "react-router";
 import { IconButton } from "./button";
 import { nanoid } from "nanoid";
@@ -73,9 +66,7 @@ export const HTMLPreview = forwardRef<HTMLPreviewHandler, HTMLPreviewProps>(
         return props.height;
       }
       const parentHeight = props.height || 600;
-      return iframeHeight + 40 > parentHeight
-        ? parentHeight
-        : iframeHeight + 40;
+      return iframeHeight + 40 > parentHeight ? parentHeight : iframeHeight + 40;
     }, [props.autoHeight, props.height, iframeHeight]);
 
     const srcDoc = useMemo(() => {
@@ -174,9 +165,7 @@ export function ArtifactsShareButton({
                 bordered
                 text={Locale.Export.Download}
                 onClick={() => {
-                  downloadAs(getCode(), `${fileName || name}.html`).then(() =>
-                    setShow(false),
-                  );
+                  downloadAs(getCode(), `${fileName || name}.html`).then(() => setShow(false));
                 }}
               />,
               <IconButton
@@ -240,11 +229,7 @@ export function Artifacts() {
           onClick={() => previewRef.current?.reload()}
         />
         <div className={styles["artifacts-title"]}>NextChat Artifacts</div>
-        <ArtifactsShareButton
-          id={id}
-          getCode={() => code}
-          fileName={fileName}
-        />
+        <ArtifactsShareButton id={id} getCode={() => code} fileName={fileName} />
       </div>
       <div className={styles["artifacts-content"]}>
         {loading && <Loading />}

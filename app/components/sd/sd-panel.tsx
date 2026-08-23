@@ -121,9 +121,7 @@ export const models = [
     value: "sd3",
     params: (data: any) => {
       return sdCommonParams("sd3", data).filter((item) => {
-        return !(
-          data.model === "sd3-large-turbo" && item.value == "negative_prompt"
-        );
+        return !(data.model === "sd3-large-turbo" && item.value == "negative_prompt");
       });
     },
   },
@@ -148,9 +146,7 @@ export function ControlParamItem(props: {
       </div>
       {props.children}
       {props.subTitle && (
-        <div className={styles["ctrl-param-item-sub-title"]}>
-          {props.subTitle}
-        </div>
+        <div className={styles["ctrl-param-item-sub-title"]}>{props.subTitle}</div>
       )}
     </div>
   );
@@ -168,11 +164,7 @@ export function ControlParam(props: {
         switch (item.type) {
           case "textarea":
             element = (
-              <ControlParamItem
-                title={item.name}
-                subTitle={item.sub}
-                required={item.required}
-              >
+              <ControlParamItem title={item.name} subTitle={item.sub} required={item.required}>
                 <textarea
                   rows={item.rows || 3}
                   style={{ maxWidth: "100%", width: "100%", padding: "10px" }}
@@ -187,11 +179,7 @@ export function ControlParam(props: {
             break;
           case "select":
             element = (
-              <ControlParamItem
-                title={item.name}
-                subTitle={item.sub}
-                required={item.required}
-              >
+              <ControlParamItem title={item.name} subTitle={item.sub} required={item.required}>
                 <Select
                   aria-label={item.name}
                   value={props.data[item.value]}
@@ -212,11 +200,7 @@ export function ControlParam(props: {
             break;
           case "number":
             element = (
-              <ControlParamItem
-                title={item.name}
-                subTitle={item.sub}
-                required={item.required}
-              >
+              <ControlParamItem title={item.name} subTitle={item.sub} required={item.required}>
                 <input
                   aria-label={item.name}
                   type="number"
@@ -232,11 +216,7 @@ export function ControlParam(props: {
             break;
           default:
             element = (
-              <ControlParamItem
-                title={item.name}
-                subTitle={item.sub}
-                required={item.required}
-              >
+              <ControlParamItem title={item.name} subTitle={item.sub} required={item.required}>
                 <input
                   aria-label={item.name}
                   type="text"
@@ -255,11 +235,7 @@ export function ControlParam(props: {
   );
 }
 
-export const getModelParamBasicData = (
-  columns: any[],
-  data: any,
-  clearText?: boolean,
-) => {
+export const getModelParamBasicData = (columns: any[], data: any, clearText?: boolean) => {
   const newParams: any = {};
   columns.forEach((item: any) => {
     if (clearText && ["text", "textarea", "number"].includes(item.type)) {

@@ -1,11 +1,11 @@
 import { getClientConfig } from "../config/client";
 import { SubmitKey } from "../store/config";
 import { SAAS_CHAT_UTM_URL } from "@/app/constant";
+import type { PartialLocaleType } from "./en";
 
 const isApp = !!getClientConfig()?.isApp;
 
-const cn = {
-  WIP: "该功能仍在开发中……",
+const cn: PartialLocaleType = {
   Error: {
     Unauthorized: isApp
       ? `😆 对话遇到了一些问题，不用慌:
@@ -24,10 +24,8 @@ const cn = {
     SubTips: "或者输入你的 OpenAI 或 Google AI 密钥",
     Input: "在此处填写访问码",
     Confirm: "确认",
-    Later: "稍后再说",
     SaasTips: "配置太麻烦，想要立即使用",
-    TopTips:
-      "🥳 NextChat AI 首发优惠，立刻解锁 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
+    TopTips: "🥳 NextChat AI 首发优惠，立刻解锁 OpenAI o1, GPT-4o, Claude-3.5 等最新大模型",
   },
   ChatItem: {
     ChatItemCount: (count: number) => `${count} 条对话`,
@@ -36,12 +34,9 @@ const cn = {
     SubTitle: (count: number) => `共 ${count} 条对话`,
     Reasoning: "思考过程",
     ReasoningThinking: (duration: string) => `正在思考…（${duration}）`,
-    ReasoningThought: (duration?: string) =>
-      duration ? `已思考 ${duration}` : "已思考",
+    ReasoningThought: (duration?: string) => (duration ? `已思考 ${duration}` : "已思考"),
     ReasoningDuration: (minutes: number, seconds: number) =>
-      minutes > 0
-        ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒`
-        : `${seconds} 秒`,
+      minutes > 0 ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒` : `${seconds} 秒`,
     EditMessage: {
       Title: "编辑消息记录",
       Topic: {
@@ -51,12 +46,10 @@ const cn = {
     },
     Actions: {
       ChatList: "查看消息列表",
-      CompressedHistory: "查看压缩后的历史 Prompt",
       Export: "导出聊天记录",
       Copy: "复制",
       Stop: "停止",
       Retry: "重试",
-      Pin: "固定",
       PinToastContent: "已将 1 条对话固定至预设提示词",
       PinToastAction: "查看",
       Delete: "删除",
@@ -72,7 +65,6 @@ const cn = {
       newm: "从面具新建聊天",
       next: "下一个聊天",
       prev: "上一个聊天",
-      clear: "清除上下文",
       fork: "复制聊天",
       del: "删除聊天",
     },
@@ -86,11 +78,36 @@ const cn = {
       },
       Prompt: "快捷指令",
       Masks: "所有面具",
-      Clear: "清除聊天",
       Settings: "对话设置",
       UploadImage: "上传图片",
+      OutlineIn: "下一条增加大纲等级",
+      OutlineOut: "下一条减少大纲等级",
     },
-    Rename: "重命名对话",
+    Graph: {
+      Node: "节点详情",
+      Branch: "选择分支",
+      Continue: "设为续写位置",
+      OutlineLevel: "大纲等级",
+      Segment: "片段摘要",
+      Checkpoint: "检查点摘要",
+      Save: "保存节点",
+      NoBranch: "不激活子分支",
+      NewBranch: "新建子分支",
+      BranchTitle: "选择活动分支",
+      GenerateSummary: "生成节点摘要",
+      Pin: "固定到预设提示词",
+      TemporaryMemoryModel: "本次更新模型",
+      UseConfiguredMemoryModel: "使用设置中的历史记忆模型",
+      GlobalMemory: "全局记忆",
+      Enabled: "启用",
+      Prompt: "更新提示词",
+      Content: "记忆内容",
+      UpdateMemory: "立即更新",
+      SaveMemory: "保存记忆",
+      Insert: "在此处插入",
+      Drag: "拖动消息",
+      Role: "消息角色",
+    },
     Typing: "正在输入…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} 发送`;
@@ -100,10 +117,7 @@ const cn = {
       return inputHints + "，/ 触发补全，: 触发命令";
     },
     Send: "发送",
-    StartSpeak: "说话",
-    StopSpeak: "停止",
     Config: {
-      Reset: "清除记忆",
       SaveAs: "存为面具",
     },
     IsContext: "预设提示词",
@@ -114,7 +128,6 @@ const cn = {
       copyLastMessage: "复制最后一个回复",
       copyLastCode: "复制最后一个代码块",
       showShortcutKey: "显示快捷方式",
-      clearContext: "清除上下文",
     },
   },
   Export: {
@@ -156,11 +169,8 @@ const cn = {
   },
   Memory: {
     Title: "历史摘要",
-    EmptyContent: "对话内容过短，无需总结",
     Send: "自动压缩聊天记录并作为上下文发送",
-    Copy: "复制摘要",
-    Reset: "[unused]",
-    ResetConfirm: "确认清空历史摘要？",
+    CompactFailed: "无法将聊天历史整理到上下文窗口内",
   },
   Home: {
     NewChat: "新的聊天",
@@ -222,7 +232,6 @@ const cn = {
     },
     SendKey: "发送键",
     Theme: "主题",
-    TightBorder: "无边框模式",
     SendPreviewBubble: {
       Title: "预览气泡",
       SubTitle: "在预览气泡中预览 Markdown 内容",
@@ -290,8 +299,7 @@ const cn = {
         SubTitle: "在输入框开头输入 / 即可触发自动补全",
       },
       List: "自定义提示词列表",
-      ListCount: (builtin: number, custom: number) =>
-        `内置 ${builtin} 条，用户定义 ${custom} 条`,
+      ListCount: (builtin: number, custom: number) => `内置 ${builtin} 条，用户定义 ${custom} 条`,
       Edit: "编辑",
       Modal: {
         Title: "提示词列表",
@@ -303,12 +311,12 @@ const cn = {
       },
     },
     HistoryCount: {
-      Title: "附带历史消息数",
-      SubTitle: "每次请求携带的历史消息数",
+      Title: "附带历史消息",
+      SubTitle: "每次提问时直接发送的最近对话条数",
     },
     CompressThreshold: {
-      Title: "历史消息长度压缩阈值",
-      SubTitle: "当未压缩的历史消息超过该值时，将进行压缩",
+      Title: "自动总结触发长度",
+      SubTitle: "当未总结的较早对话达到该 Token 数量时自动压缩",
     },
 
     Usage: {
@@ -563,9 +571,18 @@ const cn = {
     },
 
     Model: "模型 (model)",
+    AutomaticModel: "自动选择",
     CompressModel: {
       Title: "对话摘要模型",
-      SubTitle: "用于压缩历史记录、生成对话标题的模型",
+      SubTitle: "用于压缩较早聊天历史的模型",
+    },
+    MemoryModel: {
+      Title: "对话历史记忆模型",
+      SubTitle: "用于更新当前会话全局记忆的模型",
+    },
+    TitleModel: {
+      Title: "对话标题模型",
+      SubTitle: "用于生成当前对话标题的模型",
     },
     Temperature: {
       Title: "随机性 (temperature)",
@@ -578,6 +595,10 @@ const cn = {
     MaxTokens: {
       Title: "单次回复限制 (max_tokens)",
       SubTitle: "单次交互所用的最大 Token 数",
+    },
+    ContextWindow: {
+      Title: "上下文窗口",
+      SubTitle: "模型可接收的总 token 数，与单次回复上限分开计算",
     },
     PresencePenalty: {
       Title: "话题新鲜度 (presence_penalty)",
@@ -644,13 +665,10 @@ const cn = {
   Store: {
     DefaultTopic: "新的聊天",
     BotHello: "有什么可以帮你的吗",
-    Error: "出错了，稍后重试吧",
     Prompt: {
-      History: (content: string) => "这是历史聊天总结作为前情提要：" + content,
       Topic:
         "使用四到五个字直接返回这句话的简要主题，不要解释、不要标点、不要语气词、不要多余文本，不要加粗，如果没有主题，请直接返回“闲聊”",
-      Summarize:
-        "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
+      Summarize: "简要总结一下对话内容，用作后续的上下文提示 prompt，控制在 200 字以内",
     },
   },
   Copy: {
@@ -665,8 +683,7 @@ const cn = {
     Toast: (x: any) => `包含 ${x} 条预设提示词`,
     Edit: "当前对话设置",
     Add: "新增一条对话",
-    Clear: "上下文已清除",
-    Revert: "恢复上下文",
+    PresetTitle: "预设对话",
   },
   Discovery: {
     Name: "发现",
@@ -678,13 +695,9 @@ const cn = {
     Sysmessage: "你是一个助手",
   },
   SearchChat: {
-    Name: "搜索聊天记录",
     Page: {
       Title: "搜索聊天记录",
       Search: "输入搜索关键词",
-      NoResult: "没有找到结果",
-      NoData: "没有数据",
-      Loading: "加载中",
 
       SubTitle: (count: number) => `搜索到 ${count} 条结果`,
     },
@@ -703,7 +716,6 @@ const cn = {
     },
     Item: {
       Info: (count: number) => `${count} 方法`,
-      View: "查看",
       Edit: "编辑",
       Delete: "删除",
       DeleteConfirm: "确认删除？",
@@ -715,8 +727,6 @@ const cn = {
       Custom: "自定义",
       CustomHeader: "自定义参数名称",
       Token: "Token",
-      Proxy: "使用代理",
-      ProxyDescription: "使用代理解决 CORS 错误",
       Location: "位置",
       LocationHeader: "Header",
       LocationQuery: "Query",
@@ -724,11 +734,9 @@ const cn = {
     },
     EditModal: {
       Title: (readonly: boolean) => `编辑插件 ${readonly ? "（只读）" : ""}`,
-      Download: "下载",
       Auth: "授权方式",
       Content: "OpenAPI Schema",
       Load: "从网页加载",
-      Method: "方法",
       Error: "格式错误",
     },
   },
@@ -749,8 +757,7 @@ const cn = {
       DeleteConfirm: "确认删除？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `编辑预设面具 ${readonly ? "（只读）" : ""}`,
+      Title: (readonly: boolean) => `编辑预设面具 ${readonly ? "（只读）" : ""}`,
       Download: "下载预设",
       Clone: "克隆预设",
     },
@@ -800,8 +807,8 @@ const cn = {
     Confirm: "确认",
     Cancel: "取消",
     Close: "关闭",
-    Create: "新建",
-    Edit: "编辑",
+    Maximize: "最大化",
+    Restore: "还原",
     Export: "导出",
     Import: "导入",
     Sync: "同步",
@@ -809,7 +816,7 @@ const cn = {
   },
   Exporter: {
     Description: {
-      Title: "只有清除上下文之后的消息会被展示",
+      Title: "选择要导出的消息",
     },
     Model: "模型",
     Messages: "消息",
@@ -872,14 +879,5 @@ const cn = {
     Detail: "详情",
   },
 };
-
-type DeepPartial<T> = T extends object
-  ? {
-      [P in keyof T]?: DeepPartial<T[P]>;
-    }
-  : T;
-
-export type LocaleType = typeof cn;
-export type PartialLocaleType = DeepPartial<typeof cn>;
 
 export default cn;

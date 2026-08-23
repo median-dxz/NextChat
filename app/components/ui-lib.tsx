@@ -21,6 +21,7 @@ import React, {
   useState,
   useCallback,
   useRef,
+  useId,
 } from "react";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
@@ -35,23 +36,14 @@ export function Popover(props: {
   return (
     <div className={styles.popover}>
       {props.children}
-      {props.open && (
-        <div className={styles["popover-mask"]} onClick={props.onClose}></div>
-      )}
-      {props.open && (
-        <div className={styles["popover-content"]}>{props.content}</div>
-      )}
+      {props.open && <div className={styles["popover-mask"]} onClick={props.onClose}></div>}
+      {props.open && <div className={styles["popover-content"]}>{props.content}</div>}
     </div>
   );
 }
 
-export function Card(props: {
-  children: React.ReactElement[];
-  className?: string;
-}) {
-  return (
-    <div className={clsx(styles.card, props.className)}>{props.children}</div>
-  );
+export function Card(props: { children: React.ReactElement[]; className?: string }) {
+  return <div className={clsx(styles.card, props.className)}>{props.children}</div>;
 }
 
 export function ListItem(props: {
@@ -78,11 +70,7 @@ export function ListItem(props: {
         {props.icon && <div className={styles["list-icon"]}>{props.icon}</div>}
         <div className={styles["list-item-title"]}>
           <div>{props.title}</div>
-          {props.subTitle && (
-            <div className={styles["list-item-sub-title"]}>
-              {props.subTitle}
-            </div>
-          )}
+          {props.subTitle && <div className={styles["list-item-sub-title"]}>{props.subTitle}</div>}
         </div>
       </div>
       {props.children}
@@ -119,65 +107,112 @@ interface ModalProps {
   children?: any;
   actions?: React.ReactNode[];
   defaultMax?: boolean;
+  className?: string;
+  contentClassName?: string;
+  showMaximize?: boolean;
   footer?: React.ReactNode;
   onClose?: () => void;
 }
 export function Modal(props: ModalProps) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        props.onClose?.();
-      }
-    };
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropPointerRef = useRef<number | null>(null);
+  const titleId = useId();
 
-    window.addEventListener("keydown", onKeyDown);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    if (!dialog.open) dialog.showModal();
+    const onCancel = (event: Event) => {
+      event.preventDefault();
+      props.onClose?.();
+    };
+    dialog.addEventListener("cancel", onCancel);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      dialog.removeEventListener("cancel", onCancel);
+      if (dialog.open) dialog.close();
+      trigger?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [isMax, setMax] = useState(!!props.defaultMax);
+  const isBackdropPointer = (event: React.PointerEvent<HTMLDialogElement>) => {
+    if (event.target !== event.currentTarget) return false;
+    const rect = event.currentTarget.getBoundingClientRect();
+    return (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    );
+  };
 
   return (
-    <div
-      className={clsx(styles["modal-container"], {
-        [styles["modal-container-max"]]: isMax,
-      })}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      className={clsx(
+        styles["modal-container"],
+        {
+          [styles["modal-container-max"]]: isMax,
+        },
+        props.className,
+      )}
+      onPointerDown={(event) => {
+        backdropPointerRef.current = isBackdropPointer(event) ? event.pointerId : null;
+      }}
+      onPointerUp={(event) => {
+        const shouldClose =
+          backdropPointerRef.current === event.pointerId && isBackdropPointer(event);
+        backdropPointerRef.current = null;
+        if (shouldClose) props.onClose?.();
+      }}
+      onPointerCancel={() => (backdropPointerRef.current = null)}
     >
       <div className={styles["modal-header"]}>
-        <div className={styles["modal-title"]}>{props.title}</div>
+        <div id={titleId} className={styles["modal-title"]}>
+          {props.title}
+        </div>
 
         <div className={styles["modal-header-actions"]}>
-          <div
-            className={styles["modal-header-action"]}
-            onClick={() => setMax(!isMax)}
-          >
-            {isMax ? <MinIcon /> : <MaxIcon />}
-          </div>
-          <div
+          {props.showMaximize !== false && (
+            <button
+              type="button"
+              className={styles["modal-header-action"]}
+              onClick={() => setMax(!isMax)}
+              aria-label={isMax ? Locale.UI.Restore : Locale.UI.Maximize}
+            >
+              {isMax ? <MinIcon /> : <MaxIcon />}
+            </button>
+          )}
+          <button
+            type="button"
             className={styles["modal-header-action"]}
             onClick={props.onClose}
+            aria-label={Locale.UI.Close}
           >
             <CloseIcon />
+          </button>
+        </div>
+      </div>
+
+      <div className={clsx(styles["modal-content"], props.contentClassName)}>{props.children}</div>
+
+      {(props.footer || props.actions?.length) && (
+        <div className={styles["modal-footer"]}>
+          {props.footer}
+          <div className={styles["modal-actions"]}>
+            {props.actions?.map((action, i) => (
+              <div key={i} className={styles["modal-action"]}>
+                {action}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-
-      <div className={styles["modal-content"]}>{props.children}</div>
-
-      <div className={styles["modal-footer"]}>
-        {props.footer}
-        <div className={styles["modal-actions"]}>
-          {props.actions?.map((action, i) => (
-            <div key={i} className={styles["modal-action"]}>
-              {action}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      )}
+    </dialog>
   );
 }
 
@@ -191,12 +226,6 @@ export function showModal(props: ModalProps) {
     props.onClose?.();
     root.unmount();
     div.remove();
-  };
-
-  div.onclick = (e) => {
-    if (e.target === div) {
-      closeModal();
-    }
   };
 
   root.render(<Modal {...props} onClose={closeModal}></Modal>);
@@ -232,11 +261,7 @@ export function Toast(props: ToastProps) {
   );
 }
 
-export function showToast(
-  content: string,
-  action?: ToastProps["action"],
-  delay = 3000,
-) {
+export function showToast(content: string, action?: ToastProps["action"], delay = 3000) {
   const div = document.createElement("div");
   div.className = styles.show;
   document.body.appendChild(div);
@@ -264,17 +289,11 @@ export type InputProps = React.HTMLProps<HTMLTextAreaElement> & {
 };
 
 export function Input(props: InputProps) {
-  return (
-    <textarea
-      {...props}
-      className={clsx(styles["input"], props.className)}
-    ></textarea>
-  );
+  return <textarea {...props} className={clsx(styles["input"], props.className)}></textarea>;
 }
 
-export function PasswordInput(
-  props: HTMLProps<HTMLInputElement> & { aria?: string },
-) {
+export function PasswordInput(props: HTMLProps<HTMLInputElement> & { aria?: string }) {
+  const { aria, ...inputProps } = props;
   const [visible, setVisible] = useState(false);
   function changeVisibility() {
     setVisible(!visible);
@@ -283,16 +302,12 @@ export function PasswordInput(
   return (
     <div className={"password-input-container"}>
       <IconButton
-        aria={props.aria}
+        aria={aria}
         icon={visible ? <EyeIcon /> : <EyeOffIcon />}
         onClick={changeVisibility}
         className={"password-eye"}
       />
-      <input
-        {...props}
-        type={visible ? "text" : "password"}
-        className={"password-input"}
-      />
+      <input {...inputProps} type={visible ? "text" : "password"} className={"password-input"} />
     </div>
   );
 }
@@ -375,11 +390,7 @@ export function showConfirm(content: any) {
   });
 }
 
-function PromptInput(props: {
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-}) {
+function PromptInput(props: { value: string; onChange: (value: string) => void; rows?: number }) {
   const [input, setInput] = useState(props.value);
   const onInput = (value: string) => {
     props.onChange(value);
@@ -442,11 +453,7 @@ export function showPrompt(content: any, value = "", rows = 3) {
         ]}
         onClose={closeModal}
       >
-        <PromptInput
-          onChange={(val) => (userInput = val)}
-          value={value}
-          rows={rows}
-        ></PromptInput>
+        <PromptInput onChange={(val) => (userInput = val)} value={value} rows={rows}></PromptInput>
       </Modal>,
     );
   });

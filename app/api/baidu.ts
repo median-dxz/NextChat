@@ -1,10 +1,5 @@
 import { getServerSideConfig } from "@/app/config/server";
-import {
-  BAIDU_BASE_URL,
-  ApiPath,
-  ModelProvider,
-  ServiceProvider,
-} from "@/app/constant";
+import { BAIDU_BASE_URL, ApiPath, ModelProvider, ServiceProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
@@ -13,10 +8,7 @@ import { getAccessToken } from "@/app/utils/baidu";
 
 const serverConfig = getServerSideConfig();
 
-export async function handle(
-  req: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
+export async function handle(req: NextRequest, { params }: { params: { path: string[] } }) {
   console.log("[Baidu Route] params ", params);
 
   if (req.method === "OPTIONS") {
@@ -47,7 +39,7 @@ export async function handle(
     return response;
   } catch (e) {
     console.error("[Baidu] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }
 

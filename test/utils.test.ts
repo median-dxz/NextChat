@@ -1,14 +1,14 @@
+import type { Conversation } from "@/app/utils/conversation";
+
 import {
   trimTopic,
   semverCompare,
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
+  getMessageText,
   getMessageImages,
   isDalle3,
   getModelSizes,
   supportsCustomSize,
 } from "../app/utils";
-import { RequestMessage } from "../app/client/api";
 
 describe("trimTopic", () => {
   test("removes wrapping quotes and asterisks", () => {
@@ -46,69 +46,60 @@ describe("semverCompare", () => {
   });
 });
 
-describe("getMessageTextContent", () => {
+describe("getMessageText", () => {
   test("does not include structured reasoning in message content", () => {
     const msg = {
       role: "assistant",
       content: "final answer",
       reasoning: "private reasoning",
-    } as RequestMessage & { reasoning: string };
-    expect(getMessageTextContent(msg)).toBe("final answer");
+    } as Conversation.MessageInput & { reasoning: string };
+    expect(getMessageText(msg.content)).toBe("final answer");
   });
 
   test("returns plain string content as-is", () => {
-    const msg: RequestMessage = { role: "user", content: "hello" };
-    expect(getMessageTextContent(msg)).toBe("hello");
+    const msg: Conversation.MessageInput = { role: "user", content: "hello" };
+    expect(getMessageText(msg.content)).toBe("hello");
+  });
+
+  test("preserves markdown quotes and blank lines", () => {
+    const msg: Conversation.MessageInput = {
+      role: "assistant",
+      content: "> quoted text\n\nfinal answer",
+    };
+    expect(getMessageText(msg.content)).toBe("> quoted text\n\nfinal answer");
   });
 
   test("returns the first text part of multimodal content", () => {
-    const msg: RequestMessage = {
+    const msg: Conversation.MessageInput = {
       role: "user",
       content: [
         { type: "image_url", image_url: { url: "http://img" } },
         { type: "text", text: "a caption" },
       ],
     };
-    expect(getMessageTextContent(msg)).toBe("a caption");
+    expect(getMessageText(msg.content)).toBe("a caption");
   });
 
   test("returns empty string when there is no text part", () => {
-    const msg: RequestMessage = {
+    const msg: Conversation.MessageInput = {
       role: "user",
       content: [{ type: "image_url", image_url: { url: "http://img" } }],
     };
-    expect(getMessageTextContent(msg)).toBe("");
-  });
-});
-
-describe("getMessageTextContentWithoutThinking", () => {
-  test("drops thinking lines that start with '> '", () => {
-    const msg: RequestMessage = {
-      role: "assistant",
-      content: "> reasoning step\nfinal answer",
-    };
-    expect(getMessageTextContentWithoutThinking(msg)).toBe("final answer");
-  });
-
-  test("drops blank lines and trims the result", () => {
-    const msg: RequestMessage = {
-      role: "assistant",
-      content: "\n> thinking\n\nline one\nline two\n",
-    };
-    expect(getMessageTextContentWithoutThinking(msg)).toBe(
-      "line one\nline two",
-    );
+    expect(getMessageText(msg.content)).toBe("");
   });
 });
 
 describe("getMessageImages", () => {
   test("returns an empty array for string content", () => {
-    const msg: RequestMessage = { role: "user", content: "no images here" };
-    expect(getMessageImages(msg)).toEqual([]);
+    const msg: Conversation.MessageInput = {
+      role: "user",
+      content: "no images here",
+    };
+    expect(getMessageImages(msg.content)).toEqual([]);
   });
 
   test("collects all image urls from multimodal content", () => {
-    const msg: RequestMessage = {
+    const msg: Conversation.MessageInput = {
       role: "user",
       content: [
         { type: "image_url", image_url: { url: "http://a" } },
@@ -116,7 +107,7 @@ describe("getMessageImages", () => {
         { type: "image_url", image_url: { url: "http://b" } },
       ],
     };
-    expect(getMessageImages(msg)).toEqual(["http://a", "http://b"]);
+    expect(getMessageImages(msg.content)).toEqual(["http://a", "http://b"]);
   });
 });
 
@@ -130,11 +121,7 @@ describe("isDalle3", () => {
 
 describe("getModelSizes / supportsCustomSize", () => {
   test("returns dall-e-3 sizes", () => {
-    expect(getModelSizes("dall-e-3")).toEqual([
-      "1024x1024",
-      "1792x1024",
-      "1024x1792",
-    ]);
+    expect(getModelSizes("dall-e-3")).toEqual(["1024x1024", "1792x1024", "1024x1792"]);
     expect(supportsCustomSize("dall-e-3")).toBe(true);
   });
 

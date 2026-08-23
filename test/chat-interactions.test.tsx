@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import {
   act,
   cleanup,
@@ -7,6 +6,7 @@ import {
   renderHook,
   waitFor,
 } from "@testing-library/react";
+import { useMemo } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../app/store/prompt", () => ({
@@ -18,64 +18,248 @@ vi.mock("../app/components/markdown", () => ({
 }));
 
 import {
+  isMessageInStreamingTurn,
   PromptHints,
-  shouldShowMessageActions,
-  useInitialChatScrollState,
-  useScrollToBottom,
+  useEnsureAvailableModel,
+  useSyncGlobalModelConfig,
 } from "../app/components/chat";
+import { useAppConfig, useChatStore } from "../app/store";
+import {
+  getChatScrollUpdate,
+  useScrollToBottom,
+} from "../app/components/chat-scroll";
 import { ReasoningDisclosure } from "../app/components/reasoning";
+import { useAllModels } from "../app/utils/hooks";
 
 const originalScrollTo = HTMLElement.prototype.scrollTo;
+const originalChatState = useChatStore.getState();
+const originalConfigState = useAppConfig.getState();
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   HTMLElement.prototype.scrollTo = originalScrollTo;
   vi.restoreAllMocks();
+  useChatStore.setState({
+    sessions: structuredClone(originalChatState.sessions),
+    currentSessionIndex: originalChatState.currentSessionIndex,
+  });
+  useAppConfig.setState({
+    customModels: originalConfigState.customModels,
+    modelConfig: structuredClone(originalConfigState.modelConfig),
+  });
 });
 
 describe("chat interaction regressions", () => {
-  test("shows actions for a stopped reasoning-only assistant message", () => {
-    expect(
-      shouldShowMessageActions(
-        {
-          id: "assistant-1",
-          date: "",
-          role: "assistant",
-          content: "",
-          reasoning: "partial reasoning",
-          streaming: false,
-        },
-        1,
-        false,
-      ),
-    ).toBe(true);
+  test("does not write an already-current global model config", () => {
+    const config = useAppConfig.getState();
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = true;
+    session.mask.modelConfig = { ...config.modelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+    const updateSession = vi.spyOn(useChatStore.getState(), "updateSession");
+
+    renderHook(() => {
+      const currentChatStore = useChatStore();
+      const currentConfig = useAppConfig();
+      const currentSession = currentChatStore.currentSession();
+      useSyncGlobalModelConfig(
+        currentChatStore,
+        currentSession,
+        currentConfig.modelConfig,
+      );
+    });
+
+    expect(updateSession).not.toHaveBeenCalled();
   });
 
-  test("automatically expands when reasoning starts and collapses when final content starts", async () => {
-    const { container, rerender } = render(
+  test("settles on an available global model when sync is enabled", async () => {
+    const fallbackModel = "fallback-model";
+    const globalModelConfig = {
+      ...structuredClone(useAppConfig.getState().modelConfig),
+      model: "gpt-5",
+    };
+    // `-all` makes the persisted global model unavailable and reproduces the
+    // conflict between availability repair and session synchronization.
+    useAppConfig.setState({
+      customModels: `-all,+${fallbackModel}@OpenAI`,
+      modelConfig: globalModelConfig,
+    });
+
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = true;
+    session.mask.modelConfig = { ...globalModelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+
+    renderHook(() => {
+      const chatStore = useChatStore();
+      const config = useAppConfig();
+      const currentSession = chatStore.currentSession();
+      const allModels = useAllModels();
+      const availableModels = useMemo(
+        () => allModels.filter((model) => model.available),
+        [allModels],
+      );
+
+      useEnsureAvailableModel(
+        chatStore,
+        config,
+        currentSession,
+        availableModels,
+      );
+      useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
+    });
+
+    await waitFor(() => {
+      expect(useAppConfig.getState().modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
+      expect(useChatStore.getState().currentSession().mask.modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
+    });
+  });
+
+  test("repairs only the session model when global sync is disabled", async () => {
+    const fallbackModel = "fallback-model";
+    const globalModelConfig = {
+      ...structuredClone(useAppConfig.getState().modelConfig),
+      model: "gpt-5",
+    };
+    useAppConfig.setState({
+      customModels: `-all,+${fallbackModel}@OpenAI`,
+      modelConfig: globalModelConfig,
+    });
+
+    const session = structuredClone(useChatStore.getState().currentSession());
+    session.mask.syncGlobalConfig = false;
+    session.mask.modelConfig = { ...globalModelConfig };
+    useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+
+    renderHook(() => {
+      const chatStore = useChatStore();
+      const config = useAppConfig();
+      const currentSession = chatStore.currentSession();
+      const allModels = useAllModels();
+      const availableModels = useMemo(
+        () => allModels.filter((model) => model.available),
+        [allModels],
+      );
+
+      useEnsureAvailableModel(
+        chatStore,
+        config,
+        currentSession,
+        availableModels,
+      );
+      useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
+    });
+
+    await waitFor(() => {
+      expect(useChatStore.getState().currentSession().mask.modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
+    });
+    expect(useAppConfig.getState().modelConfig).toEqual(globalModelConfig);
+  });
+
+  test("locks both messages in a streaming turn", () => {
+    const messages = [
+      { id: "u1", date: "", role: "user" as const, content: "question" },
+      {
+        id: "a1",
+        date: "",
+        role: "assistant" as const,
+        content: "partial",
+        streaming: true,
+      },
+    ];
+
+    expect(isMessageInStreamingTurn(messages, 0)).toBe(true);
+    expect(isMessageInStreamingTurn(messages, 1)).toBe(true);
+  });
+
+  test("derives pagination and bottom state from one scroll snapshot", () => {
+    expect(
+      getChatScrollUpdate({
+        scrollTop: 20,
+        previousScrollTop: 40,
+        clientHeight: 1_000,
+        scrollHeight: 2_000,
+        isMobileScreen: false,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        pageDirection: -1,
+        isHitBottom: false,
+        isScrolledToBottom: false,
+      }),
+    );
+    expect(
+      getChatScrollUpdate({
+        scrollTop: 995,
+        previousScrollTop: 990,
+        clientHeight: 1_000,
+        scrollHeight: 2_000,
+        isMobileScreen: false,
+      }),
+    ).toEqual(
+      expect.objectContaining({ isHitBottom: true, isScrolledToBottom: false }),
+    );
+  });
+
+  test("follows the full reasoning disclosure lifecycle without overriding a manual close", async () => {
+    const { container, rerender, getByText } = render(
       <ReasoningDisclosure reasoning="" content="" />,
     );
 
     rerender(<ReasoningDisclosure reasoning="step one" content="" />);
     const details = container.querySelector("details");
     await waitFor(() => expect(details?.open).toBe(true));
+    expect(getByText("step one")).toBeTruthy();
+
+    if (!details) throw new Error("reasoning details was not rendered");
+    details.open = false;
+    fireEvent(details, new Event("toggle"));
+    rerender(<ReasoningDisclosure reasoning="step one\nstep two" content="" />);
+    await waitFor(() => expect(details.open).toBe(false));
 
     rerender(
       <ReasoningDisclosure
-        reasoning="step one"
+        reasoning="step one\nstep two"
         content="answer"
         reasoningDurationMs={65_000}
       />,
     );
+    expect(container.querySelector("summary")?.textContent).toBe(
+      "Thought for 1 min 05 sec",
+    );
+    expect(details.open).toBe(false);
 
-    await waitFor(() => expect(details?.open).toBe(false));
+    rerender(
+      <ReasoningDisclosure
+        reasoning="step one\nstep two"
+        content=""
+        streaming={false}
+        reasoningDurationMs={65_000}
+      />,
+    );
     expect(container.querySelector("summary")?.textContent).toBe(
       "Thought for 1 min 05 sec",
     );
   });
 
-  test("shows live reasoning time while the model is thinking", () => {
+  test("updates live reasoning time while the model is thinking", () => {
     vi.useFakeTimers();
     const { container } = render(
       <ReasoningDisclosure reasoning="step one" content="" streaming />,
@@ -88,97 +272,123 @@ describe("chat interaction regressions", () => {
     );
   });
 
-  test("uses the same completed label after a final answer or an interruption", () => {
-    const { container, rerender } = render(
-      <ReasoningDisclosure
-        reasoning="step one"
-        content="answer"
-        streaming
-        reasoningDurationMs={12_000}
-      />,
-    );
-    expect(container.querySelector("summary")?.textContent).toBe(
-      "Thought for 12 sec",
-    );
-
-    rerender(
-      <ReasoningDisclosure
-        reasoning="step one"
-        content=""
-        streaming={false}
-        reasoningDurationMs={12_000}
-      />,
-    );
-    expect(container.querySelector("summary")?.textContent).toBe(
-      "Thought for 12 sec",
-    );
-  });
-
-  test("does not override a user's manual toggle with later reasoning chunks", async () => {
-    const { container, rerender } = render(
-      <ReasoningDisclosure reasoning="step one" content="" />,
-    );
-    const details = container.querySelector("details");
-    expect(details?.open).toBe(true);
-
-    if (!details) throw new Error("reasoning details was not rendered");
-    details.open = false;
-    fireEvent(details, new Event("toggle"));
-    await waitFor(() => expect(details.open).toBe(false));
-
-    rerender(<ReasoningDisclosure reasoning="step one\nstep two" content="" />);
-
-    await waitFor(() => expect(details.open).toBe(false));
-  });
-
-  test("keeps a reasoning-only response visible after a fresh mount", () => {
-    const firstRender = render(
-      <ReasoningDisclosure reasoning="reasoning only" content="" />,
-    );
-    expect(firstRender.container.querySelector("details")?.open).toBe(true);
-    expect(firstRender.getByText("reasoning only")).toBeTruthy();
-
-    firstRender.unmount();
-    const refreshedRender = render(
-      <ReasoningDisclosure reasoning="reasoning only" content="" />,
-    );
-
-    expect(refreshedRender.container.querySelector("details")?.open).toBe(true);
-    expect(refreshedRender.getByText("reasoning only")).toBeTruthy();
-  });
-
-  test("starts detached from the unmeasured bottom state so mount can scroll", () => {
-    const { result } = renderHook(() => useInitialChatScrollState());
-
-    expect(result.current.isScrolledToBottom).toBe(false);
-    expect(result.current.isAttachWithTop).toBe(false);
-  });
-
-  test("scrolls the chat container to its measured bottom on mount", async () => {
+  test("coalesces bottom requests and cancels pending work on user scroll", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      nextFrame += 1;
+      frames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frame) => {
+      frames.delete(frame);
+    });
+    const runFrames = () => {
+      const callbacks = Array.from(frames.values());
+      frames.clear();
+      callbacks.forEach((callback) => callback(0));
+    };
     const scrollTo = vi.fn();
-    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
-      1200,
+    const element = document.createElement("div");
+    let scrollHeight = 1_200;
+    Object.defineProperty(element, "scrollHeight", {
+      get: () => scrollHeight,
+    });
+    element.scrollTo = scrollTo;
+    const { result } = renderHook(() => useScrollToBottom());
+    result.current.scrollRef.current = element;
+    act(runFrames);
+    scrollTo.mockClear();
+
+    act(() => result.current.requestBottom("send"));
+    act(() => result.current.requestBottom("button"));
+    scrollHeight = 1_450;
+    act(runFrames);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 1_450);
+
+    scrollTo.mockClear();
+    act(() => result.current.requestBottom("send"));
+    act(() => result.current.userScrollHandlers.onWheel());
+    act(runFrames);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  test("follows from mount through resize, detachment, and bottom recovery", () => {
+    vi.useFakeTimers();
+    let notifyResize = () => {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = () => callback([], this as unknown as ResizeObserver);
+        }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      },
     );
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0);
       return 1;
     });
 
-    function Harness() {
-      const scrollRef = useRef<HTMLDivElement>(null);
-      const { isScrolledToBottom, isAttachWithTop } =
-        useInitialChatScrollState();
-      useScrollToBottom(scrollRef, isScrolledToBottom || isAttachWithTop, []);
+    const scrollTo = vi.fn();
+    let scrollTop = 900;
+    let scrollHeight = 1_200;
+    let controls: ReturnType<typeof useScrollToBottom>;
 
-      return <div ref={scrollRef} />;
+    function Harness() {
+      controls = useScrollToBottom();
+      return (
+        <div
+          ref={(element) => {
+            if (!element) return;
+            Object.defineProperties(element, {
+              scrollTop: {
+                configurable: true,
+                get: () => scrollTop,
+                set: (value) => (scrollTop = value),
+              },
+              scrollHeight: {
+                configurable: true,
+                get: () => scrollHeight,
+              },
+              clientHeight: { configurable: true, value: 300 },
+            });
+            element.scrollTo = scrollTo;
+            controls.scrollRef.current = element;
+          }}
+          onWheel={controls.userScrollHandlers.onWheel}
+        >
+          <div ref={controls.contentRef} />
+        </div>
+      );
     }
 
-    HTMLElement.prototype.scrollTo = scrollTo;
-    render(<Harness />);
+    const view = render(<Harness />);
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_200);
 
-    await waitFor(() => {
-      expect(scrollTo).toHaveBeenCalledWith(0, 1200);
-    });
+    scrollTo.mockClear();
+    act(notifyResize);
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_200);
+
+    fireEvent.wheel(view.container.firstElementChild!);
+    scrollTop = 500;
+    act(() => controls.handleScroll());
+    act(() => vi.advanceTimersByTime(120));
+    scrollTo.mockClear();
+    scrollHeight = 1_300;
+    act(notifyResize);
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    scrollTop = 1_000;
+    act(() => controls.userScrollHandlers.onWheel());
+    act(() => controls.handleScroll());
+    act(() => vi.advanceTimersByTime(120));
+    scrollHeight = 1_400;
+    act(notifyResize);
+    expect(scrollTo).toHaveBeenCalledWith(0, 1_400);
   });
 
   test("resets prompt selection when the result set changes", () => {

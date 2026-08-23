@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const es: PartialLocaleType = {
-  WIP: "En construcción...",
   Error: {
     Unauthorized: isApp
       ? `😆 La conversación encontró algunos problemas, no te preocupes:
@@ -23,10 +22,8 @@ const es: PartialLocaleType = {
     SubTips: "O ingresa tu clave API de OpenAI o Google",
     Input: "Introduce el código de acceso aquí",
     Confirm: "Confirmar",
-    Later: "Más tarde",
     Return: "Regresar",
-    SaasTips:
-      "La configuración es demasiado complicada, quiero usarlo de inmediato",
+    SaasTips: "La configuración es demasiado complicada, quiero usarlo de inmediato",
     TopTips:
       "🥳 Oferta de lanzamiento de NextChat AI, desbloquea OpenAI o1, GPT-4o, Claude-3.5 y los últimos grandes modelos",
   },
@@ -44,14 +41,11 @@ const es: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Ver lista de mensajes",
-      CompressedHistory: "Ver historial de Prompts comprimidos",
       Export: "Exportar historial de chat",
       Copy: "Copiar",
       Stop: "Detener",
       Retry: "Reintentar",
-      Pin: "Fijar",
-      PinToastContent:
-        "Se ha fijado 1 conversación a los prompts predeterminados",
+      PinToastContent: "Se ha fijado 1 conversación a los prompts predeterminados",
       PinToastAction: "Ver",
       Delete: "Eliminar",
       Edit: "Editar",
@@ -63,7 +57,6 @@ const es: PartialLocaleType = {
       newm: "Nueva conversación desde la máscara",
       next: "Siguiente conversación",
       prev: "Conversación anterior",
-      clear: "Limpiar contexto",
       del: "Eliminar conversación",
     },
     InputActions: {
@@ -76,24 +69,19 @@ const es: PartialLocaleType = {
       },
       Prompt: "Comandos rápidos",
       Masks: "Todas las máscaras",
-      Clear: "Limpiar chat",
       Settings: "Configuración de conversación",
       UploadImage: "Subir imagen",
     },
-    Rename: "Renombrar conversación",
     Typing: "Escribiendo…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} para enviar`;
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += "，Shift + Enter para nueva línea";
       }
-      return (
-        inputHints + "，/ para activar autocompletado，: para activar comandos"
-      );
+      return inputHints + "，/ para activar autocompletado，: para activar comandos";
     },
     Send: "Enviar",
     Config: {
-      Reset: "Borrar memoria",
       SaveAs: "Guardar como máscara",
     },
     IsContext: "Prompt predeterminado",
@@ -129,12 +117,7 @@ const es: PartialLocaleType = {
   },
   Memory: {
     Title: "Resumen histórico",
-    EmptyContent:
-      "El contenido de la conversación es demasiado corto para resumir",
     Send: "Comprimir automáticamente el historial de chat y enviarlo como contexto",
-    Copy: "Copiar resumen",
-    Reset: "[no usado]",
-    ResetConfirm: "¿Confirmar para borrar el resumen histórico?",
   },
   Home: {
     NewChat: "Nueva conversación",
@@ -149,8 +132,7 @@ const es: PartialLocaleType = {
     Danger: {
       Reset: {
         Title: "Restablecer todas las configuraciones",
-        SubTitle:
-          "Restablecer todas las configuraciones a los valores predeterminados",
+        SubTitle: "Restablecer todas las configuraciones a los valores predeterminados",
         Action: "Restablecer ahora",
         Confirm: "¿Confirmar el restablecimiento de todas las configuraciones?",
       },
@@ -158,8 +140,7 @@ const es: PartialLocaleType = {
         Title: "Eliminar todos los datos",
         SubTitle: "Eliminar todos los chats y datos de configuración",
         Action: "Eliminar ahora",
-        Confirm:
-          "¿Confirmar la eliminación de todos los chats y datos de configuración?",
+        Confirm: "¿Confirmar la eliminación de todos los chats y datos de configuración?",
       },
     },
     Lang: {
@@ -197,11 +178,9 @@ const es: PartialLocaleType = {
     },
     SendKey: "Tecla de enviar",
     Theme: "Tema",
-    TightBorder: "Modo sin borde",
     SendPreviewBubble: {
       Title: "Vista previa del globo",
-      SubTitle:
-        "Previsualiza el contenido Markdown en un globo de vista previa",
+      SubTitle: "Previsualiza el contenido Markdown en un globo de vista previa",
     },
     AutoGenerateTitle: {
       Title: "Generar título automáticamente",
@@ -254,20 +233,17 @@ const es: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Pantalla de inicio de máscara",
-        SubTitle:
-          "Mostrar la pantalla de inicio de la máscara al iniciar un nuevo chat",
+        SubTitle: "Mostrar la pantalla de inicio de la máscara al iniciar un nuevo chat",
       },
       Builtin: {
         Title: "Ocultar máscaras integradas",
-        SubTitle:
-          "Ocultar las máscaras integradas en todas las listas de máscaras",
+        SubTitle: "Ocultar las máscaras integradas en todas las listas de máscaras",
       },
     },
     Prompt: {
       Disable: {
         Title: "Deshabilitar autocompletado de prompts",
-        SubTitle:
-          "Escribe / al principio del campo de entrada para activar el autocompletado",
+        SubTitle: "Escribe / al principio del campo de entrada para activar el autocompletado",
       },
       List: "Lista de prompts personalizados",
       ListCount: (builtin: number, custom: number) =>
@@ -299,8 +275,7 @@ const es: PartialLocaleType = {
       },
       IsChecking: "Verificando…",
       Check: "Revisar de nuevo",
-      NoAccess:
-        "Introduce la clave API o la contraseña de acceso para ver el saldo",
+      NoAccess: "Introduce la clave API o la contraseña de acceso para ver el saldo",
     },
 
     Access: {
@@ -335,8 +310,7 @@ const es: PartialLocaleType = {
 
         Endpoint: {
           Title: "Dirección del endpoint",
-          SubTitle:
-            "Debe incluir http(s):// además de la dirección predeterminada",
+          SubTitle: "Debe incluir http(s):// además de la dirección predeterminada",
         },
       },
       Azure: {
@@ -409,8 +383,7 @@ const es: PartialLocaleType = {
         },
         Endpoint: {
           Title: "Dirección del endpoint",
-          SubTitle:
-            "No admite personalización, dirígete a .env para configurarlo",
+          SubTitle: "No admite personalización, dirígete a .env para configurarlo",
         },
       },
       ByteDance: {
@@ -448,8 +421,7 @@ const es: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Nombre del modelo personalizado",
-        SubTitle:
-          "Agrega opciones de modelos personalizados, separados por comas",
+        SubTitle: "Agrega opciones de modelos personalizados, separados por comas",
       },
     },
 
@@ -472,22 +444,17 @@ const es: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Novedad de temas (presence_penalty)",
-      SubTitle:
-        "Cuanto mayor sea el valor, más probable es que se amplíen a nuevos temas",
+      SubTitle: "Cuanto mayor sea el valor, más probable es que se amplíen a nuevos temas",
     },
     FrequencyPenalty: {
       Title: "Penalización de frecuencia (frequency_penalty)",
-      SubTitle:
-        "Cuanto mayor sea el valor, más probable es que se reduzcan las palabras repetidas",
+      SubTitle: "Cuanto mayor sea el valor, más probable es que se reduzcan las palabras repetidas",
     },
   },
   Store: {
     DefaultTopic: "Nuevo chat",
     BotHello: "¿En qué puedo ayudarte?",
-    Error: "Hubo un error, inténtalo de nuevo más tarde",
     Prompt: {
-      History: (content: string) =>
-        "Este es un resumen del chat histórico como referencia: " + content,
       Topic:
         "Devuelve un tema breve de esta frase en cuatro a cinco palabras, sin explicación, sin puntuación, sin muletillas, sin texto adicional, sin negritas. Si no hay tema, devuelve 'charlas casuales'",
       Summarize:
@@ -506,8 +473,6 @@ const es: PartialLocaleType = {
     Toast: (x: any) => `Contiene ${x} prompts predefinidos`,
     Edit: "Configuración del chat actual",
     Add: "Agregar una conversación",
-    Clear: "Contexto borrado",
-    Revert: "Restaurar contexto",
   },
   Plugin: {
     Name: "Complemento",
@@ -516,13 +481,9 @@ const es: PartialLocaleType = {
     Sysmessage: "Eres un asistente",
   },
   SearchChat: {
-    Name: "Buscar",
     Page: {
       Title: "Buscar en el historial de chat",
       Search: "Ingrese la palabra clave de búsqueda",
-      NoResult: "No se encontraron resultados",
-      NoData: "Sin datos",
-      Loading: "Cargando",
 
       SubTitle: (count: number) => `Se encontraron ${count} resultados`,
     },
@@ -557,15 +518,13 @@ const es: PartialLocaleType = {
       Name: "Nombre del rol",
       Sync: {
         Title: "Usar configuración global",
-        SubTitle:
-          "¿Usar la configuración global del modelo para la conversación actual?",
+        SubTitle: "¿Usar la configuración global del modelo para la conversación actual?",
         Confirm:
           "La configuración personalizada de la conversación actual se sobrescribirá automáticamente, ¿confirmar habilitar la configuración global?",
       },
       HideContext: {
         Title: "Ocultar conversaciones predefinidas",
-        SubTitle:
-          "Las conversaciones predefinidas ocultas no aparecerán en la interfaz de chat",
+        SubTitle: "Las conversaciones predefinidas ocultas no aparecerán en la interfaz de chat",
       },
       Share: {
         Title: "Compartir esta máscara",
@@ -587,16 +546,13 @@ const es: PartialLocaleType = {
 
   URLCommand: {
     Code: "Detectado un código de acceso en el enlace, ¿deseas autocompletarlo?",
-    Settings:
-      "Detectada configuración predefinida en el enlace, ¿deseas autocompletarla?",
+    Settings: "Detectada configuración predefinida en el enlace, ¿deseas autocompletarla?",
   },
 
   UI: {
     Confirm: "Confirmar",
     Cancel: "Cancelar",
     Close: "Cerrar",
-    Create: "Crear",
-    Edit: "Editar",
     Export: "Exportar",
     Import: "Importar",
     Sync: "Sincronizar",

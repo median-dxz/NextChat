@@ -1,61 +1,40 @@
-import { IconButton } from "./button";
-import { ErrorBoundary } from "./error";
-
-import styles from "./mask.module.scss";
-
-import DownloadIcon from "../icons/download.svg";
-import UploadIcon from "../icons/upload.svg";
-import EditIcon from "../icons/edit.svg";
-import AddIcon from "../icons/add.svg";
-import CloseIcon from "../icons/close.svg";
-import DeleteIcon from "../icons/delete.svg";
-import EyeIcon from "../icons/eye.svg";
-import CopyIcon from "../icons/copy.svg";
-import DragIcon from "../icons/drag.svg";
-
-import { DEFAULT_MASK_AVATAR, Mask, useMaskStore } from "../store/mask";
-import {
-  ChatMessage,
-  createMessage,
-  ModelConfig,
-  ModelType,
-  useAppConfig,
-  useChatStore,
-} from "../store";
-import { MultimodalContent, ROLES } from "../client/api";
-import {
-  Input,
-  List,
-  ListItem,
-  Modal,
-  Popover,
-  Select,
-  showConfirm,
-} from "./ui-lib";
-import { Avatar, AvatarPicker } from "./emoji";
-import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
+import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
+import clsx from "clsx";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import chatStyle from "./chat.module.scss";
-import { useState } from "react";
+import { Conversation } from "@/app/utils/conversation";
+
+import { MultimodalContent } from "../client/api";
+import { FileName, Path } from "../constant";
+import AddIcon from "../icons/add.svg";
+import CloseIcon from "../icons/close.svg";
+import CopyIcon from "../icons/copy.svg";
+import DeleteIcon from "../icons/delete.svg";
+import DownloadIcon from "../icons/download.svg";
+import DragIcon from "../icons/drag.svg";
+import EditIcon from "../icons/edit.svg";
+import EyeIcon from "../icons/eye.svg";
+import UploadIcon from "../icons/upload.svg";
+import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
+import { BUILTIN_MASK_STORE } from "../masks";
+import { ModelConfig, ModelType, useAppConfig, useChatStore } from "../store";
+import { DEFAULT_MASK_AVATAR, Mask, useMaskStore } from "../store/mask";
+import { Updater } from "../typing";
 import {
   copyToClipboard,
   downloadAs,
   getMessageImages,
+  getMessageText,
   readFromFile,
 } from "../utils";
-import { Updater } from "../typing";
+import { IconButton } from "./button";
+import chatStyle from "./chat.module.scss";
+import { Avatar, AvatarPicker } from "./emoji";
+import { ErrorBoundary } from "./error";
+import styles from "./mask.module.scss";
 import { ModelConfigList } from "./model-config";
-import { FileName, Path } from "../constant";
-import { BUILTIN_MASK_STORE } from "../masks";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  OnDragEndResponder,
-} from "@hello-pangea/dnd";
-import { getMessageTextContent } from "../utils";
-import clsx from "clsx";
+import { Input, List, ListItem, Modal, Popover, Select, showConfirm } from "./ui-lib";
 
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -76,7 +55,6 @@ export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
-  extraListItems?: React.ReactElement;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {
@@ -103,14 +81,19 @@ export function MaskConfig(props: {
 
   return (
     <>
-      <ContextPrompts
-        context={props.mask.context}
-        updateContext={(updater) => {
-          const context = props.mask.context.slice();
-          updater(context);
-          props.updateMask((mask) => (mask.context = context));
-        }}
-      />
+      <section aria-labelledby="preset-context-title">
+        <h3 id="preset-context-title" className={chatStyle["section-title"]}>
+          {Locale.Context.PresetTitle}
+        </h3>
+        <ContextPrompts
+          context={props.mask.context}
+          updateContext={(updater) => {
+            const context = props.mask.context.slice();
+            updater(context);
+            props.updateMask((mask) => (mask.context = context));
+          }}
+        />
+      </section>
 
       <List>
         <ListItem title={Locale.Mask.Config.Avatar}>
@@ -132,10 +115,7 @@ export function MaskConfig(props: {
               onClick={() => setShowPicker(true)}
               style={{ cursor: "pointer" }}
             >
-              <MaskAvatar
-                avatar={props.mask.avatar}
-                model={props.mask.modelConfig.model}
-              />
+              <MaskAvatar avatar={props.mask.avatar} model={props.mask.modelConfig.model} />
             </div>
           </Popover>
         </ListItem>
@@ -227,10 +207,7 @@ export function MaskConfig(props: {
               checked={props.mask.syncGlobalConfig}
               onChange={async (e) => {
                 const checked = e.currentTarget.checked;
-                if (
-                  checked &&
-                  (await showConfirm(Locale.Mask.Config.Sync.Confirm))
-                ) {
+                if (checked && (await showConfirm(Locale.Mask.Config.Sync.Confirm))) {
                   props.updateMask((mask) => {
                     mask.syncGlobalConfig = checked;
                     mask.modelConfig = { ...globalConfig.modelConfig };
@@ -247,11 +224,7 @@ export function MaskConfig(props: {
       </List>
 
       <List>
-        <ModelConfigList
-          modelConfig={{ ...props.mask.modelConfig }}
-          updateConfig={updateConfig}
-        />
-        {props.extraListItems}
+        <ModelConfigList modelConfig={{ ...props.mask.modelConfig }} updateConfig={updateConfig} />
       </List>
     </>
   );
@@ -259,8 +232,8 @@ export function MaskConfig(props: {
 
 function ContextPromptItem(props: {
   index: number;
-  prompt: ChatMessage;
-  update: (prompt: ChatMessage) => void;
+  prompt: Conversation.Message;
+  update: (prompt: Conversation.Message) => void;
   remove: () => void;
 }) {
   const [focusingInput, setFocusingInput] = useState(false);
@@ -282,7 +255,7 @@ function ContextPromptItem(props: {
               })
             }
           >
-            {ROLES.map((r) => (
+            {Conversation.roles.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -291,7 +264,7 @@ function ContextPromptItem(props: {
         </>
       )}
       <Input
-        value={getMessageTextContent(props.prompt)}
+        value={getMessageText(props.prompt.content)}
         type="text"
         className={chatStyle["context-content"]}
         rows={focusingInput ? 5 : 1}
@@ -322,12 +295,12 @@ function ContextPromptItem(props: {
 }
 
 export function ContextPrompts(props: {
-  context: ChatMessage[];
-  updateContext: (updater: (context: ChatMessage[]) => void) => void;
+  context: Conversation.Message[];
+  updateContext: (updater: (context: Conversation.Message[]) => void) => void;
 }) {
   const context = props.context;
 
-  const addContextPrompt = (prompt: ChatMessage, i: number) => {
+  const addContextPrompt = (prompt: Conversation.Message, i: number) => {
     props.updateContext((context) => context.splice(i, 0, prompt));
   };
 
@@ -335,12 +308,12 @@ export function ContextPrompts(props: {
     props.updateContext((context) => context.splice(i, 1));
   };
 
-  const updateContextPrompt = (i: number, prompt: ChatMessage) => {
+  const updateContextPrompt = (i: number, prompt: Conversation.Message) => {
     props.updateContext((context) => {
-      const images = getMessageImages(context[i]);
+      const images = getMessageImages(context[i].content);
       context[i] = prompt;
       if (images.length > 0) {
-        const text = getMessageTextContent(context[i]);
+        const text = getMessageText(context[i].content);
         const newContext: MultimodalContent[] = [{ type: "text", text }];
         for (const img of images) {
           newContext.push({ type: "image_url", image_url: { url: img } });
@@ -354,11 +327,7 @@ export function ContextPrompts(props: {
     if (!result.destination) {
       return;
     }
-    const newContext = reorder(
-      context,
-      result.source.index,
-      result.destination.index,
-    );
+    const newContext = reorder(context, result.source.index, result.destination.index);
     props.updateContext((context) => {
       context.splice(0, context.length, ...newContext);
     });
@@ -372,11 +341,7 @@ export function ContextPrompts(props: {
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps}>
                 {context.map((c, i) => (
-                  <Draggable
-                    draggableId={c.id || i.toString()}
-                    index={i}
-                    key={c.id}
-                  >
+                  <Draggable draggableId={c.id || i.toString()} index={i} key={c.id}>
                     {(provided) => (
                       <div
                         ref={provided.innerRef}
@@ -393,7 +358,7 @@ export function ContextPrompts(props: {
                           className={chatStyle["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
-                              createMessage({
+                              Conversation.createMessage({
                                 role: "user",
                                 content: "",
                                 date: new Date().toLocaleString(),
@@ -423,7 +388,7 @@ export function ContextPrompts(props: {
               className={chatStyle["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
-                  createMessage({
+                  Conversation.createMessage({
                     role: "user",
                     content: "",
                     date: "",
@@ -447,9 +412,7 @@ export function MaskPage() {
 
   const filterLang = maskStore.language;
 
-  const allMasks = maskStore
-    .getAll()
-    .filter((m) => !filterLang || m.lang === filterLang);
+  const allMasks = maskStore.getAll().filter((m) => !filterLang || m.lang === filterLang);
 
   const [searchMasks, setSearchMasks] = useState<Mask[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -459,9 +422,7 @@ export function MaskPage() {
   const onSearch = (text: string) => {
     setSearchText(text);
     if (text.length > 0) {
-      const result = allMasks.filter((m) =>
-        m.name.toLowerCase().includes(text.toLowerCase()),
-      );
+      const result = allMasks.filter((m) => m.name.toLowerCase().includes(text.toLowerCase()));
       setSearchMasks(result);
     } else {
       setSearchMasks(allMasks);
@@ -469,8 +430,7 @@ export function MaskPage() {
   };
 
   const [editingMaskId, setEditingMaskId] = useState<string | undefined>();
-  const editingMask =
-    maskStore.get(editingMaskId) ?? BUILTIN_MASK_STORE.get(editingMaskId);
+  const editingMask = maskStore.get(editingMaskId) ?? BUILTIN_MASK_STORE.get(editingMaskId);
   const closeMaskModal = () => setEditingMaskId(undefined);
 
   const downloadAll = () => {
@@ -502,9 +462,7 @@ export function MaskPage() {
       <div className={styles["mask-page"]}>
         <div className="window-header">
           <div className="window-header-title">
-            <div className="window-header-main-title">
-              {Locale.Mask.Page.Title}
-            </div>
+            <div className="window-header-main-title">{Locale.Mask.Page.Title}</div>
             <div className="window-header-submai-title">
               {Locale.Mask.Page.SubTitle(allMasks.length)}
             </div>
@@ -528,11 +486,7 @@ export function MaskPage() {
               />
             </div>
             <div className="window-action-button">
-              <IconButton
-                icon={<CloseIcon />}
-                bordered
-                onClick={() => navigate(-1)}
-              />
+              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -647,12 +601,7 @@ export function MaskPage() {
                 text={Locale.Mask.EditModal.Download}
                 key="export"
                 bordered
-                onClick={() =>
-                  downloadAs(
-                    JSON.stringify(editingMask),
-                    `${editingMask.name}.json`,
-                  )
-                }
+                onClick={() => downloadAs(JSON.stringify(editingMask), `${editingMask.name}.json`)}
               />,
               <IconButton
                 key="copy"
@@ -669,9 +618,7 @@ export function MaskPage() {
           >
             <MaskConfig
               mask={editingMask}
-              updateMask={(updater) =>
-                maskStore.updateMask(editingMaskId!, updater)
-              }
+              updateMask={(updater) => maskStore.updateMask(editingMaskId!, updater)}
               readonly={editingMask.builtin}
             />
           </Modal>

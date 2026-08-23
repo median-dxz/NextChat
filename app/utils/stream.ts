@@ -24,12 +24,7 @@ type StreamResponse = {
 
 export function fetch(url: string, options?: RequestInit): Promise<Response> {
   if (window.__TAURI__) {
-    const {
-      signal,
-      method = "GET",
-      headers: _headers = {},
-      body = [],
-    } = options || {};
+    const { signal, method = "GET", headers: _headers = {}, body = [] } = options || {};
     let unlisten: Function | undefined;
     let setRequestId: Function | undefined;
     const requestIdPromise = new Promise((resolve) => (setRequestId = resolve));
@@ -80,10 +75,7 @@ export function fetch(url: string, options?: RequestInit): Promise<Response> {
       url,
       headers,
       // TODO FormData
-      body:
-        typeof body === "string"
-          ? Array.from(new TextEncoder().encode(body))
-          : [],
+      body: typeof body === "string" ? Array.from(new TextEncoder().encode(body)) : [],
     })
       .then((res) => {
         const { request_id, status, status_text: statusText, headers } = res;

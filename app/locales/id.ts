@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const id: PartialLocaleType = {
-  WIP: "Coming Soon...",
   Error: {
     Unauthorized: isApp
       ? `😆 Percakapan mengalami beberapa masalah, tidak perlu khawatir:
@@ -23,7 +22,6 @@ const id: PartialLocaleType = {
     SubTips: "Atau masukkan kunci API OpenAI atau Google Anda",
     Input: "Masukkan kode akses di sini",
     Confirm: "Konfirmasi",
-    Later: "Nanti",
     Return: "Kembali",
     SaasTips: "Konfigurasi terlalu rumit, saya ingin menggunakannya segera",
     TopTips:
@@ -43,12 +41,10 @@ const id: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Lihat daftar pesan",
-      CompressedHistory: "Lihat riwayat Prompt yang dikompresi",
       Export: "Ekspor riwayat obrolan",
       Copy: "Salin",
       Stop: "Berhenti",
       Retry: "Coba lagi",
-      Pin: "Sematkan",
       PinToastContent: "1 percakapan telah disematkan ke prompt default",
       PinToastAction: "Lihat",
       Delete: "Hapus",
@@ -61,7 +57,6 @@ const id: PartialLocaleType = {
       newm: "Buat Obrolan Baru dari Masker",
       next: "Obrolan Berikutnya",
       prev: "Obrolan Sebelumnya",
-      clear: "Hapus Konteks",
       del: "Hapus Obrolan",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const id: PartialLocaleType = {
       },
       Prompt: "Perintah Cepat",
       Masks: "Semua Masker",
-      Clear: "Hapus Obrolan",
       Settings: "Pengaturan Obrolan",
       UploadImage: "Unggah Gambar",
     },
-    Rename: "Ganti Nama Obrolan",
     Typing: "Sedang Mengetik…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} kirim`;
@@ -89,7 +82,6 @@ const id: PartialLocaleType = {
     },
     Send: "Kirim",
     Config: {
-      Reset: "Hapus Memori",
       SaveAs: "Simpan sebagai Masker",
     },
     IsContext: "Prompt Default",
@@ -125,11 +117,7 @@ const id: PartialLocaleType = {
   },
   Memory: {
     Title: "Ringkasan Sejarah",
-    EmptyContent: "Isi percakapan terlalu pendek, tidak perlu dirangkum",
     Send: "Otomatis kompres riwayat obrolan dan kirim sebagai konteks",
-    Copy: "Salin Ringkasan",
-    Reset: "[unused]",
-    ResetConfirm: "Konfirmasi untuk menghapus ringkasan sejarah?",
   },
   Home: {
     NewChat: "Obrolan Baru",
@@ -152,8 +140,7 @@ const id: PartialLocaleType = {
         Title: "Hapus Semua Data",
         SubTitle: "Hapus semua data obrolan dan pengaturan",
         Action: "Hapus Sekarang",
-        Confirm:
-          "Konfirmasi untuk menghapus semua data obrolan dan pengaturan?",
+        Confirm: "Konfirmasi untuk menghapus semua data obrolan dan pengaturan?",
       },
     },
     Lang: {
@@ -167,8 +154,7 @@ const id: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Font Obrolan",
-      SubTitle:
-        "Font dari konten obrolan, biarkan kosong untuk menerapkan font default global",
+      SubTitle: "Font dari konten obrolan, biarkan kosong untuk menerapkan font default global",
       Placeholder: "Nama Font",
     },
     InjectSystemPrompts: {
@@ -191,7 +177,6 @@ const id: PartialLocaleType = {
     },
     SendKey: "Kunci Kirim",
     Theme: "Tema",
-    TightBorder: "Mode Tanpa Border",
     SendPreviewBubble: {
       Title: "Preview Bubble",
       SubTitle: "Pratinjau konten Markdown di bubble pratinjau",
@@ -257,8 +242,7 @@ const id: PartialLocaleType = {
     Prompt: {
       Disable: {
         Title: "Nonaktifkan Pelengkapan Prompt Otomatis",
-        SubTitle:
-          "Ketik / di awal kotak input untuk memicu pelengkapan otomatis",
+        SubTitle: "Ketik / di awal kotak input untuk memicu pelengkapan otomatis",
       },
       List: "Daftar Prompt Kustom",
       ListCount: (builtin: number, custom: number) =>
@@ -279,8 +263,7 @@ const id: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Ambang Batas Kompresi Pesan Sejarah",
-      SubTitle:
-        "Ketika pesan sejarah yang tidak terkompresi melebihi nilai ini, akan dikompresi",
+      SubTitle: "Ketika pesan sejarah yang tidak terkompresi melebihi nilai ini, akan dikompresi",
     },
 
     Usage: {
@@ -318,8 +301,7 @@ const id: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API Key",
-          SubTitle:
-            "Gunakan OpenAI Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan OpenAI Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "OpenAI API Key",
         },
 
@@ -331,8 +313,7 @@ const id: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "Kunci Antarmuka",
-          SubTitle:
-            "Gunakan Azure Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan Azure Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "Azure API Key",
         },
 
@@ -349,8 +330,7 @@ const id: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "Kunci Antarmuka",
-          SubTitle:
-            "Gunakan Anthropic Key kustom untuk menghindari batasan akses kata sandi",
+          SubTitle: "Gunakan Anthropic Key kustom untuk menghindari batasan akses kata sandi",
           Placeholder: "Anthropic API Key",
         },
 
@@ -451,8 +431,7 @@ const id: PartialLocaleType = {
     },
     TopP: {
       Title: "Sampling Inti (top_p)",
-      SubTitle:
-        "Mirip dengan randomness, tetapi jangan ubah bersama randomness",
+      SubTitle: "Mirip dengan randomness, tetapi jangan ubah bersama randomness",
     },
     MaxTokens: {
       Title: "Batas Token Per Respons",
@@ -460,8 +439,7 @@ const id: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Kedekatan Topik (presence_penalty)",
-      SubTitle:
-        "Semakin tinggi nilainya, semakin besar kemungkinan memperluas ke topik baru",
+      SubTitle: "Semakin tinggi nilainya, semakin besar kemungkinan memperluas ke topik baru",
     },
     FrequencyPenalty: {
       Title: "Hukuman Frekuensi (frequency_penalty)",
@@ -472,11 +450,7 @@ const id: PartialLocaleType = {
   Store: {
     DefaultTopic: "Obrolan Baru",
     BotHello: "Ada yang bisa saya bantu?",
-    Error: "Terjadi kesalahan, coba lagi nanti",
     Prompt: {
-      History: (content: string) =>
-        "Ini adalah ringkasan obrolan sebelumnya sebagai latar belakang: " +
-        content,
       Topic:
         "Gunakan empat hingga lima kata untuk langsung memberikan ringkasan topik kalimat ini, tanpa penjelasan, tanpa tanda baca, tanpa kata pengisi, tanpa teks tambahan, tanpa menebalkan. Jika tidak ada topik, langsung jawab 'Obrolan Santai'",
       Summarize:
@@ -495,8 +469,6 @@ const id: PartialLocaleType = {
     Toast: (x: any) => `Berisi ${x} prompt preset`,
     Edit: "Pengaturan Obrolan Saat Ini",
     Add: "Tambah Obrolan",
-    Clear: "Konteks telah dihapus",
-    Revert: "Kembalikan Konteks",
   },
   Plugin: {
     Name: "Plugin",
@@ -505,13 +477,9 @@ const id: PartialLocaleType = {
     Sysmessage: "Anda adalah seorang asisten",
   },
   SearchChat: {
-    Name: "Cari",
     Page: {
       Title: "Cari riwayat obrolan",
       Search: "Masukkan kata kunci pencarian",
-      NoResult: "Tidak ada hasil ditemukan",
-      NoData: "Tidak ada data",
-      Loading: "Memuat",
 
       SubTitle: (count: number) => `Ditemukan ${count} hasil`,
     },
@@ -536,8 +504,7 @@ const id: PartialLocaleType = {
       DeleteConfirm: "Konfirmasi penghapusan?",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `Edit Masker Preset ${readonly ? "(Hanya Baca)" : ""}`,
+      Title: (readonly: boolean) => `Edit Masker Preset ${readonly ? "(Hanya Baca)" : ""}`,
       Download: "Unduh Preset",
       Clone: "Klon Preset",
     },
@@ -546,15 +513,13 @@ const id: PartialLocaleType = {
       Name: "Nama Karakter",
       Sync: {
         Title: "Gunakan Pengaturan Global",
-        SubTitle:
-          "Apakah obrolan saat ini akan menggunakan pengaturan model global?",
+        SubTitle: "Apakah obrolan saat ini akan menggunakan pengaturan model global?",
         Confirm:
           "Pengaturan kustom obrolan saat ini akan ditimpa secara otomatis, konfirmasi untuk mengaktifkan pengaturan global?",
       },
       HideContext: {
         Title: "Sembunyikan Obrolan Preset",
-        SubTitle:
-          "Setelah disembunyikan, obrolan preset tidak akan muncul di antarmuka obrolan",
+        SubTitle: "Setelah disembunyikan, obrolan preset tidak akan muncul di antarmuka obrolan",
       },
       Share: {
         Title: "Bagikan Masker Ini",
@@ -584,8 +549,6 @@ const id: PartialLocaleType = {
     Confirm: "Konfirmasi",
     Cancel: "Batal",
     Close: "Tutup",
-    Create: "Buat Baru",
-    Edit: "Edit",
     Export: "Ekspor",
     Import: "Impor",
     Sync: "Sinkronkan",

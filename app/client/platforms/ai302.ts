@@ -1,36 +1,17 @@
 "use client";
 
-import {
-  ApiPath,
-  AI302_BASE_URL,
-  DEFAULT_MODELS,
-  AI302,
-} from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
-import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { AI302, AI302_BASE_URL, ApiPath, DEFAULT_MODELS, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel, isVisionModel } from "@/app/utils";
+import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
+import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import { RequestPayload } from "./openai";
 
-import { fetch } from "@/app/utils/stream";
 export interface Ai302ListModelResponse {
   object: string;
   data: Array<{
@@ -40,7 +21,8 @@ export interface Ai302ListModelResponse {
   }>;
 }
 
-export class Ai302Api implements LLMApi {
+export class Ai302Api extends LLMApi {
+  readonly providerName = ServiceProvider["302.AI"];
   private disableListModels = false;
 
   path(path: string): string {
@@ -61,10 +43,7 @@ export class Ai302Api implements LLMApi {
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (
-      !baseUrl.startsWith("http") &&
-      !baseUrl.startsWith(ApiPath["302.AI"])
-    ) {
+    if (!baseUrl.startsWith("http") && !baseUrl.startsWith(ApiPath["302.AI"])) {
       baseUrl = "https://" + baseUrl;
     }
 
@@ -83,27 +62,21 @@ export class Ai302Api implements LLMApi {
 
   async chat(options: ChatOptions) {
     const visionModel = isVisionModel(options.config.model);
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
+      const role = v.role;
       if (v.role === "assistant") {
-        const content = getMessageTextContentWithoutThinking(v);
-        messages.push({ role: v.role, content });
+        const content = getMessageText(v.content);
+        messages.push({ role, content });
       } else {
         const content = visionModel
           ? await preProcessImageContent(v.content)
-          : getMessageTextContent(v);
-        messages.push({ role: v.role, content });
+          : getMessageText(v.content);
+        messages.push({ role, content });
       }
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -129,7 +102,7 @@ export class Ai302Api implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // console.log(chatPayload);
@@ -141,26 +114,23 @@ export class Ai302Api implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -187,10 +157,7 @@ export class Ai302Api implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -215,11 +182,7 @@ export class Ai302Api implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore
@@ -259,7 +222,7 @@ export class Ai302Api implements LLMApi {
     const res = await fetch(this.path(AI302.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(),
+        ...this.getHeaders(),
       },
     });
 

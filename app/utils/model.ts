@@ -48,10 +48,7 @@ export function getModelProvider(modelWithProvider: string): [string, string?] {
   return [model, provider];
 }
 
-export function collectModelTable(
-  models: readonly LLMModel[],
-  customModels: string,
-) {
+export function collectModelTable(models: readonly LLMModel[], customModels: string) {
   const modelTable: Record<
     string,
     {
@@ -79,15 +76,12 @@ export function collectModelTable(
     .filter((v) => !!v && v.length > 0)
     .forEach((m) => {
       const available = !m.startsWith("-");
-      const nameConfig =
-        m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
+      const nameConfig = m.startsWith("+") || m.startsWith("-") ? m.slice(1) : m;
       let [name, displayName] = nameConfig.split("=");
 
       // enable or disable all models
       if (name === "all") {
-        Object.values(modelTable).forEach(
-          (model) => (model.available = available),
-        );
+        Object.values(modelTable).forEach((model) => (model.available = available));
       } else {
         // 1. find model by name, and set available value
         const [customModelName, customProviderName] = getModelProvider(name);
@@ -96,8 +90,7 @@ export function collectModelTable(
           const [modelName, providerName] = getModelProvider(fullName);
           if (
             customModelName == modelName &&
-            (customProviderName === undefined ||
-              customProviderName === providerName)
+            (customProviderName === undefined || customProviderName === providerName)
           ) {
             count += 1;
             modelTable[fullName]["available"] = available;
@@ -114,9 +107,7 @@ export function collectModelTable(
         // 2. if model not exists, create new model with available value
         if (count === 0) {
           let [customModelName, customProviderName] = getModelProvider(name);
-          const provider = customProvider(
-            customProviderName || customModelName,
-          );
+          const provider = customProvider(customProviderName || customModelName);
           // swap name and displayName for bytedance
           if (displayName && provider.providerName == "ByteDance") {
             [customModelName, displayName] = [displayName, customModelName];
@@ -148,10 +139,7 @@ export function collectModelTableWithDefaultModel(
       }
     } else {
       for (const key of Object.keys(modelTable)) {
-        if (
-          modelTable[key].available &&
-          getModelProvider(key)[0] == defaultModel
-        ) {
+        if (modelTable[key].available && getModelProvider(key)[0] == defaultModel) {
           modelTable[key].isDefault = true;
           break;
         }
@@ -164,10 +152,7 @@ export function collectModelTableWithDefaultModel(
 /**
  * Generate full model table.
  */
-export function collectModels(
-  models: readonly LLMModel[],
-  customModels: string,
-) {
+export function collectModels(models: readonly LLMModel[], customModels: string) {
   const modelTable = collectModelTable(models, customModels);
   let allModels = Object.values(modelTable);
 
@@ -181,11 +166,7 @@ export function collectModelsWithDefaultModel(
   customModels: string,
   defaultModel: string,
 ) {
-  const modelTable = collectModelTableWithDefaultModel(
-    models,
-    customModels,
-    defaultModel,
-  );
+  const modelTable = collectModelTableWithDefaultModel(models, customModels, defaultModel);
   let allModels = Object.values(modelTable);
 
   allModels = sortModelTable(allModels);
@@ -233,23 +214,17 @@ export function isModelNotavailableInServer(
   providerNames: string | string[],
 ): boolean {
   // Check DISABLE_GPT4 environment variable
-  if (
-    process.env.DISABLE_GPT4 === "1" &&
-    isGPT4Model(modelName.toLowerCase())
-  ) {
+  if (process.env.DISABLE_GPT4 === "1" && isGPT4Model(modelName.toLowerCase())) {
     return true;
   }
 
   const modelTable = collectModelTable(DEFAULT_MODELS, customModels);
 
-  const providerNamesArray = Array.isArray(providerNames)
-    ? providerNames
-    : [providerNames];
+  const providerNamesArray = Array.isArray(providerNames) ? providerNames : [providerNames];
   for (const providerName of providerNamesArray) {
     // if model provider is bytedance, use model config name to check if not avaliable
     if (providerName === ServiceProvider.ByteDance) {
-      return !Object.values(modelTable).filter((v) => v.name === modelName)?.[0]
-        ?.available;
+      return !Object.values(modelTable).filter((v) => v.name === modelName)?.[0]?.available;
     }
     const fullName = `${modelName}@${providerName.toLowerCase()}`;
     if (modelTable?.[fullName]?.available === true) return false;

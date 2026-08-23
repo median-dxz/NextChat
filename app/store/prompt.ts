@@ -101,9 +101,7 @@ export const usePromptStore = createPersistStore(
 
     getUserPrompts() {
       const userPrompts = Object.values(get().prompts ?? {});
-      userPrompts.sort((a, b) =>
-        b.id && a.id ? b.createdAt - a.createdAt : 0,
-      );
+      userPrompts.sort((a, b) => (b.id && a.id ? b.createdAt - a.createdAt : 0));
       return userPrompts;
     },
 
@@ -180,8 +178,7 @@ export const usePromptStore = createPersistStore(
           const allPromptsForSearch = builtinPrompts
             .reduce((pre, cur) => pre.concat(cur), [])
             .filter((v) => !!v.title && !!v.content);
-          SearchService.count.builtin =
-            res.en.length + res.cn.length + res.tw.length;
+          SearchService.count.builtin = res.en.length + res.cn.length + res.tw.length;
           SearchService.init(allPromptsForSearch, userPrompts);
         });
     },
