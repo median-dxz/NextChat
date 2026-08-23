@@ -2,30 +2,30 @@ import { describe, expect, test } from "vitest";
 
 import {
   toBaiduRole,
-  toOpenAICompatibleRole,
+  toGeminiRole,
   toTencentRole,
 } from "../app/client/platforms/roles";
 
-describe("provider model input roles", () => {
+describe("provider conversation roles", () => {
   test.each([
-    ["instruction", "system"],
+    ["system", "user"],
     ["user", "user"],
-    ["model", "assistant"],
-  ] as const)("maps %s for OpenAI-compatible providers", (role, expected) => {
-    expect(toOpenAICompatibleRole(role)).toBe(expected);
+    ["assistant", "model"],
+  ] as const)("maps %s for Gemini", (role, expected) => {
+    expect(toGeminiRole(role)).toBe(expected);
   });
 
   test.each([
-    ["instruction", "user"],
+    ["system", "user"],
     ["user", "user"],
-    ["model", "assistant"],
+    ["assistant", "assistant"],
   ] as const)("maps %s for Baidu", (role, expected) => {
     expect(toBaiduRole(role)).toBe(expected);
   });
 
-  test("keeps only the first Tencent instruction as system", () => {
-    expect(toTencentRole("instruction", 0)).toBe("system");
-    expect(toTencentRole("instruction", 1)).toBe("user");
-    expect(toTencentRole("model", 1)).toBe("assistant");
+  test("keeps only the first Tencent system message as system", () => {
+    expect(toTencentRole("system", 0)).toBe("system");
+    expect(toTencentRole("system", 1)).toBe("user");
+    expect(toTencentRole("assistant", 1)).toBe("assistant");
   });
 });

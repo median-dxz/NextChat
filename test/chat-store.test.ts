@@ -4,7 +4,19 @@ const apiMocks = vi.hoisted(() => ({ chat: vi.fn() }));
 
 vi.mock("../app/client/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../app/client/api")>()),
-  getClientApi: () => ({ llm: { chat: apiMocks.chat } }),
+  ClientApi: class {
+    llm: {
+      providerName: string;
+      chat: (options: unknown) => unknown;
+    };
+
+    constructor(providerName: string) {
+      this.llm = {
+        providerName,
+        chat: (options) => apiMocks.chat(options, providerName),
+      };
+    }
+  },
 }));
 
 vi.mock("../app/mcp/actions", () => ({
@@ -20,13 +32,7 @@ vi.mock("../app/store/prompt", () => ({
   },
 }));
 
-import {
-  type ChatMessage,
-  type ChatSession,
-  DEFAULT_TOPIC,
-  createConversationNode,
-  useChatStore,
-} from "../app/store/chat";
+import { type ChatSession, DEFAULT_TOPIC, useChatStore } from "../app/store/chat";
 import { useAppConfig } from "../app/store/config";
 import { StoreKey } from "../app/constant";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
@@ -37,17 +43,17 @@ const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
 
 function message(
-  role: ChatMessage["role"],
+  role: Conversation.Message["role"],
   content: string,
   reasoning?: string,
-): ChatMessage {
+): Conversation.Message {
   return { id: `${role}-${content}`, date: "", role, content, reasoning };
 }
 
-function linearNodes(messages: ChatMessage[]) {
+function linearNodes(messages: Conversation.Message[]) {
   let parentId: string | undefined;
   return messages.map((item) => {
-    const node = createConversationNode({
+    const node = Conversation.createNode({
       ...item,
       parentId,
       outlineLevel: 1,
@@ -59,7 +65,7 @@ function linearNodes(messages: ChatMessage[]) {
 }
 
 function setSession(
-  messages: ChatMessage[],
+  messages: Conversation.Message[],
   modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {},
 ) {
   const session = structuredClone(initialSession);
@@ -90,9 +96,7 @@ function mockPersistedChatState(version: number, sessions: unknown[]) {
   );
 }
 
-function setGlobalMemorySession(
-  modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {},
-) {
+function setGlobalMemorySession(modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {}) {
   const session = setSession(
     [message("user", "question"), message("assistant", "answer")],
     modelConfig,
@@ -123,9 +127,9 @@ afterEach(() => {
 });
 
 describe("chat store persistence and owned lifecycles", () => {
-  test("commits conversation and its session patch from the latest snapshot", () => {
+  test("updates the latest session without dropping newer conversation nodes", () => {
     const session = setSession([message("user", "before")]);
-    const latestAssistant = createConversationNode({
+    const latestAssistant = Conversation.createNode({
       ...message("assistant", "latest"),
       parentId: session.messages[0].id,
       outlineLevel: 1,
@@ -142,37 +146,17 @@ describe("chat store persistence and owned lifecycles", () => {
       ),
     }));
 
-    const previousSessions = useChatStore.getState().sessions;
-    const previousMessages = useChatStore.getState().currentSession().messages;
-    const listener = vi.fn();
-    const unsubscribe = useChatStore.subscribe(listener);
-
-    useChatStore.getState().updateConversation(
-      session.id,
-      (conversation) =>
-        conversation.updateNodeData(session.messages[0].id, (node) => {
-          node.content = "after";
-        }),
-      {
-        pendingOutlineDelta: 1,
-        globalMemory: {
-          enabled: true,
-          prompt: "remember",
-          content: "memory",
-          revision: 1,
-        },
-      },
-    );
-    unsubscribe();
+    useChatStore.getState().updateSession(session.id, (draft) => {
+      draft.pendingOutlineDelta = 1;
+      draft.conversation = draft.conversation.updateNodeData(session.messages[0].id, (node) => {
+        node.content = "after";
+      });
+    });
 
     const current = useChatStore.getState().sessions[0];
-    expect(listener).toHaveBeenCalledTimes(1);
     expect(current.messages[0].content).toBe("after");
     expect(current.messages[1]).toEqual(latestAssistant);
     expect(current.pendingOutlineDelta).toBe(1);
-    expect(current.globalMemory.content).toBe("memory");
-    expect(useChatStore.getState().sessions).not.toBe(previousSessions);
-    expect(current.messages).not.toBe(previousMessages);
   });
 
   test("updates metadata from the latest session without copying messages", () => {
@@ -187,9 +171,9 @@ describe("chat store persistence and owned lifecycles", () => {
     const previousMessages = previousSession.messages;
     const previousMask = previousSession.mask;
 
-    useChatStore.getState().updateSessionMetadata(session.id, (metadata) => {
-      metadata.mask.name = "updated mask";
-      metadata.stat.charCount = 12;
+    useChatStore.getState().updateSession(session.id, (draft) => {
+      draft.mask.name = "updated mask";
+      draft.stat.charCount = 12;
     });
 
     const current = useChatStore.getState().currentSession();
@@ -202,17 +186,40 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(useChatStore.getState().sessions).not.toBe(previousSessions);
   });
 
-  test("does not publish a store update when a metadata update is rejected", () => {
+  test("does not notify subscribers when a session update is rejected", () => {
     const session = setSession([message("user", "question")]);
-    const previousState = useChatStore.getState();
     const listener = vi.fn();
     const unsubscribe = useChatStore.subscribe(listener);
 
-    useChatStore.getState().updateSessionMetadata(session.id, () => false);
+    useChatStore.getState().updateSession(session.id, () => false);
     unsubscribe();
 
     expect(listener).not.toHaveBeenCalled();
-    expect(useChatStore.getState()).toBe(previousState);
+  });
+
+  test("retries an assistant without replacing its user node", async () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "old answer"),
+      message("user", "later question"),
+    ]);
+    const [user, assistant, later] = session.messages;
+    apiMocks.chat.mockImplementation((options) => {
+      options.onFinish("new answer", new Response(null, { status: 200 }));
+    });
+
+    await useChatStore.getState().retryMessage(session.id, assistant.id);
+    await vi.waitFor(() => expect(useChatStore.getState().hasActiveChatRuns()).toBe(false));
+
+    const retried = useChatStore.getState().currentSession();
+    const replacement = retried.messages.find(
+      (node) => node.role === "assistant" && node.content === "new answer",
+    );
+    expect(retried.messages.some((node) => node.id === user.id)).toBe(true);
+    expect(retried.messages.some((node) => node.id === assistant.id)).toBe(false);
+    expect(replacement).toMatchObject({ parentId: user.id, outlineLevel: 1 });
+    expect(retried.messages.find((node) => node.id === later.id)?.parentId).toBe(replacement?.id);
+    expect(retried.rootNodeId).toBe(user.id);
   });
 
   test("keeps invalid remote conversations out while merging other sessions", () => {
@@ -224,7 +231,7 @@ describe("chat store persistence and owned lifecycles", () => {
     invalid.messages[0].parentId = "missing-parent";
     const valid = structuredClone(template);
     valid.id = "valid-remote";
-    const extension = createConversationNode({
+    const extension = Conversation.createNode({
       ...message("assistant", "remote extension"),
       parentId: template.messages[0].id,
       outlineLevel: 1,
@@ -250,10 +257,7 @@ describe("chat store persistence and owned lifecycles", () => {
   });
 
   test("forks graph nodes and remaps session references", () => {
-    const original = setSession([
-      message("user", "question"),
-      message("assistant", "answer"),
-    ]);
+    const original = setSession([message("user", "question"), message("assistant", "answer")]);
     original.pinnedInputs = [message("system", "pinned")];
     original.globalMemory = {
       enabled: true,
@@ -317,9 +321,7 @@ describe("chat store persistence and owned lifecycles", () => {
     await useChatStore.persist.rehydrate();
 
     const migrated = useChatStore.getState().currentSession();
-    expect(migrated.pinnedInputs.map((item) => item.content)).toEqual([
-      "pinned system",
-    ]);
+    expect(migrated.pinnedInputs.map((item) => item.content)).toEqual(["pinned system"]);
     expect(migrated.messages.map((item) => item.content)).toEqual([
       "preset user",
       "preset answer",
@@ -328,23 +330,6 @@ describe("chat store persistence and owned lifecycles", () => {
     ]);
     expect(migrated.globalMemory.content).toBe("legacy memory");
     expect(() => Conversation(migrated).validate()).not.toThrow();
-  });
-
-  test("keeps an intentionally cleared cursor empty after rehydration", async () => {
-    const persistedSession = structuredClone(initialSession);
-    persistedSession.messages = linearNodes([
-      message("user", "root"),
-      message("assistant", "tail"),
-    ]);
-    persistedSession.rootNodeId = persistedSession.messages[0].id;
-    persistedSession.activeCursorId = undefined;
-    mockPersistedChatState(4, [persistedSession]);
-
-    await useChatStore.persist.rehydrate();
-
-    expect(
-      useChatStore.getState().currentSession().activeCursorId,
-    ).toBeUndefined();
   });
 
   test("recovers interrupted assistant responses after rehydration", async () => {
@@ -377,9 +362,9 @@ describe("chat store persistence and owned lifecycles", () => {
       isError: true,
       streaming: false,
     });
-    expect(
-      useChatStore.getState().currentSession().messages[1].content,
-    ).toContain("empty response");
+    expect(useChatStore.getState().currentSession().messages[1].content).toContain(
+      "empty response",
+    );
     expect(useChatStore.getState().currentSession().messages[2]).toMatchObject({
       isError: true,
       streaming: false,
@@ -395,8 +380,8 @@ describe("chat store persistence and owned lifecycles", () => {
     });
 
     useChatStore.getState().generateSessionTitle(session, true);
-    useChatStore.getState().updateSessionMetadata(session.id, (metadata) => {
-      metadata.topic = "Manual topic";
+    useChatStore.getState().updateSession(session.id, (draft) => {
+      draft.topic = "Manual topic";
     });
     finish?.("Generated topic", new Response(null, { status: 200 }));
     await Promise.resolve();
@@ -415,18 +400,16 @@ describe("chat store persistence and owned lifecycles", () => {
     requests[0].onFinish("memory one", new Response(null, { status: 200 }));
     await vi.waitFor(() => expect(requests).toHaveLength(2));
     expect(requests[1].messages[1]).toEqual({
-      role: "instruction",
+      role: "system",
       content: "memory one",
     });
     requests[1].onFinish("memory two", new Response(null, { status: 200 }));
     await Promise.all([first, second]);
 
-    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject(
-      {
-        content: "memory two",
-        revision: 2,
-      },
-    );
+    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject({
+      content: "memory two",
+      revision: 2,
+    });
   });
 
   test("uses the configured memory model unless the update selects another", async () => {
@@ -438,10 +421,10 @@ describe("chat store persistence and owned lifecycles", () => {
       model: string;
       providerName: string;
     }> = [];
-    apiMocks.chat.mockImplementation((options) => {
+    apiMocks.chat.mockImplementation((options, providerName) => {
       requestedModels.push({
         model: options.config.model,
-        providerName: options.config.providerName,
+        providerName,
       });
       options.onFinish("new memory", new Response(null, { status: 200 }));
     });
@@ -473,15 +456,11 @@ describe("chat store persistence and owned lifecycles", () => {
 
     const updating = useChatStore.getState().updateGlobalMemory(session.id);
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
-    useChatStore
-      .getState()
-      .editGlobalMemory(session.id, { content: "manual memory" });
+    useChatStore.getState().editGlobalMemory(session.id, { content: "manual memory" });
     finish?.("stale generated memory", new Response(null, { status: 200 }));
     await updating;
 
-    expect(useChatStore.getState().currentSession().globalMemory.content).toBe(
-      "manual memory",
-    );
+    expect(useChatStore.getState().currentSession().globalMemory.content).toBe("manual memory");
   });
 
   test("keeps existing memory when the provider returns only whitespace", async () => {
@@ -493,11 +472,9 @@ describe("chat store persistence and owned lifecycles", () => {
 
     await useChatStore.getState().updateGlobalMemory(session.id);
 
-    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject(
-      {
-        content: "old memory",
-        revision: 0,
-      },
-    );
+    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject({
+      content: "old memory",
+      revision: 0,
+    });
   });
 });

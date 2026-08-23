@@ -1,25 +1,21 @@
 "use client";
-import { ApiPath, Alibaba, ALIBABA_BASE_URL } from "@/app/constant";
-import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
+
+import { getClientConfig } from "@/app/config/client";
+import { ALIBABA_BASE_URL, Alibaba, ApiPath, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel, isVisionModel } from "@/app/utils";
 import { preProcessImageContentForAlibabaDashScope, streamWithThink } from "@/app/utils/chat";
-import {
+import type { Conversation } from "@/app/utils/conversation";
+import { fetch } from "@/app/utils/stream";
+
+import type {
   ChatOptions,
-  getHeaders,
-  LLMApi,
   LLMModel,
-  SpeechOptions,
   MultimodalContent,
   MultimodalContentForAlibaba,
+  SpeechOptions,
 } from "../api";
-import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
-  getTimeoutMSByModel,
-  isVisionModel,
-} from "@/app/utils";
-import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
+import { LLMApi } from "../llm-api";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -50,7 +46,8 @@ interface RequestPayload {
   parameters: RequestParam;
 }
 
-export class QwenApi implements LLMApi {
+export class QwenApi extends LLMApi {
+  readonly providerName = ServiceProvider.Alibaba;
   path(path: string): string {
     const accessStore = useAccessStore.getState();
 
@@ -95,12 +92,10 @@ export class QwenApi implements LLMApi {
       const content = (
         visionModel
           ? await preProcessImageContentForAlibabaDashScope(v.content)
-          : v.role === "model"
-            ? getMessageTextContentWithoutThinking(v)
-            : getMessageTextContent(v)
+          : getMessageText(v.content)
       ) as any;
 
-      const role = toOpenAICompatibleRole(v.role);
+      const role = v.role;
       messages.push({ role, content });
     }
 
@@ -124,7 +119,7 @@ export class QwenApi implements LLMApi {
 
     try {
       const headers = {
-        ...getHeaders(modelConfig.providerName),
+        ...this.getHeaders(),
         "X-DashScope-SSE": shouldStream ? "enable" : "disable",
       };
 
@@ -143,7 +138,8 @@ export class QwenApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
@@ -152,13 +148,13 @@ export class QwenApi implements LLMApi {
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.output.choices as Array<{
               message: {
                 content: string | null | MultimodalContentForAlibaba[];
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;

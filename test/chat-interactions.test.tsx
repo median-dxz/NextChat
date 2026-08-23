@@ -52,25 +52,26 @@ afterEach(() => {
 });
 
 describe("chat interaction regressions", () => {
-  test("settles after syncing an already-current global model config", () => {
+  test("does not write an already-current global model config", () => {
     const config = useAppConfig.getState();
     const session = structuredClone(useChatStore.getState().currentSession());
     session.mask.syncGlobalConfig = true;
     session.mask.modelConfig = { ...config.modelConfig };
     useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
+    const updateSession = vi.spyOn(useChatStore.getState(), "updateSession");
 
-    expect(() =>
-      renderHook(() => {
-        const currentChatStore = useChatStore();
-        const currentConfig = useAppConfig();
-        const currentSession = currentChatStore.currentSession();
-        useSyncGlobalModelConfig(
-          currentChatStore,
-          currentSession,
-          currentConfig.modelConfig,
-        );
-      }),
-    ).not.toThrow();
+    renderHook(() => {
+      const currentChatStore = useChatStore();
+      const currentConfig = useAppConfig();
+      const currentSession = currentChatStore.currentSession();
+      useSyncGlobalModelConfig(
+        currentChatStore,
+        currentSession,
+        currentConfig.modelConfig,
+      );
+    });
+
+    expect(updateSession).not.toHaveBeenCalled();
   });
 
   test("settles on an available global model when sync is enabled", async () => {
@@ -91,32 +92,38 @@ describe("chat interaction regressions", () => {
     session.mask.modelConfig = { ...globalModelConfig };
     useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
 
-    expect(() =>
-      renderHook(() => {
-        const chatStore = useChatStore();
-        const config = useAppConfig();
-        const currentSession = chatStore.currentSession();
-        const allModels = useAllModels();
-        const availableModels = useMemo(
-          () => allModels.filter((model) => model.available),
-          [allModels],
-        );
+    renderHook(() => {
+      const chatStore = useChatStore();
+      const config = useAppConfig();
+      const currentSession = chatStore.currentSession();
+      const allModels = useAllModels();
+      const availableModels = useMemo(
+        () => allModels.filter((model) => model.available),
+        [allModels],
+      );
 
-        useEnsureAvailableModel(
-          chatStore,
-          config,
-          currentSession,
-          availableModels,
-        );
-        useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
-      }),
-    ).not.toThrow();
+      useEnsureAvailableModel(
+        chatStore,
+        config,
+        currentSession,
+        availableModels,
+      );
+      useSyncGlobalModelConfig(chatStore, currentSession, config.modelConfig);
+    });
 
     await waitFor(() => {
-      expect(useAppConfig.getState().modelConfig.model).toBe(fallbackModel);
-      expect(
-        useChatStore.getState().currentSession().mask.modelConfig.model,
-      ).toBe(fallbackModel);
+      expect(useAppConfig.getState().modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
+      expect(useChatStore.getState().currentSession().mask.modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
     });
   });
 
@@ -156,11 +163,14 @@ describe("chat interaction regressions", () => {
     });
 
     await waitFor(() => {
-      expect(
-        useChatStore.getState().currentSession().mask.modelConfig.model,
-      ).toBe(fallbackModel);
+      expect(useChatStore.getState().currentSession().mask.modelConfig).toEqual(
+        expect.objectContaining({
+          model: fallbackModel,
+          providerName: "OpenAI",
+        }),
+      );
     });
-    expect(useAppConfig.getState().modelConfig.model).toBe("gpt-5");
+    expect(useAppConfig.getState().modelConfig).toEqual(globalModelConfig);
   });
 
   test("locks both messages in a streaming turn", () => {

@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { ChatOptions, ClientApi, MultimodalContent } from "../client/api";
+import type { ChatOptions, ChatTools, ClientApi, MultimodalContent } from "../client/api";
 import {
   DEFAULT_INPUT_TEMPLATE,
   DEFAULT_MODELS,
@@ -7,39 +7,37 @@ import {
   KnowledgeCutOffDate,
   MCP_SYSTEM_TEMPLATE,
   MCP_TOOLS_TEMPLATE,
+  ServiceProvider,
+  type ServiceProviderName,
 } from "../constant";
 import { getLang } from "../locales";
 import { getAllTools, isMcpEnabled } from "../mcp/actions";
 import { prettyObject } from "../utils/format";
-import {
-  Conversation,
-  createConversationNode,
-  createMessage,
-  type ChatMessageTool,
-  type ConversationApi,
-  type ConversationGraphState,
-  type ConversationMessageInput,
-  type ConversationNode,
-  type GlobalMemory,
-} from "../utils/conversation";
+import { Conversation } from "../utils/conversation";
 import type { ModelConfig } from "./config";
 import { Mask } from "./mask";
 
-export interface ChatOrchestratorSession extends ConversationGraphState {
+export interface ChatOrchestratorSession extends Conversation.State {
   id: string;
   pendingOutlineDelta?: -1 | 1;
-  pinnedInputs: ConversationMessageInput[];
-  globalMemory: GlobalMemory;
+  pinnedInputs: Conversation.MessageInput[];
+  globalMemory: Conversation.GlobalMemory;
   mask: Pick<Mask, "modelConfig" | "plugin">;
 }
 
-export interface ChatRunCommand {
-  sessionId: string;
-  content: string;
-  attachImages?: string[];
-  isMcpResponse?: boolean;
-  retry?: { sourceNodeId: string };
-}
+export type ChatRunCommand =
+  | {
+      kind: "input";
+      sessionId: string;
+      content: string;
+      attachImages?: string[];
+      isMcpResponse?: boolean;
+    }
+  | {
+      kind: "retry";
+      sessionId: string;
+      sourceNodeId: string;
+    };
 
 export type ChatRunResult =
   | {
@@ -83,18 +81,20 @@ export interface ChatCompletionEffects {
 
 export interface ChatOrchestratorDependencies {
   getSession(sessionId: string): ChatOrchestratorSession | undefined;
-  updateConversation(
+  updateSession(
     sessionId: string,
-    updater: (conversation: ConversationApi) => ConversationApi | undefined,
-    sessionPatch?: Partial<
-      Pick<ChatOrchestratorSession, "pendingOutlineDelta">
-    >,
+    updater: (
+      session: Pick<ChatOrchestratorSession, "pendingOutlineDelta"> & {
+        conversation: Conversation.Api;
+      },
+    ) => void | false,
   ): void;
-  getClientApi(providerName?: string): ClientApi;
+  createClient(providerName: ServiceProviderName): ClientApi;
+  resolveTools(pluginIds: string[]): ChatTools | undefined;
   completionEffects: ChatCompletionEffects;
 }
 
-type ConversationNodeUpdater = Parameters<ConversationApi["updateNodeData"]>[1];
+type NodeUpdater = Parameters<Conversation.Api["updateNodeData"]>[1];
 
 export interface ChatOrchestrator {
   /** Starts a new chat run based on the provided command. */
@@ -142,18 +142,12 @@ function startProviderRun(
       ...options,
       onFinish(message, response) {
         options.onFinish?.(message, response);
-        settle(
-          cancelRequested
-            ? { status: "cancelled" }
-            : { status: "completed", message },
-        );
+        settle(cancelRequested ? { status: "cancelled" } : { status: "completed", message });
       },
       onError(error) {
         options.onError?.(error);
         settle(
-          cancelRequested
-            ? { status: "cancelled" }
-            : { status: "failed", error: asError(error) },
+          cancelRequested ? { status: "cancelled" } : { status: "failed", error: asError(error) },
         );
       },
       onController(nextController) {
@@ -164,9 +158,7 @@ function startProviderRun(
     });
     void Promise.resolve(invocation).catch((error) => {
       settle(
-        cancelRequested
-          ? { status: "cancelled" }
-          : { status: "failed", error: asError(error) },
+        cancelRequested ? { status: "cancelled" } : { status: "failed", error: asError(error) },
       );
     });
   } catch (error) {
@@ -185,12 +177,9 @@ function startProviderRun(
 }
 
 function fillTemplateWith(input: string, modelConfig: ModelConfig) {
-  const cutoff =
-    KnowledgeCutOffDate[modelConfig.model] ?? KnowledgeCutOffDate.default;
-  const modelInfo = DEFAULT_MODELS.find(
-    (model) => model.name === modelConfig.model,
-  );
-  const serviceProvider = modelInfo?.provider.providerName ?? "OpenAI";
+  const cutoff = KnowledgeCutOffDate[modelConfig.model] ?? KnowledgeCutOffDate.default;
+  const modelInfo = DEFAULT_MODELS.find((model) => model.name === modelConfig.model);
+  const serviceProvider = modelInfo?.provider.providerName ?? ServiceProvider.OpenAI;
   const vars = {
     ServiceProvider: serviceProvider,
     cutoff,
@@ -213,14 +202,9 @@ async function getMcpSystemPrompt() {
   let toolsText = "";
   tools.forEach((client) => {
     if (!client.tools) return;
-    toolsText += MCP_TOOLS_TEMPLATE.replace(
-      "{{ clientId }}",
-      client.clientId,
-    ).replace(
+    toolsText += MCP_TOOLS_TEMPLATE.replace("{{ clientId }}", client.clientId).replace(
       "{{ tools }}",
-      client.tools.tools
-        .map((tool: object) => JSON.stringify(tool, null, 2))
-        .join("\n"),
+      client.tools.tools.map((tool: object) => JSON.stringify(tool, null, 2)).join("\n"),
     );
   });
   return MCP_SYSTEM_TEMPLATE.replace("{{ MCP_TOOLS }}", toolsText);
@@ -229,13 +213,12 @@ async function getMcpSystemPrompt() {
 async function resolveSystemInputs(modelConfig: ModelConfig) {
   const shouldInjectSystemPrompts =
     modelConfig.enableInjectSystemPrompts &&
-    (modelConfig.model.startsWith("gpt-") ||
-      modelConfig.model.startsWith("chatgpt-"));
+    (modelConfig.model.startsWith("gpt-") || modelConfig.model.startsWith("chatgpt-"));
   const mcpEnabled = await isMcpEnabled();
   const mcpSystemPrompt = mcpEnabled ? await getMcpSystemPrompt() : "";
   if (shouldInjectSystemPrompts) {
     return [
-      createMessage({
+      Conversation.createMessage({
         role: "system",
         content:
           fillTemplateWith("", {
@@ -246,22 +229,18 @@ async function resolveSystemInputs(modelConfig: ModelConfig) {
     ];
   }
   return mcpEnabled
-    ? [createMessage({ role: "system", content: mcpSystemPrompt })]
+    ? [Conversation.createMessage({ role: "system", content: mcpSystemPrompt })]
     : [];
 }
 
 function prepareInput(
-  command: ChatRunCommand,
+  command: Extract<ChatRunCommand, { kind: "input" }>,
   modelConfig: ModelConfig,
-  retrySource?: ConversationNode,
 ) {
-  if (retrySource) return retrySource.content;
   if (command.isMcpResponse) return command.content;
   if (command.attachImages?.length) {
     return [
-      ...(command.content
-        ? [{ type: "text" as const, text: command.content }]
-        : []),
+      ...(command.content ? [{ type: "text" as const, text: command.content }] : []),
       ...command.attachImages.map((url) => ({
         type: "image_url" as const,
         image_url: { url },
@@ -271,159 +250,129 @@ function prepareInput(
   return fillTemplateWith(command.content, modelConfig);
 }
 
-function prepareRetryGraph(
-  session: ConversationGraphState,
-  sourceNodeId: string,
-) {
-  const targetNode = Conversation(session).findNode(sourceNodeId);
-  if (!targetNode) throw new Error("Retry source no longer exists");
-  const target = targetNode.value;
-  if (target.role === "assistant") {
-    const user = targetNode.parent;
-    if (!user || user.role !== "user") {
-      throw new Error("An assistant retry requires its direct user node");
-    }
-    return {
-      conversation: targetNode.remove().moveCursor(user.id),
-      source: { ...user },
-      reuseUser: true,
-      insertBeforeId: undefined,
-    };
-  }
-
-  const response = targetNode.sameLevelSuccessor;
-  let conversation = targetNode.remove();
-  if (response?.role === "assistant") {
-    const responseNode = conversation.findNode(response.id);
-    if (responseNode) conversation = responseNode.remove();
-  }
-  conversation = conversation.moveCursor(target.parentId);
-  return {
-    conversation,
-    source: { ...target },
-    reuseUser: false,
-    insertBeforeId: target.parentId ? undefined : conversation.state.rootNodeId,
-  };
-}
-
 export function createChatOrchestrator(
   dependencies: ChatOrchestratorDependencies,
 ): ChatOrchestrator {
   const active = new Map<string, ChatRunHandle>();
 
-  const updateNode = (
-    sessionId: string,
-    nodeId: string,
-    updater: ConversationNodeUpdater,
-  ) => {
-    dependencies.updateConversation(sessionId, (conversation) =>
-      conversation.updateNodeData(nodeId, updater),
-    );
+  const updateNode = (sessionId: string, nodeId: string, updater: NodeUpdater) => {
+    dependencies.updateSession(sessionId, (session) => {
+      session.conversation = session.conversation.updateNodeData(nodeId, updater);
+    });
   };
 
   return {
     async start(command) {
       const initialSession = dependencies.getSession(command.sessionId);
       if (!initialSession) throw new Error("Chat session no longer exists");
+
       const modelConfig = initialSession.mask.modelConfig;
       const systemInputs = await resolveSystemInputs(modelConfig);
+
       const session = dependencies.getSession(command.sessionId);
       if (!session) throw new Error("Chat session no longer exists");
 
-      const retry = command.retry
-        ? prepareRetryGraph(session, command.retry.sourceNodeId)
-        : undefined;
-      const content = prepareInput(command, modelConfig, retry?.source);
-      const userNode = retry?.reuseUser
-        ? retry.source
-        : createConversationNode({
-            role: "user",
-            content,
-            isMcpResponse: retry?.source.isMcpResponse ?? command.isMcpResponse,
-          });
-      const assistantNode = createConversationNode({
+      let conversation = Conversation(session);
+      let userNode: Conversation.Node;
+
+      if (command.kind === "retry") {
+        const source = conversation.node(command.sourceNodeId);
+        const response = source.sameLevelSuccessor!;
+
+        userNode = source.value;
+        conversation = conversation.node(response.id).remove().moveCursor(userNode.id);
+      } else {
+        userNode = Conversation.createNode({
+          role: "user",
+          content: prepareInput(command, modelConfig),
+          isMcpResponse: command.isMcpResponse,
+        });
+
+        const activeCursorId = conversation.state.activeCursorId;
+        const cursor = activeCursorId ? conversation.node(activeCursorId).value : undefined;
+        const outlineDelta = session.pendingOutlineDelta ?? 0;
+
+        if (!cursor) {
+          conversation = conversation.insert(userNode);
+        } else if (outlineDelta === -1 && cursor.outlineLevel > 1) {
+          let target = cursor;
+          const targetLevel = target.outlineLevel - 1;
+          while (target.outlineLevel > targetLevel) {
+            target = conversation.node(target.parentId!).value;
+          }
+          conversation = conversation.moveCursor(target.id).insert(userNode);
+        } else if (outlineDelta === 1) {
+          conversation = conversation.node(cursor.id).setBranch(userNode).moveCursor(userNode.id);
+        } else {
+          conversation = conversation.insert(userNode);
+        }
+      }
+
+      const assistantNode = Conversation.createNode({
         role: "assistant",
         streaming: true,
         model: modelConfig.model,
       });
-      const contextConversation = retry?.conversation ?? Conversation(session);
       const globalMemoryInput =
         session.globalMemory.enabled && session.globalMemory.content.trim()
-          ? createMessage({
+          ? Conversation.createMessage({
               role: "system",
               content: session.globalMemory.content,
               date: "",
             })
           : undefined;
-      const assembly = contextConversation.context.assemble({
+      const assembly = conversation.context.assemble({
         systemInputs,
         pinnedInputs: session.pinnedInputs,
         globalMemoryInput,
-        currentInput: userNode,
         budget: {
           contextWindowTokens: modelConfig.contextWindowTokens,
           requestedOutputTokens: modelConfig.max_tokens,
         },
         recentRawNodeCount: modelConfig.recentRawNodeCount,
-        summaries: modelConfig.enableConversationSummaries
-          ? "enabled"
-          : "disabled",
+        summaries: modelConfig.enableConversationSummaries ? "enabled" : "disabled",
       });
 
-      let committedConversation: ConversationApi | undefined;
-      dependencies.updateConversation(
-        command.sessionId,
-        (latest) => {
-          const latestRetry = command.retry
-            ? prepareRetryGraph(latest.state, command.retry.sourceNodeId)
-            : undefined;
-          let next = latestRetry?.conversation ?? latest;
-          if (!latestRetry?.reuseUser) {
-            next = latestRetry?.insertBeforeId
-              ? next.insertProjected(
-                  userNode,
-                  undefined,
-                  latestRetry.insertBeforeId,
-                )
-              : next.insert(
-                  userNode,
-                  dependencies.getSession(command.sessionId)
-                    ?.pendingOutlineDelta ?? 0,
-                );
-          }
-          committedConversation = next.insert(assistantNode, 0, userNode.id);
-          return committedConversation;
-        },
-        { pendingOutlineDelta: undefined },
-      );
-      if (!committedConversation) {
-        throw new Error(`Missing conversation session ${command.sessionId}`);
-      }
-      const committedUser = committedConversation.findNode(userNode.id)!.value;
-      const committedAssistant = committedConversation.findNode(
-        assistantNode.id,
-      )!.value;
+      dependencies.updateSession(command.sessionId, (session) => {
+        if (command.kind === "retry") {
+          conversation = conversation.insertProjected(assistantNode, userNode.id);
+        } else {
+          conversation = conversation.insert(assistantNode);
+        }
+
+        session.conversation = conversation;
+        if (command.kind === "input") {
+          session.pendingOutlineDelta = undefined;
+        }
+      });
+
+      const committedUser = conversation.node(userNode.id).value;
+      const committedAssistant = conversation.node(assistantNode.id).value;
 
       const runId = nanoid();
       let reasoningStartedAt: number | undefined;
       const finishReasoningTiming = () => {
         if (reasoningStartedAt === undefined) return;
         updateNode(command.sessionId, committedAssistant.id, (node) => {
-          node.reasoningDurationMs ??= Math.max(
-            0,
-            Date.now() - reasoningStartedAt!,
-          );
+          node.reasoningDurationMs ??= Math.max(0, Date.now() - reasoningStartedAt!);
         });
       };
-      const api = dependencies.getClientApi(modelConfig.providerName);
+      const api = dependencies.createClient(modelConfig.providerName);
       const providerRun = startProviderRun(api, {
         messages: assembly.messages,
         config: {
-          ...modelConfig,
+          model: modelConfig.model,
+          temperature: modelConfig.temperature,
+          top_p: modelConfig.top_p,
           max_tokens: assembly.effectiveMaxOutputTokens,
+          presence_penalty: modelConfig.presence_penalty,
+          frequency_penalty: modelConfig.frequency_penalty,
           stream: true,
+          size: modelConfig.size,
+          quality: modelConfig.quality,
+          style: modelConfig.style,
         },
-        pluginIds: session.mask.plugin ?? [],
+        tools: dependencies.resolveTools(session.mask.plugin ?? []),
         onUpdate(message) {
           if (message) finishReasoningTiming();
           updateNode(command.sessionId, committedAssistant.id, (node) => {
@@ -438,12 +387,12 @@ export function createChatOrchestrator(
             node.reasoning = reasoning;
           });
         },
-        onBeforeTool(tool: ChatMessageTool) {
+        onBeforeTool(tool: Conversation.MessageTool) {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
             (node.tools ??= []).push(tool);
           });
         },
-        onAfterTool(tool: ChatMessageTool) {
+        onAfterTool(tool: Conversation.MessageTool) {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
             const index = node.tools?.findIndex((item) => item.id === tool.id);
             if (index !== undefined && index >= 0 && node.tools) {
@@ -530,10 +479,7 @@ export function createChatOrchestrator(
 
     cancel(sessionId, assistantNodeId) {
       active.forEach((run) => {
-        if (
-          run.sessionId === sessionId &&
-          run.assistantNodeId === assistantNodeId
-        ) {
+        if (run.sessionId === sessionId && run.assistantNodeId === assistantNodeId) {
           run.cancel();
         }
       });

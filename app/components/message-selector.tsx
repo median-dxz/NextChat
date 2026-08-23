@@ -1,14 +1,16 @@
+import clsx from "clsx";
 import { useEffect, useMemo, useState } from "react";
-import { ChatMessage, useAppConfig, useChatStore } from "../store";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import Locale from "../locales";
+import { useAppConfig, useChatStore } from "../store";
 import { Updater } from "../typing";
+import { getMessageText } from "../utils";
 import { IconButton } from "./button";
 import { Avatar } from "./emoji";
 import { MaskAvatar } from "./mask";
-import Locale from "../locales";
-
 import styles from "./message-selector.module.scss";
-import { getMessageTextContent } from "../utils";
-import clsx from "clsx";
 
 function useShiftRange() {
   const [startIndex, setStartIndex] = useState<number>();
@@ -70,12 +72,12 @@ export function MessageSelector(props: {
   selection: Set<string>;
   updateSelection: Updater<Set<string>>;
   defaultSelectAll?: boolean;
-  onSelected?: (messages: ChatMessage[]) => void;
+  onSelected?: (messages: Conversation.Message[]) => void;
 }) {
   const LATEST_COUNT = 4;
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const isValid = (m: ChatMessage) => m.content && !m.isError && !m.streaming;
+  const isValid = (m: Conversation.Message) => m.content && !m.isError && !m.streaming;
   const messages = useMemo(
     () =>
       session.messages.filter(
@@ -98,7 +100,7 @@ export function MessageSelector(props: {
     const searchResults = new Set<string>();
     if (text.length > 0) {
       messages.forEach((m) =>
-        getMessageTextContent(m).includes(text) ? searchResults.add(m.id!) : null,
+        getMessageText(m.content).includes(text) ? searchResults.add(m.id!) : null,
       );
     }
     setSearchIds(searchResults);
@@ -204,7 +206,7 @@ export function MessageSelector(props: {
               <div className={styles["body"]}>
                 <div className={styles["date"]}>{new Date(m.date).toLocaleString()}</div>
                 <div className={clsx(styles["content"], "one-line")}>
-                  {getMessageTextContent(m)}
+                  {getMessageText(m.content)}
                 </div>
               </div>
 

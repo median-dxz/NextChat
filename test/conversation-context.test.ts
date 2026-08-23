@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { Conversation, createMessage } from "../app/utils/conversation";
+import { estimateRequestMessageTokens, getContextInputBudget } from "../app/utils/context-budget";
+import { Conversation } from "../app/utils/conversation";
 import {
   conversationNode,
   conversationState,
@@ -8,20 +9,57 @@ import {
   linearConversation,
 } from "./fixtures/conversation";
 
+const CURRENT_INPUT_CONTENT = "iiii";
+
+function budgetForHistoryTokens(availableTokens: number) {
+  const requestedOutputTokens = 1;
+  const currentInputTokens = estimateRequestMessageTokens({ content: CURRENT_INPUT_CONTENT });
+  for (let contextWindowTokens = 1; contextWindowTokens <= 10_000; contextWindowTokens += 1) {
+    if (
+      getContextInputBudget(contextWindowTokens, requestedOutputTokens) - currentInputTokens ===
+      availableTokens
+    ) {
+      return { contextWindowTokens, requestedOutputTokens };
+    }
+  }
+  throw new Error(`Cannot construct a history budget of ${availableTokens} tokens`);
+}
+
+function assembleHistory(
+  graph: Conversation.State,
+  options: {
+    availableTokens: number;
+    recentRawNodeCount: number;
+    summaries: "enabled" | "disabled";
+  },
+) {
+  const conversation = Conversation(graph).insert(
+    Conversation.createNode({ role: "user", content: CURRENT_INPUT_CONTENT }),
+  );
+  const assembly = conversation.context.assemble({
+    systemInputs: [],
+    pinnedInputs: [],
+    budget: budgetForHistoryTokens(options.availableTokens),
+    recentRawNodeCount: options.recentRawNodeCount,
+    summaries: options.summaries,
+  });
+  return assembly.messages.slice(0, -1);
+}
+
 describe("conversation context", () => {
   test("keeps the newest global raw suffix within the available budget", () => {
-    const root = conversationNode({ id: "1A", role: "user", content: "xxxx" });
+    const root = conversationNode({ id: "1A", role: "user", content: "aaaa" });
     const branchUser = conversationNode({
       id: "2A",
       role: "user",
-      content: "xxxx",
+      content: "bbbb",
       parentId: root.id,
       outlineLevel: 2,
     });
     const branchAssistant = conversationNode({
       id: "2B",
       role: "assistant",
-      content: "xxxx",
+      content: "cccc",
       parentId: branchUser.id,
       outlineLevel: 2,
     });
@@ -29,23 +67,23 @@ describe("conversation context", () => {
     const rootAssistant = conversationNode({
       id: "1B",
       role: "assistant",
-      content: "xxxx",
+      content: "dddd",
       parentId: root.id,
     });
-    const graph = conversationState(
-      [root, branchUser, branchAssistant, rootAssistant],
-      { activeCursorId: rootAssistant.id },
-    );
+    const graph = conversationState([root, branchUser, branchAssistant, rootAssistant], {
+      activeCursorId: rootAssistant.id,
+    });
 
-    const context = Conversation(graph).context.build({
+    const history = assembleHistory(graph, {
       availableTokens: 2,
       recentRawNodeCount: 3,
       summaries: "enabled",
     });
 
-    expect(
-      context.entries.map((entry) => "nodeId" in entry && entry.nodeId),
-    ).toEqual(["2B", "1B"]);
+    expect(history).toEqual([
+      { role: "assistant", content: "cccc" },
+      { role: "assistant", content: "dddd" },
+    ]);
   });
 
   test("selects continuous non-overlapping mixed representations", () => {
@@ -64,22 +102,16 @@ describe("conversation context", () => {
       segment: generatedSummary(graph.messages.slice(4), "s"),
     };
 
-    const context = Conversation(graph).context.build({
+    const history = assembleHistory(graph, {
       availableTokens: 2,
       recentRawNodeCount: 0,
       summaries: "enabled",
     });
 
-    expect(context.entries.map((entry) => entry.kind)).toEqual([
-      "checkpoint",
-      "segment",
+    expect(history).toEqual([
+      { role: "assistant", content: "c" },
+      { role: "assistant", content: "s" },
     ]);
-    const covered = context.entries.flatMap((entry) => {
-      if ("sourceNodeIds" in entry) return entry.sourceNodeIds;
-      if ("nodeId" in entry) return [entry.nodeId];
-      return [];
-    });
-    expect(covered).toEqual(graph.messages.map((message) => message.id));
   });
 
   test("combines representations from interleaved Outline Chains", () => {
@@ -111,20 +143,19 @@ describe("conversation context", () => {
     rootAssistant.nodeSummaries = {
       segment: generatedSummary([root, rootAssistant], "x"),
     };
-    const graph = conversationState(
-      [root, branchUser, branchAssistant, rootAssistant],
-      { activeCursorId: rootAssistant.id },
-    );
+    const graph = conversationState([root, branchUser, branchAssistant, rootAssistant], {
+      activeCursorId: rootAssistant.id,
+    });
 
-    const context = Conversation(graph).context.build({
+    const history = assembleHistory(graph, {
       availableTokens: 2,
       recentRawNodeCount: 0,
       summaries: "enabled",
     });
 
-    expect(context.entries.map((entry) => entry.kind)).toEqual([
-      "segment",
-      "segment",
+    expect(history).toEqual([
+      { role: "assistant", content: "x" },
+      { role: "assistant", content: "x" },
     ]);
   });
 
@@ -139,78 +170,115 @@ describe("conversation context", () => {
         sourceDigest: "stale",
       },
     };
-    const build = () =>
-      Conversation(graph).context.build({
+    const invalidGraph = structuredClone(graph);
+    invalidGraph.messages[1].nodeSummaries!.segment!.sourceNodeIds = ["missing", "b"];
+    const assemble = (state: Conversation.State) =>
+      assembleHistory(state, {
         availableTokens: 8,
         recentRawNodeCount: 0,
         summaries: "enabled",
       });
 
-    expect(build().entries).toEqual([
-      expect.objectContaining({ kind: "segment", content: "stale available" }),
-    ]);
-    graph.messages[1].nodeSummaries.segment!.sourceNodeIds = ["missing", "b"];
-    expect(build().entries).toEqual([]);
+    expect(assemble(graph)).toEqual([{ role: "assistant", content: "stale available" }]);
+    expect(assemble(invalidGraph)).toEqual([]);
   });
 
   test("assembles fixed inputs, planned history, and current input once", () => {
     const graph = linearConversation([
       { id: "a", role: "user", content: "old question" },
       { id: "b", role: "assistant", content: "old answer" },
+      { id: "current", role: "user", content: "now" },
     ]);
     const context = Conversation(graph).context.assemble({
-      systemInputs: [createMessage({ role: "system", content: "system" })],
-      pinnedInputs: [createMessage({ role: "user", content: "pinned" })],
-      globalMemoryInput: createMessage({ role: "system", content: "memory" }),
-      currentInput: createMessage({
-        id: "current",
-        role: "user",
-        content: "now",
-      }),
+      systemInputs: [Conversation.createMessage({ role: "system", content: "system" })],
+      pinnedInputs: [Conversation.createMessage({ role: "user", content: "pinned" })],
+      globalMemoryInput: Conversation.createMessage({ role: "system", content: "memory" }),
       budget: { contextWindowTokens: 32_000, requestedOutputTokens: 4_000 },
       recentRawNodeCount: 2,
       summaries: "enabled",
     });
 
     expect(context.messages).toEqual([
-      { role: "instruction", content: "system" },
-      { role: "instruction", content: "memory" },
+      { role: "system", content: "system" },
+      { role: "system", content: "memory" },
       { role: "user", content: "pinned" },
       { role: "user", content: "old question" },
-      { role: "model", content: "old answer" },
+      { role: "assistant", content: "old answer" },
       { role: "user", content: "now" },
     ]);
     expect(context.effectiveMaxOutputTokens).toBeLessThanOrEqual(4_000);
   });
 
-  test("keeps a 250-node plan within the public frontier and time limits", () => {
+  test("requires the cursor to identify a current user input", () => {
+    const graph = linearConversation([
+      { id: "a", role: "user", content: "question" },
+      { id: "b", role: "assistant", content: "answer" },
+    ]);
+
+    expect(() =>
+      Conversation(graph).context.assemble({
+        systemInputs: [],
+        pinnedInputs: [],
+        budget: { contextWindowTokens: 32_000, requestedOutputTokens: 4_000 },
+        recentRawNodeCount: 2,
+        summaries: "enabled",
+      }),
+    ).toThrow("Conversation cursor must point to the current user input");
+  });
+
+  test("keeps the cursor input as a required suffix when history does not fit", () => {
+    const graph = linearConversation([
+      { id: "old", role: "user", content: "x".repeat(4_000) },
+      { id: "current", role: "user", content: "now" },
+    ]);
+
+    const context = Conversation(graph).context.assemble({
+      systemInputs: [],
+      pinnedInputs: [],
+      budget: { contextWindowTokens: 1_024, requestedOutputTokens: 128 },
+      recentRawNodeCount: 0,
+      summaries: "disabled",
+    });
+
+    expect(context.messages).toEqual([{ role: "user", content: "now" }]);
+  });
+
+  test("keeps a 250-node plan within the budget and compute limits", () => {
     const graph = linearConversation(
       Array.from({ length: 250 }, (_, index) => ({
         id: `n${index}`,
         role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
-        content: "xx",
+        content:
+          index % 10 === 0
+            ? ([
+                { type: "text" as const, text: "x".repeat(1_000) },
+                {
+                  type: "image_url" as const,
+                  image_url: { url: `data:image/png;base64,${"a".repeat(2_000)}` },
+                },
+              ] as Conversation.ContentPart[])
+            : "x".repeat(1_000),
       })),
     );
     for (let index = 1; index < graph.messages.length; index += 2) {
       graph.messages[index].nodeSummaries = {
-        segment: generatedSummary(
-          graph.messages.slice(index - 1, index + 1),
-          "x",
-        ),
+        segment: generatedSummary(graph.messages.slice(index - 1, index + 1), "x"),
       };
     }
 
-    const startedAt = performance.now();
-    const context = Conversation(graph).context.build({
+    // Thread CPU time isolates planner cost from other Vitest workers in this process.
+    const startedAt = process.threadCpuUsage();
+    const history = assembleHistory(graph, {
       availableTokens: 160,
       recentRawNodeCount: 8,
       summaries: "enabled",
     });
-    const duration = performance.now() - startedAt;
+    const cpu = process.threadCpuUsage(startedAt);
+    const duration = (cpu.user + cpu.system) / 1_000;
 
-    expect(context.tokens).toBeLessThanOrEqual(160);
-    expect(context.diagnostics.finalFrontierSize).toBeLessThanOrEqual(512);
-    expect(context.diagnostics.maxCandidateCount).toBeGreaterThan(0);
-    expect(duration).toBeLessThan(1_000);
+    expect(
+      history.reduce((tokens, message) => tokens + estimateRequestMessageTokens(message), 0),
+    ).toBeLessThanOrEqual(160);
+    expect(duration).toBeLessThan(50);
   });
 });

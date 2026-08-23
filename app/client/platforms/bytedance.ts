@@ -1,22 +1,15 @@
 "use client";
-import { ApiPath, ByteDance, BYTEDANCE_BASE_URL } from "@/app/constant";
-import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
-
-import { streamWithThink } from "@/app/utils/chat";
 import { getClientConfig } from "@/app/config/client";
-import { preProcessImageContent } from "@/app/utils/chat";
-import { getMessageTextContentWithoutThinking, getTimeoutMSByModel } from "@/app/utils";
+import { ApiPath, BYTEDANCE_BASE_URL, ByteDance, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel } from "@/app/utils";
+import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
+
+import type { ChatOptions, LLMModel, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -41,7 +34,8 @@ interface RequestPayloadForByteDance {
   max_tokens?: number;
 }
 
-export class DoubaoApi implements LLMApi {
+export class DoubaoApi extends LLMApi {
+  readonly providerName = ServiceProvider.ByteDance;
   path(path: string): string {
     const accessStore = useAccessStore.getState();
 
@@ -80,10 +74,10 @@ export class DoubaoApi implements LLMApi {
     const messages: RequestPayloadForByteDance["messages"] = [];
     for (const v of options.messages) {
       const content =
-        v.role === "model"
-          ? getMessageTextContentWithoutThinking(v)
+        v.role === "assistant"
+          ? getMessageText(v.content)
           : await preProcessImageContent(v.content);
-      const role = toOpenAICompatibleRole(v.role);
+      const role = v.role;
       messages.push({ role, content });
     }
 
@@ -109,7 +103,7 @@ export class DoubaoApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -119,22 +113,23 @@ export class DoubaoApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;

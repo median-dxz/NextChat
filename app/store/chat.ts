@@ -1,14 +1,9 @@
 import { nanoid } from "nanoid";
 
-import {
-  getMessageTextContent,
-  isDalle3,
-  safeLocalStorage,
-  trimTopic,
-} from "../utils";
-import { requestText, toModelInputMessages } from "../client/request-text";
+import { getMessageText, isDalle3, safeLocalStorage, trimTopic } from "../utils";
+import { requestText } from "../client/request-text";
 import { showToast } from "../components/ui-lib";
-import { getClientApi } from "../client/api";
+import { ClientApi } from "../client/api";
 
 import { executeMcpAction, isMcpEnabled } from "@/app/mcp/actions";
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
@@ -16,55 +11,35 @@ import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import {
   DEEPSEEK_SUMMARIZE_MODEL,
   GEMINI_SUMMARIZE_MODEL,
+  isServiceProviderName,
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
+  type ServiceProviderName,
   StoreKey,
   SUMMARIZE_MODEL,
 } from "../constant";
 import Locale from "../locales";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { deepClone } from "../utils/clone";
-import type {
-  ConversationGraphState,
-  GlobalMemory,
-} from "../utils/conversation";
-import {
-  Conversation,
-  createMessage,
-  type ChatMessage,
-  type ConversationApi,
-  type ConversationNode,
-  type NodeSummaryKind,
-} from "../utils/conversation";
+
+import { Conversation } from "../utils/conversation";
 import { prettyObject } from "../utils/format";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import { useAccessStore } from "./access";
-import {
-  createChatOrchestrator,
-  type ChatOrchestrator,
-} from "./chat-orchestrator";
+import { createChatOrchestrator, type ChatOrchestrator } from "./chat-orchestrator";
 import { useAppConfig } from "./config";
 import { createEmptyMask, Mask } from "./mask";
-import {
-  createSummaryMaintenance,
-  type SummaryMaintenance,
-} from "./summary-maintenance";
-
-export { createConversationNode, createMessage } from "../utils/conversation";
-export type {
-  ChatMessage,
-  ChatMessageTool,
-  ConversationNode,
-} from "../utils/conversation";
+import { usePluginStore } from "./plugin";
+import { createSummaryMaintenance, type SummaryMaintenance } from "./summary-maintenance";
 
 const localStorage = safeLocalStorage();
 const globalMemoryJobs = new Map<string, Promise<void>>();
 
 interface MemoryModelOverride {
   model: string;
-  providerName: string;
+  providerName: ServiceProviderName;
 }
 
 export interface ChatStat {
@@ -73,30 +48,24 @@ export interface ChatStat {
   charCount: number;
 }
 
-export interface ChatSession extends ConversationGraphState {
+export interface ChatSession extends Conversation.State {
   id: string;
   topic: string;
 
   pendingOutlineDelta?: -1 | 1;
-  pinnedInputs: ChatMessage[];
-  globalMemory: GlobalMemory;
+  pinnedInputs: Conversation.Message[];
+  globalMemory: Conversation.GlobalMemory;
   stat: ChatStat;
   lastUpdate: number;
 
   mask: Mask;
 }
 
-type ChatSessionMetadata = Omit<
-  ChatSession,
-  keyof ConversationGraphState | "id"
->;
-
-type ConversationSessionPatch = Partial<
-  Pick<ChatSessionMetadata, "pendingOutlineDelta" | "globalMemory">
->;
+type ChatSessionMetadata = Omit<ChatSession, keyof Conversation.State | "id">;
+type ChatSessionDraft = ChatSessionMetadata & { conversation: Conversation.Api };
 
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
-export const BOT_HELLO: ChatMessage = createMessage({
+export const BOT_HELLO: Conversation.Message = Conversation.createMessage({
   role: "assistant",
   content: Locale.Store.BotHello,
 });
@@ -118,12 +87,10 @@ function createEmptySession(): ChatSession {
   };
 }
 
-function migrateMessagesToConversationNodes(
-  messages: ChatMessage[],
-): ConversationNode[] {
+function migrateMessagesToConversationNodes(messages: Conversation.Message[]): Conversation.Node[] {
   let parentId: string | undefined;
   return messages.map((message) => {
-    const node: ConversationNode = {
+    const node: Conversation.Node = {
       ...message,
       parentId,
       outlineLevel: 1,
@@ -134,7 +101,7 @@ function migrateMessagesToConversationNodes(
   });
 }
 
-function materializeMaskContext(session: ChatSession) {
+function applyMaskContext(session: ChatSession) {
   const context = session.mask.context.slice();
   const pinnedInputs = context.filter((message) => message.role === "system");
   const startingMessages = context.filter(
@@ -153,23 +120,17 @@ function materializeMaskContext(session: ChatSession) {
 
 function migrateSessionToConversation(session: any) {
   const oldMessages = Array.isArray(session.messages) ? session.messages : [];
-  const maskContext = Array.isArray(session.mask?.context)
-    ? session.mask.context
-    : [];
+  const maskContext = Array.isArray(session.mask?.context) ? session.mask.context : [];
   const presetNodes = maskContext.filter(
-    (message: ChatMessage) =>
-      message.role === "user" || message.role === "assistant",
+    (message: Conversation.Message) => message.role === "user" || message.role === "assistant",
   );
-  const nodes = migrateMessagesToConversationNodes([
-    ...presetNodes,
-    ...oldMessages,
-  ]);
+  const nodes = migrateMessagesToConversationNodes([...presetNodes, ...oldMessages]);
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
   session.pinnedInputs = maskContext
-    .filter((message: ChatMessage) => message.role === "system")
-    .map((message: ChatMessage) => ({ ...message, outlineLevel: 0 }));
+    .filter((message: Conversation.Message) => message.role === "system")
+    .map((message: Conversation.Message) => ({ ...message, outlineLevel: 0 }));
   const oldMemory = String(session.memoryPrompt ?? "").trim();
   session.globalMemory = oldMemory
     ? {
@@ -186,8 +147,7 @@ function migrateSessionToConversation(session: any) {
   session.mask.modelConfig.memoryProviderName ??= "";
   session.mask.modelConfig.titleModel ??= "";
   session.mask.modelConfig.titleProviderName ??= "";
-  session.mask.modelConfig.recentRawNodeCount =
-    session.mask.modelConfig.historyMessageCount ?? 4;
+  session.mask.modelConfig.recentRawNodeCount = session.mask.modelConfig.historyMessageCount ?? 4;
   session.mask.modelConfig.segmentTargetSourceTokens =
     session.mask.modelConfig.compressMessageLengthThreshold ?? 1000;
   session.mask.modelConfig.segmentMaxSourceNodes = 16;
@@ -207,8 +167,8 @@ function migrateSessionToConversation(session: any) {
 
 function getSummarizeModel(
   currentModel: string,
-  providerName: string,
-): [model: string, providerName: string] {
+  providerName: ServiceProviderName,
+): [model: string, providerName: ServiceProviderName] {
   // if it is using gpt-* models, force to use 4o-mini to summarize
   if (currentModel.startsWith("gpt") || currentModel.startsWith("chatgpt")) {
     const configStore = useAppConfig.getState();
@@ -218,14 +178,10 @@ function getSummarizeModel(
       [configStore.customModels, accessStore.customModels].join(","),
       accessStore.defaultModel,
     );
-    const summarizeModel = allModel.find(
-      (m) => m.name === SUMMARIZE_MODEL && m.available,
-    );
-    if (summarizeModel) {
-      return [
-        summarizeModel.name,
-        summarizeModel.provider?.providerName as string,
-      ];
+    const summarizeModel = allModel.find((m) => m.name === SUMMARIZE_MODEL && m.available);
+    const summarizeProvider = summarizeModel?.provider?.providerName;
+    if (summarizeModel && summarizeProvider && isServiceProviderName(summarizeProvider)) {
+      return [summarizeModel.name, summarizeProvider];
     }
   }
   if (currentModel.startsWith("gemini")) {
@@ -237,11 +193,8 @@ function getSummarizeModel(
   return [currentModel, providerName];
 }
 
-function countMessages(msgs: ChatMessage[]) {
-  return msgs.reduce(
-    (pre, cur) => pre + estimateTokenLength(getMessageTextContent(cur)),
-    0,
-  );
+function countMessages(msgs: Conversation.Message[]) {
+  return msgs.reduce((pre, cur) => pre + estimateTokenLength(getMessageText(cur.content)), 0);
 }
 
 const DEFAULT_CHAT_STATE = {
@@ -263,14 +216,12 @@ export const useChatStore = createPersistStore(
     let chatOrchestrator: ChatOrchestrator;
     let summaryMaintenance: SummaryMaintenance;
 
-    function updateSession(
+    function commitSession(
       sessionId: string,
       updater: (session: ChatSession) => ChatSession | undefined,
     ) {
       set((state) => {
-        const index = state.sessions.findIndex(
-          (session) => session.id === sessionId,
-        );
+        const index = state.sessions.findIndex((session) => session.id === sessionId);
         if (index < 0) return state;
 
         const current = state.sessions[index];
@@ -295,12 +246,10 @@ export const useChatStore = createPersistStore(
         // 克隆消息图并重建节点 ID
         const { conversation } = Conversation(currentSession).clone(nanoid);
         Object.assign(newSession, conversation.state);
-        newSession.pinnedInputs = currentSession.pinnedInputs.map(
-          (message) => ({
-            ...message,
-            id: nanoid(),
-          }),
-        );
+        newSession.pinnedInputs = currentSession.pinnedInputs.map((message) => ({
+          ...message,
+          id: nanoid(),
+        }));
         newSession.globalMemory = { ...currentSession.globalMemory };
         // Summaries are derived from message IDs, so the fork rebuilds them.
         newSession.mask = {
@@ -369,7 +318,7 @@ export const useChatStore = createPersistStore(
             },
           };
           session.topic = mask.name;
-          materializeMaskContext(session);
+          applyMaskContext(session);
         }
 
         set((state) => ({
@@ -395,10 +344,7 @@ export const useChatStore = createPersistStore(
         sessions.splice(index, 1);
 
         const currentIndex = get().currentSessionIndex;
-        let nextIndex = Math.min(
-          currentIndex - Number(index < currentIndex),
-          sessions.length - 1,
-        );
+        let nextIndex = Math.min(currentIndex - Number(index < currentIndex), sessions.length - 1);
 
         if (deletingLastSession) {
           nextIndex = 0;
@@ -442,12 +388,9 @@ export const useChatStore = createPersistStore(
         return session;
       },
 
-      onUserInput(
-        content: string,
-        attachImages?: string[],
-        isMcpResponse?: boolean,
-      ) {
+      onUserInput(content: string, attachImages?: string[], isMcpResponse?: boolean) {
         return chatOrchestrator.start({
+          kind: "input",
           sessionId: get().currentSession().id,
           content,
           attachImages,
@@ -467,21 +410,7 @@ export const useChatStore = createPersistStore(
         chatOrchestrator.cancelAll();
       },
 
-      resetSession(session: ChatSession) {
-        get().updateConversation(
-          session.id,
-          () => Conversation({ messages: [] }),
-          {
-            pendingOutlineDelta: undefined,
-            globalMemory: Conversation.createMemory(),
-          },
-        );
-      },
-
-      generateSessionTitle(
-        targetSession: ChatSession,
-        refreshTitle: boolean = false,
-      ) {
+      generateSessionTitle(targetSession: ChatSession, refreshTitle: boolean = false) {
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
@@ -490,12 +419,13 @@ export const useChatStore = createPersistStore(
           return;
         }
 
-        const [titleModel, titleProviderName] = modelConfig.titleModel
-          ? [modelConfig.titleModel, modelConfig.titleProviderName]
-          : getSummarizeModel(
-              session.mask.modelConfig.model,
-              session.mask.modelConfig.providerName,
-            );
+        const [titleModel, titleProviderName] =
+          modelConfig.titleModel && modelConfig.titleProviderName
+            ? [modelConfig.titleModel, modelConfig.titleProviderName]
+            : getSummarizeModel(
+                session.mask.modelConfig.model,
+                session.mask.modelConfig.providerName,
+              );
         // remove error messages if any
         const messages = Conversation(session).projectToCursor();
 
@@ -507,36 +437,26 @@ export const useChatStore = createPersistStore(
             countMessages(messages) >= SUMMARIZE_MIN_LEN) ||
           refreshTitle
         ) {
-          const startIndex = Math.max(
-            0,
-            messages.length - modelConfig.recentRawNodeCount,
-          );
-          const topicMessages: ChatMessage[] = [
+          const startIndex = Math.max(0, messages.length - modelConfig.recentRawNodeCount);
+          const topicMessages: Conversation.Message[] = [
             ...messages.slice(
               startIndex < messages.length ? startIndex : messages.length - 1,
               messages.length,
             ),
-            createMessage({
+            Conversation.createMessage({
               role: "user",
               content: Locale.Store.Prompt.Topic,
             }),
           ];
           const topicAtRequest = session.topic;
-          void requestText(
-            getClientApi(titleProviderName as ServiceProvider),
-            toModelInputMessages(topicMessages),
-            {
-              ...modelConfig,
-              model: titleModel,
-              providerName: titleProviderName,
-            },
-            session.mask.plugin ?? [],
-          )
+          void requestText(new ClientApi(titleProviderName), topicMessages, {
+            ...modelConfig,
+            model: titleModel,
+          })
             .then((message) => {
-              get().updateSessionMetadata(session.id, (metadata) => {
-                if (metadata.topic !== topicAtRequest) return false;
-                metadata.topic =
-                  message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC;
+              get().updateSession(session.id, (draft) => {
+                if (draft.topic !== topicAtRequest) return false;
+                draft.topic = message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC;
               });
             })
             .catch((error) => console.error("[Title]", error));
@@ -547,7 +467,7 @@ export const useChatStore = createPersistStore(
         sessionId: string,
         nodeId: string,
         force = false,
-        onlyKind?: NodeSummaryKind,
+        onlyKind?: Conversation.SummaryKind,
       ): Promise<void> {
         return summaryMaintenance.maintain({
           sessionId,
@@ -557,21 +477,19 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      deleteNodeSummary(
-        sessionId: string,
-        nodeId: string,
-        kind: NodeSummaryKind,
-      ) {
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.summaries.findNode(nodeId)?.remove(kind),
-        );
+      deleteNodeSummary(sessionId: string, nodeId: string, kind: Conversation.SummaryKind) {
+        get().updateSession(sessionId, (draft) => {
+          const next = draft.conversation.summaries.findNode(nodeId)?.remove(kind);
+          if (!next) return false;
+          draft.conversation = next;
+        });
       },
 
       editGlobalMemory(
         sessionId: string,
-        update: Partial<Pick<GlobalMemory, "enabled" | "prompt" | "content">>,
+        update: Partial<Pick<Conversation.GlobalMemory, "enabled" | "prompt" | "content">>,
       ) {
-        get().updateSessionMetadata(sessionId, (draft) => {
+        get().updateSession(sessionId, (draft) => {
           Object.assign(draft.globalMemory, update);
           draft.globalMemory.revision += 1;
         });
@@ -586,23 +504,16 @@ export const useChatStore = createPersistStore(
         const execution = previous
           .catch(() => undefined)
           .then(async () => {
-            const session = get().sessions.find(
-              (item) => item.id === sessionId,
-            );
+            const session = get().sessions.find((item) => item.id === sessionId);
             if (!session || !session.globalMemory.enabled) return;
-            const memoryInstruction = (
-              prompt ?? session.globalMemory.prompt
-            ).trim();
+            const memoryInstruction = (prompt ?? session.globalMemory.prompt).trim();
             if (!memoryInstruction) return;
 
             const projection = Conversation(session).projectToCursor();
             const assistant = projection
               .slice()
               .reverse()
-              .find(
-                (node) =>
-                  node.role === "assistant" && !node.streaming && !node.isError,
-              );
+              .find((node) => node.role === "assistant" && !node.streaming && !node.isError);
             const user = assistant?.parentId
               ? session.messages.find((node) => node.id === assistant.parentId)
               : undefined;
@@ -610,26 +521,33 @@ export const useChatStore = createPersistStore(
 
             const revision = session.globalMemory.revision;
             const modelConfig = session.mask.modelConfig;
-            const [model, providerName] = modelOverride
-              ? [modelOverride.model, modelOverride.providerName]
-              : modelConfig.memoryModel
-                ? [modelConfig.memoryModel, modelConfig.memoryProviderName]
-                : modelConfig.compressModel
-                  ? [
-                      modelConfig.compressModel,
-                      modelConfig.compressProviderName,
-                    ]
-                  : getSummarizeModel(
-                      modelConfig.model,
-                      modelConfig.providerName,
-                    );
-            const messages: ChatMessage[] = [
-              createMessage({
+
+            let model: string;
+            let providerName: ServiceProviderName;
+
+            if (modelOverride) {
+              model = modelOverride.model;
+              providerName = modelOverride.providerName;
+            } else if (modelConfig.memoryModel && modelConfig.memoryProviderName) {
+              model = modelConfig.memoryModel;
+              providerName = modelConfig.memoryProviderName;
+            } else if (modelConfig.compressModel && modelConfig.compressProviderName) {
+              model = modelConfig.compressModel;
+              providerName = modelConfig.compressProviderName;
+            } else {
+              [model, providerName] = getSummarizeModel(
+                modelConfig.model,
+                modelConfig.providerName,
+              );
+            }
+
+            const messages: Conversation.Message[] = [
+              Conversation.createMessage({
                 role: "system",
                 content: memoryInstruction,
                 date: "",
               }),
-              createMessage({
+              Conversation.createMessage({
                 role: "system",
                 content: session.globalMemory.content,
                 date: "",
@@ -637,26 +555,18 @@ export const useChatStore = createPersistStore(
               user,
               assistant,
             ];
-            const content = await requestText(
-              getClientApi(providerName as ServiceProvider),
-              toModelInputMessages(messages),
-              {
-                ...modelConfig,
-                model,
-                providerName,
-              },
-              session.mask.plugin ?? [],
-            );
+            const content = await requestText(new ClientApi(providerName), messages, {
+              ...modelConfig,
+              model,
+            });
             if (!content) {
               throw new Error(
                 `Global memory request returned empty content (${providerName}/${model})`,
               );
             }
-            const current = get().sessions.find(
-              (item) => item.id === sessionId,
-            );
+            const current = get().sessions.find((item) => item.id === sessionId);
             if (!current || current.globalMemory.revision !== revision) return;
-            get().updateSessionMetadata(sessionId, (draft) => {
+            get().updateSession(sessionId, (draft) => {
               if (draft.globalMemory.revision !== revision) return false;
               draft.globalMemory.content = content;
               draft.globalMemory.revision += 1;
@@ -673,26 +583,29 @@ export const useChatStore = createPersistStore(
       },
 
       deleteMessage(sessionId: string, messageId: string) {
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.findNode(messageId)?.remove(),
-        );
+        get().updateSession(sessionId, (draft) => {
+          const next = draft.conversation.findNode(messageId)?.remove();
+          if (!next) return false;
+          draft.conversation = next;
+        });
       },
 
       async retryMessage(sessionId: string, messageId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session || get().currentSession().id !== sessionId) return false;
-        const target = Conversation(session).findNode(messageId)?.value;
-        if (
-          !target ||
-          (target.role !== "user" && target.role !== "assistant")
-        ) {
-          return false;
+        const target = Conversation(session).node(messageId);
+
+        let user = target.value;
+
+        if (user.role === "assistant") {
+          if (target.parent?.role !== "user") return false;
+          user = target.parent;
         }
+
         await chatOrchestrator.start({
+          kind: "retry",
           sessionId,
-          content: "",
-          isMcpResponse: target.isMcpResponse,
-          retry: { sourceNodeId: messageId },
+          sourceNodeId: user.id,
         });
         return true;
       },
@@ -700,13 +613,10 @@ export const useChatStore = createPersistStore(
       setNextOutlineDelta(sessionId: string, delta?: -1 | 1) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        const cursor = session.messages.find(
-          (item) => item.id === session.activeCursorId,
-        );
+        const cursor = session.messages.find((item) => item.id === session.activeCursorId);
         if (!cursor || (delta === -1 && cursor.outlineLevel <= 1)) return;
-        get().updateSessionMetadata(sessionId, (draft) => {
-          draft.pendingOutlineDelta =
-            draft.pendingOutlineDelta === delta ? undefined : delta;
+        get().updateSession(sessionId, (draft) => {
+          draft.pendingOutlineDelta = draft.pendingOutlineDelta === delta ? undefined : delta;
         });
       },
 
@@ -719,21 +629,17 @@ export const useChatStore = createPersistStore(
             .map((node) => node.id),
         );
         if (!activeIds.has(nodeId)) return;
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.moveCursor(nodeId),
-        );
+        get().updateSession(sessionId, (draft) => {
+          draft.conversation = draft.conversation.moveCursor(nodeId);
+        });
       },
 
-      selectConversationBranch(
-        sessionId: string,
-        parentId: string,
-        branchRootId?: string,
-      ) {
+      selectConversationBranch(sessionId: string, parentId: string, branchRootId?: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.node(parentId).selectBranch(branchRootId),
-        );
+        get().updateSession(sessionId, (draft) => {
+          draft.conversation = draft.conversation.node(parentId).setBranch(branchRootId);
+        });
       },
 
       startConversationBranch(sessionId: string, parentId: string) {
@@ -745,78 +651,50 @@ export const useChatStore = createPersistStore(
             .map((node) => node.id),
         );
         if (!activeIds.has(parentId)) return;
-        get().updateConversation(
-          sessionId,
-          (conversation) => conversation.moveCursor(parentId),
-          { pendingOutlineDelta: 1 },
-        );
+        get().updateSession(sessionId, (draft) => {
+          draft.pendingOutlineDelta = 1;
+          draft.conversation = draft.conversation.moveCursor(parentId);
+        });
       },
 
-      insertMessageBetween(
-        sessionId: string,
-        message: ConversationNode,
-        previousId?: string,
-        nextId?: string,
-      ) {
+      insertMessageBetween(sessionId: string, message: Conversation.Node, previousId?: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.insertProjected(message, previousId, nextId),
-        );
+        get().updateSession(sessionId, (draft) => {
+          draft.conversation = draft.conversation.insertProjected(message, previousId);
+        });
       },
 
       swapMessages(sessionId: string, firstId: string, secondId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session) return;
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.swap(firstId, secondId),
-        );
+        get().updateSession(sessionId, (draft) => {
+          draft.conversation = draft.conversation.swap(firstId, secondId);
+        });
       },
 
       updateMessageContent(
         sessionId: string,
         messageId: string,
-        content: ChatMessage["content"],
+        content: Conversation.Message["content"],
       ) {
-        get().updateConversation(sessionId, (conversation) =>
-          conversation.updateNodeData(messageId, (message) => {
+        get().updateSession(sessionId, (draft) => {
+          draft.conversation = draft.conversation.updateNodeData(messageId, (message) => {
             message.content = content;
-          }),
-        );
+          });
+        });
       },
 
-      updateStat(message: ChatMessage, sessionId: string) {
-        get().updateSessionMetadata(sessionId, (session) => {
-          session.stat.charCount += message.content.length;
+      updateStat(message: Conversation.Message, sessionId: string) {
+        get().updateSession(sessionId, (draft) => {
+          draft.stat.charCount += message.content.length;
           // TODO: should update chat count and word count
         });
       },
 
-      updateConversation(
-        sessionId: string,
-        updater: (conversation: ConversationApi) => ConversationApi | undefined,
-        sessionPatch: ConversationSessionPatch = {},
-      ) {
-        updateSession(sessionId, (current) => {
-          const conversation = Conversation(current);
-          const next = updater(conversation);
-
-          if (!next || next === conversation) return;
-
-          return {
-            ...current,
-            ...sessionPatch,
-            ...next.state,
-          };
-        });
-      },
-
-      updateSessionMetadata(
-        sessionId: string,
-        updater: (metadata: ChatSessionMetadata) => void | false,
-      ) {
-        updateSession(sessionId, (current) => {
-          const metadata: ChatSessionMetadata = {
+      updateSession(sessionId: string, updater: (session: ChatSessionDraft) => void | false) {
+        commitSession(sessionId, (current) => {
+          const draft: ChatSessionDraft = {
             topic: current.topic,
             pendingOutlineDelta: current.pendingOutlineDelta,
             pinnedInputs: deepClone(current.pinnedInputs),
@@ -824,13 +702,15 @@ export const useChatStore = createPersistStore(
             stat: { ...current.stat },
             lastUpdate: current.lastUpdate,
             mask: deepClone(current.mask),
+            conversation: Conversation(current),
           };
-
-          if (updater(metadata) === false) return;
+          if (updater(draft) === false) return;
+          const { conversation, ...metadata } = draft;
 
           return {
             ...current,
             ...metadata,
+            ...conversation.state,
           };
         });
       },
@@ -847,10 +727,10 @@ export const useChatStore = createPersistStore(
       },
 
       /** check if the message contains MCP JSON and execute the MCP action */
-      async checkMcpJson(message: ChatMessage, sessionId?: string) {
+      async checkMcpJson(message: Conversation.Message, sessionId?: string) {
         const mcpEnabled = await isMcpEnabled();
         if (!mcpEnabled) return;
-        const content = getMessageTextContent(message);
+        const content = getMessageText(message.content);
         if (isMcpJson(content)) {
           try {
             const mcpRequest = extractMcpJson(content);
@@ -861,10 +741,9 @@ export const useChatStore = createPersistStore(
                 .then((result) => {
                   console.log("[MCP Response]", result);
                   const mcpResponse =
-                    typeof result === "object"
-                      ? JSON.stringify(result)
-                      : String(result);
+                    typeof result === "object" ? JSON.stringify(result) : String(result);
                   return chatOrchestrator.start({
+                    kind: "input",
                     sessionId: sessionId ?? get().currentSession().id,
                     content: `\`\`\`json:mcp-response:${mcpRequest.clientId}\n${mcpResponse}\n\`\`\``,
                     attachImages: [],
@@ -885,9 +764,13 @@ export const useChatStore = createPersistStore(
         return get().sessions.find((session) => session.id === sessionId);
       },
       updateConversation(sessionId, updater) {
-        get().updateConversation(sessionId, updater);
+        get().updateSession(sessionId, (draft) => {
+          const next = updater(draft.conversation);
+          if (!next) return false;
+          draft.conversation = next;
+        });
       },
-      getClientApi,
+      createClient: (providerName) => new ClientApi(providerName),
       resolveDefaultModel: getSummarizeModel,
       summaryPrompt: Locale.Store.Prompt.Summarize,
     });
@@ -896,21 +779,21 @@ export const useChatStore = createPersistStore(
       getSession(sessionId) {
         return get().sessions.find((session) => session.id === sessionId);
       },
-      updateConversation(sessionId, updater, sessionPatch) {
-        get().updateConversation(sessionId, updater, sessionPatch);
+      updateSession(sessionId, updater) {
+        get().updateSession(sessionId, updater);
       },
-      getClientApi,
+      createClient: (providerName) => new ClientApi(providerName),
+      resolveTools(pluginIds) {
+        if (pluginIds.length === 0) return undefined;
+        return usePluginStore.getState().getAsTools(pluginIds);
+      },
       completionEffects: {
         dispatch(event) {
-          const session = get().sessions.find(
-            (item) => item.id === event.sessionId,
-          );
-          const message = session?.messages.find(
-            (item) => item.id === event.assistantNodeId,
-          );
+          const session = get().sessions.find((item) => item.id === event.sessionId);
+          const message = session?.messages.find((item) => item.id === event.assistantNodeId);
           if (!session || !message) return;
 
-          get().updateSessionMetadata(session.id, (draft) => {
+          get().updateSession(session.id, (draft) => {
             draft.lastUpdate = Date.now();
           });
           get().updateStat(message, session.id);
@@ -935,8 +818,7 @@ export const useChatStore = createPersistStore(
     version: 4,
 
     merge(persistedState, currentState) {
-      const restoredState = persistedState as
-        Partial<typeof DEFAULT_CHAT_STATE> | undefined;
+      const restoredState = persistedState as Partial<typeof DEFAULT_CHAT_STATE> | undefined;
       const sessions = restoredState?.sessions ?? currentState.sessions;
       const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
 
@@ -970,9 +852,7 @@ export const useChatStore = createPersistStore(
 
     migrate(persistedState, version) {
       const state = persistedState as any;
-      const newState = JSON.parse(
-        JSON.stringify(state),
-      ) as typeof DEFAULT_CHAT_STATE;
+      const newState = JSON.parse(JSON.stringify(state)) as typeof DEFAULT_CHAT_STATE;
 
       if (version < 2) {
         newState.sessions = [];
@@ -1004,9 +884,7 @@ export const useChatStore = createPersistStore(
         newState.sessions.forEach((session) => {
           if (
             // Exclude those already set by user
-            !session.mask.modelConfig.hasOwnProperty(
-              "enableInjectSystemPrompts",
-            )
+            !session.mask.modelConfig.hasOwnProperty("enableInjectSystemPrompts")
           ) {
             // Because users may have changed this configuration,
             // the user's current configuration is used instead of the default.

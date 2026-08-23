@@ -1,8 +1,10 @@
-import { CACHE_URL_PREFIX, UPLOAD_URL, REQUEST_TIMEOUT_MS } from "@/app/constant";
-import type { MultimodalContent } from "@/app/client/api";
-import type { ConversationContent } from "@/app/utils/conversation";
-import Locale from "@/app/locales";
 import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
+
+import type { MultimodalContent } from "@/app/client/api";
+import { CACHE_URL_PREFIX, REQUEST_TIMEOUT_MS, UPLOAD_URL } from "@/app/constant";
+import Locale from "@/app/locales";
+import type { Conversation } from "@/app/utils/conversation";
+
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./stream";
 import { ThinkingContentParser } from "./thinking";
@@ -66,7 +68,7 @@ export function compressImage(file: Blob, maxSize: number): Promise<string> {
 }
 
 export async function preProcessImageContentBase(
-  content: ConversationContent,
+  content: Conversation.Content,
   transformImageUrl: (url: string) => Promise<{ [key: string]: any }>,
 ) {
   if (typeof content === "string") {
@@ -88,14 +90,14 @@ export async function preProcessImageContentBase(
   return result;
 }
 
-export async function preProcessImageContent(content: ConversationContent) {
+export async function preProcessImageContent(content: Conversation.Content) {
   return preProcessImageContentBase(content, async (url) => ({
     type: "image_url",
     image_url: { url },
   })) as Promise<MultimodalContent[] | string>;
 }
 
-export async function preProcessImageContentForAlibabaDashScope(content: ConversationContent) {
+export async function preProcessImageContentForAlibabaDashScope(content: Conversation.Content) {
   return preProcessImageContentBase(content, async (url) => ({
     image: url,
   }));

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { GeminiProApi } from "../app/client/platforms/google";
-import { ServiceProvider } from "../app/constant";
 
 const originalFetch = window.fetch;
 
@@ -24,9 +23,9 @@ describe("provider context adaptation", () => {
     });
 
     const messages = [
-      { role: "instruction" as const, content: "memory" },
+      { role: "system" as const, content: "memory" },
       { role: "user" as const, content: "pinned" },
-      { role: "model" as const, content: "summary" },
+      { role: "assistant" as const, content: "summary" },
       { role: "user" as const, content: "current" },
     ];
 
@@ -34,7 +33,6 @@ describe("provider context adaptation", () => {
       messages,
       config: {
         model: "gemini-2.0-flash",
-        providerName: ServiceProvider.Google,
         temperature: 0.5,
         top_p: 1,
         max_tokens: 128,
@@ -42,7 +40,6 @@ describe("provider context adaptation", () => {
         frequency_penalty: 0,
         stream: false,
       },
-      pluginIds: [],
       onFinish() {},
     });
 

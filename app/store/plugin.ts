@@ -6,6 +6,7 @@ import { getClientConfig } from "../config/client";
 import * as yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
+import type { ChatToolDefinition, ChatTools } from "../client/api";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -22,14 +23,7 @@ export type Plugin = {
   authToken?: string;
 };
 
-export type FunctionToolItem = {
-  type: string;
-  function: {
-    name: string;
-    description?: string;
-    parameters: Object;
-  };
-};
+export type FunctionToolItem = ChatToolDefinition;
 
 type FunctionToolServiceItem = {
   api: OpenAPIClientAxios;
@@ -201,17 +195,16 @@ export const usePluginStore = createPersistStore(
       get().markUpdate();
     },
 
-    getAsTools(ids: string[]) {
+    getAsTools(ids: string[]): ChatTools {
       const plugins = get().plugins;
       const selected = (ids || [])
         .map((id) => plugins[id])
         .filter((i) => i)
         .map((p) => FunctionToolService.add(p));
-      return [
-        // @ts-ignore
-        selected.reduce((s, i) => s.concat(i.tools), []),
-        selected.reduce((s, i) => Object.assign(s, i.funcs), {}),
-      ];
+      return {
+        definitions: selected.flatMap((item) => item.tools),
+        handlers: selected.reduce((handlers, item) => Object.assign(handlers, item.funcs), {}),
+      };
     },
     get(id?: string) {
       return get().plugins[id ?? 1145141919810];

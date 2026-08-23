@@ -13,12 +13,15 @@ import {
   DEFAULT_TTS_VOICES,
   StoreKey,
   ServiceProvider,
+  type ServiceProviderName,
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import { getModelKey, mergeModelLists } from "../utils/model-list";
 import type { Voice } from "rt-client";
 
-export type ModelType = (typeof DEFAULT_MODELS)[number]["name"];
+export type BuiltInModelType = (typeof DEFAULT_MODELS)[number]["name"];
+
+export type ModelType = BuiltInModelType | (string & {});
 export type TTSModelType = (typeof DEFAULT_TTS_MODELS)[number];
 export type TTSVoiceType = (typeof DEFAULT_TTS_VOICES)[number];
 export type TTSEngineType = (typeof DEFAULT_TTS_ENGINES)[number];
@@ -80,11 +83,11 @@ export const DEFAULT_CONFIG = {
     checkpointTargetSegments: 4,
     checkpointMergeTargetTokens: 1000,
     compressModel: "",
-    compressProviderName: "",
+    compressProviderName: "" as ServiceProviderName | "",
     memoryModel: "",
-    memoryProviderName: "",
+    memoryProviderName: "" as ServiceProviderName | "",
     titleModel: "",
-    titleProviderName: "",
+    titleProviderName: "" as ServiceProviderName | "",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,

@@ -1,4 +1,8 @@
-import { createSourceDigest, type ConversationNode } from "./node";
+import { enableMapSet, produce } from "immer";
+import { createCoverageDigest, type Node } from "./node";
+import type { Workspace } from "./workspace";
+
+enableMapSet();
 
 export interface GlobalMemory {
   enabled: boolean;
@@ -7,48 +11,43 @@ export interface GlobalMemory {
   revision: number;
 }
 
-export interface ConversationGraphState {
-  messages: ConversationNode[];
+export interface State {
+  messages: Node[];
   rootNodeId?: string;
   activeCursorId?: string;
 }
 
-export interface ConversationGraphIndex {
-  nodesById: Map<string, ConversationNode>;
-  childrenByParentId: Map<string, ConversationNode[]>;
-  sameLevelChildByParentId: Map<string, ConversationNode>;
+export interface Index {
+  nodesById: Map<string, Node>;
+  positionById: Map<string, number>;
+  childrenByParentId: Map<string, Node[]>;
+  sameLevelChildByParentId: Map<string, Node>;
 }
 
-export interface ConversationGraphNodeApi<TResult> {
-  readonly value: ConversationNode;
-  readonly parent: ConversationNode | undefined;
-  readonly sameLevelSuccessor: ConversationNode | undefined;
-  readonly branches: ConversationNode[];
+export interface NodeApi<TResult> {
+  readonly value: Node;
+  readonly parent: Node | undefined;
+  readonly sameLevelSuccessor: Node | undefined;
+  readonly branches: Node[];
 
   shiftLevel(outlineDelta: -1 | 0 | 1): TResult;
-  selectBranch(branchRootId?: string): TResult;
+  setBranch(branch?: string | Node): TResult;
   remove(): TResult;
 }
 
-export interface ConversationGraphApi<TResult> {
-  readonly state: ConversationGraphState;
+export interface Api<TResult> {
+  readonly state: State;
 
   validate(): void;
-  projectActive(): ConversationNode[];
-  projectToCursor(): ConversationNode[];
-  projectTo(nodeId: string): ConversationNode[];
-  node(nodeId: string): ConversationGraphNodeApi<TResult>;
-  findNode(nodeId: string): ConversationGraphNodeApi<TResult> | undefined;
-  insert(
-    input: ConversationNode,
-    outlineDelta?: -1 | 0 | 1,
-    anchorId?: string,
-  ): TResult;
-  insertProjected(
-    input: ConversationNode,
-    previousId?: string,
-    nextId?: string,
-  ): TResult;
+  projectActive(): Node[];
+  projectToCursor(): Node[];
+  projectTo(nodeId: string): Node[];
+  moveCursor(nodeId: string): TResult;
+  node(nodeId: string): NodeApi<TResult>;
+  findNode(nodeId: string): NodeApi<TResult> | undefined;
+  insert(input: Node): TResult;
+  /** Inserts after previousId in the active projection; undefined prepends. */
+  insertProjected(input: Node, previousId?: string): TResult;
   swap(firstId: string, secondId: string): TResult;
   clone(createId: () => string): {
     conversation: TResult;
@@ -65,16 +64,18 @@ const createMemory = (): GlobalMemory => {
   };
 };
 
-function buildIndex(nodes: ConversationNode[]): ConversationGraphIndex {
-  const nodesById = new Map<string, ConversationNode>();
-  const childrenByParentId = new Map<string, ConversationNode[]>();
-  const sameLevelChildByParentId = new Map<string, ConversationNode>();
+export function buildIndex(nodes: Node[]): Index {
+  const nodesById = new Map<string, Node>();
+  const positionById = new Map<string, number>();
+  const childrenByParentId = new Map<string, Node[]>();
+  const sameLevelChildByParentId = new Map<string, Node>();
 
-  for (const node of nodes) {
+  for (const [position, node] of nodes.entries()) {
     if (nodesById.has(node.id)) {
       throw new Error(`Duplicate conversation node id: ${node.id}`);
     }
     nodesById.set(node.id, node);
+    positionById.set(node.id, position);
   }
 
   for (const node of nodes) {
@@ -87,9 +88,7 @@ function buildIndex(nodes: ConversationNode[]): ConversationGraphIndex {
       node.outlineLevel !== parent.outlineLevel &&
       node.outlineLevel !== parent.outlineLevel + 1
     ) {
-      throw new Error(
-        `Invalid outline transition ${parent.outlineLevel} -> ${node.outlineLevel}`,
-      );
+      throw new Error(`Invalid outline transition ${parent.outlineLevel} -> ${node.outlineLevel}`);
     }
     const children = childrenByParentId.get(parent.id) ?? [];
     children.push(node);
@@ -102,13 +101,10 @@ function buildIndex(nodes: ConversationNode[]): ConversationGraphIndex {
     }
   }
 
-  return { nodesById, childrenByParentId, sameLevelChildByParentId };
+  return { nodesById, positionById, childrenByParentId, sameLevelChildByParentId };
 }
 
-function validate(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-) {
+export function validate(graph: State, index: Index) {
   if (graph.messages.length === 0) {
     if (graph.rootNodeId || graph.activeCursorId) {
       throw new Error("Empty conversation graph cannot have root or cursor");
@@ -120,64 +116,73 @@ function validate(
   if (roots.length !== 1 || roots[0].id !== graph.rootNodeId) {
     throw new Error("Conversation graph must have exactly one declared root");
   }
-  if (graph.activeCursorId && !index.nodesById.has(graph.activeCursorId)) {
+  if (roots[0].outlineLevel !== 1) {
+    throw new Error("Conversation graph root must be at outline level 1");
+  }
+  if (!graph.activeCursorId || !index.nodesById.has(graph.activeCursorId)) {
     throw new Error("Conversation graph cursor must reference a node");
   }
 
   for (const node of graph.messages) {
+    if (
+      Array.isArray(node.content) &&
+      node.content.some((part) =>
+        part.type === "text"
+          ? typeof part.text !== "string"
+          : part.type === "image_url"
+            ? typeof part.image_url?.url !== "string"
+            : true,
+      )
+    ) {
+      throw new Error(`Invalid conversation content for node ${node.id}`);
+    }
     if (!Number.isInteger(node.outlineLevel) || node.outlineLevel < 1) {
       throw new Error(`Invalid outline level for node ${node.id}`);
     }
     if (node.activeBranchRootId) {
       const branch = index.nodesById.get(node.activeBranchRootId);
-      if (
-        !branch ||
-        branch.parentId !== node.id ||
-        branch.outlineLevel !== node.outlineLevel + 1
-      ) {
+      if (!branch || branch.parentId !== node.id || branch.outlineLevel !== node.outlineLevel + 1) {
         throw new Error(`Invalid active branch for node ${node.id}`);
       }
     }
+  }
 
-    const visited = new Set<string>();
-    let current: ConversationNode | undefined = node;
-    while (current?.parentId) {
-      if (visited.has(current.id)) {
-        throw new Error(`Conversation graph contains a cycle at ${current.id}`);
-      }
-      visited.add(current.id);
-      current = index.nodesById.get(current.parentId);
+  const colors = new Map<string, "visiting" | "visited">();
+  const connectedToRoot = new Set<string>();
+  const visit = (nodeId: string, connected: boolean) => {
+    const color = colors.get(nodeId);
+    if (color === "visiting") {
+      throw new Error(`Conversation graph contains a cycle at ${nodeId}`);
     }
-    if (current?.id !== graph.rootNodeId) {
-      throw new Error(`Node ${node.id} is not connected to the root`);
+    if (color === "visited") return;
+
+    colors.set(nodeId, "visiting");
+    if (connected) connectedToRoot.add(nodeId);
+    for (const child of index.childrenByParentId.get(nodeId) ?? []) {
+      visit(child.id, connected);
     }
+    colors.set(nodeId, "visited");
+  };
+
+  visit(graph.rootNodeId!, true);
+  for (const node of graph.messages) visit(node.id, false);
+  if (connectedToRoot.size !== graph.messages.length) {
+    const disconnected = graph.messages.find((node) => !connectedToRoot.has(node.id))!;
+    throw new Error(`Node ${disconnected.id} is not connected to the root`);
+  }
+
+  if (!projectActive(graph, index).some((node) => node.id === graph.activeCursorId)) {
+    throw new Error("Conversation graph cursor must stay in the active projection");
   }
 }
 
 function shiftLevel(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  nodeId: string,
-  outlineDelta: -1 | 0 | 1 = 0,
-): ConversationGraphState {
-  const target = index.nodesById.get(nodeId);
-  if (!target) {
-    throw new Error(`Missing conversation node ${nodeId}`);
-  }
-  if (outlineDelta === 0) return graph;
-  if (!target.parentId) {
-    throw new Error("The root node cannot change outline level");
-  }
-
-  const parent = index.nodesById.get(target.parentId)!;
-  const targetLevel = target.outlineLevel + outlineDelta;
-  if (
-    targetLevel !== parent.outlineLevel &&
-    targetLevel !== parent.outlineLevel + 1
-  ) {
-    throw new Error("Invalid outline level change");
-  }
-
+  graph: State,
+  index: Index,
+  target: Node,
+  parent: Node,
+  outlineDelta: -1 | 1,
+): State {
   const subtreeIds = new Set<string>();
   const visit = (id: string) => {
     subtreeIds.add(id);
@@ -186,23 +191,63 @@ function shiftLevel(
 
   visit(target.id);
 
-  return {
-    ...graph,
-    messages: graph.messages.map((node) =>
-      subtreeIds.has(node.id)
-        ? { ...node, outlineLevel: node.outlineLevel + outlineDelta }
-        : node,
-    ),
-  };
+  let targetChainTail = target;
+  let targetSuccessor = index.sameLevelChildByParentId.get(targetChainTail.id);
+
+  while (targetSuccessor) {
+    targetChainTail = targetSuccessor;
+    targetSuccessor = index.sameLevelChildByParentId.get(targetChainTail.id);
+  }
+
+  const parentSuccessor = index.sameLevelChildByParentId.get(parent.id);
+
+  const candidate = produce(graph, (draft) => {
+    for (const nodeId of subtreeIds) {
+      draft.messages[index.positionById.get(nodeId)!].outlineLevel += outlineDelta;
+    }
+
+    const draftParent = draft.messages[index.positionById.get(parent.id)!];
+
+    if (outlineDelta === -1 && draftParent.activeBranchRootId === target.id) {
+      draftParent.activeBranchRootId = undefined;
+    } else if (outlineDelta === 1) {
+      draftParent.activeBranchRootId = target.id;
+    }
+
+    if (outlineDelta === -1 && parentSuccessor) {
+      draft.messages[index.positionById.get(parentSuccessor.id)!].parentId = targetChainTail.id;
+    }
+  });
+
+  const candidateIndex = buildIndex(candidate.messages);
+
+  if (projectActive(candidate, candidateIndex).some((node) => node.id === graph.activeCursorId)) {
+    return candidate;
+  }
+
+  if (outlineDelta === -1) {
+    return produce(candidate, (draft) => {
+      draft.activeCursorId = parent.id;
+    });
+  }
+
+  let branchTail = candidateIndex.nodesById.get(target.id)!;
+  let successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
+
+  while (successor) {
+    branchTail = successor;
+    successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
+  }
+
+  return produce(candidate, (draft) => {
+    draft.activeCursorId = branchTail.id;
+  });
 }
 
-function projectActive(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-) {
+export function projectActive(graph: State, index: Index) {
   if (!graph.rootNodeId) return [];
 
-  const result: ConversationNode[] = [];
+  const result: Node[] = [];
 
   const visit = (nodeId: string) => {
     const node = index.nodesById.get(nodeId)!;
@@ -217,242 +262,138 @@ function projectActive(
   return result;
 }
 
-function projectToCursor(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-) {
-  if (!graph.activeCursorId) return [];
-  const projection = projectActive(graph, index);
-  const cursorIndex = projection.findIndex(
-    (node) => node.id === graph.activeCursorId,
-  );
-  return cursorIndex < 0 ? [] : projection.slice(0, cursorIndex + 1);
-}
+function setBranch(graph: State, index: Index, parent: Node, branch?: Node): State {
+  const candidate = produce(graph, (draft) => {
+    draft.messages[index.positionById.get(parent.id)!].activeBranchRootId = branch?.id;
+  });
 
-function replaceNodes(
-  nodes: ConversationNode[],
-  replacements: Map<string, ConversationNode>,
-) {
-  return nodes.map((node) => replacements.get(node.id) ?? node);
-}
+  const updatedParent = candidate.messages[index.positionById.get(parent.id)!];
+  const nodesById = new Map(index.nodesById);
+  nodesById.set(parent.id, updatedParent);
 
-function setBranch(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  parentId: string,
-  branchRootId?: string,
-): ConversationGraphState {
-  const parent = index.nodesById.get(parentId);
-  if (!parent) throw new Error(`Missing branch parent ${parentId}`);
-  if (branchRootId) {
-    const branch = index.nodesById.get(branchRootId);
-    if (
-      !branch ||
-      branch.parentId !== parent.id ||
-      branch.outlineLevel !== parent.outlineLevel + 1
-    ) {
-      throw new Error(`Node ${branchRootId} is not a branch of ${parentId}`);
-    }
-  }
+  const candidateIndex = { ...index, nodesById };
 
-  const candidate = {
-    ...graph,
-    messages: graph.messages.map((node) =>
-      node.id === parentId
-        ? { ...node, activeBranchRootId: branchRootId }
-        : node,
-    ),
-  };
-
-  if (projectToCursor(candidate, buildIndex(candidate.messages)).length > 0) {
+  if (projectActive(candidate, candidateIndex).some((node) => node.id === graph.activeCursorId)) {
     return candidate;
   }
 
-  if (!branchRootId) {
-    return { ...candidate, activeCursorId: undefined };
+  if (branch === undefined) {
+    return produce(candidate, (draft) => {
+      draft.activeCursorId = parent.id;
+    });
   }
 
-  let branchTail = index.nodesById.get(branchRootId)!;
-  let successor = index.sameLevelChildByParentId.get(branchTail.id);
+  let branchTail = branch;
+  let successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
+
   while (successor) {
     branchTail = successor;
-    successor = index.sameLevelChildByParentId.get(branchTail.id);
+    successor = candidateIndex.sameLevelChildByParentId.get(branchTail.id);
   }
-  return { ...candidate, activeCursorId: branchTail.id };
+
+  return produce(candidate, (draft) => {
+    draft.activeCursorId = branchTail.id;
+  });
 }
 
-function insert(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  input: ConversationNode,
-  outlineDelta: -1 | 0 | 1 = 0,
-  anchorId = graph.activeCursorId,
-): ConversationGraphState {
-  if (index.nodesById.has(input.id)) {
-    throw new Error(`Duplicate conversation node id: ${input.id}`);
-  }
+function createBranch(graph: State, index: Index, parent: Node, branch: Node) {
+  const candidate = produce(graph, (draft) => {
+    draft.messages.push(branch);
+  });
 
-  if (graph.messages.length === 0) {
-    if (outlineDelta !== 0) {
-      throw new Error("The first conversation node must start at level 1");
-    }
+  const createdBranch = candidate.messages.at(-1)!;
+  const candidateIndex = produce(index, (draft) => {
+    draft.nodesById.set(createdBranch.id, createdBranch);
+    draft.positionById.set(createdBranch.id, candidate.messages.length - 1);
+    draft.childrenByParentId.set(parent.id, [
+      ...(draft.childrenByParentId.get(parent.id) ?? []),
+      createdBranch,
+    ]);
+  });
 
-    const root = { ...input, parentId: undefined, outlineLevel: 1 };
-    return {
-      ...graph,
-      messages: [root],
-      rootNodeId: root.id,
-      activeCursorId: root.id,
-    };
-  }
+  return setBranch(candidate, candidateIndex, parent, createdBranch);
+}
 
-  if (!anchorId) throw new Error("Select a continuation node first");
-
-  const anchor = index.nodesById.get(anchorId);
-  if (!anchor) throw new Error(`Missing insertion anchor ${anchorId}`);
-
-  if (!projectActive(graph, index).some((node) => node.id === anchor.id)) {
-    throw new Error("Cannot insert from an inactive conversation branch");
-  }
-
-  let attachmentParent = anchor;
-  if (outlineDelta === -1) {
-    const targetLevel = anchor.outlineLevel - 1;
-    if (targetLevel < 1)
-      throw new Error("Conversation outline cannot go below 1");
-    while (
-      attachmentParent.outlineLevel > targetLevel &&
-      attachmentParent.parentId
-    ) {
-      attachmentParent = index.nodesById.get(attachmentParent.parentId)!;
-    }
-    if (attachmentParent.outlineLevel !== targetLevel) {
-      throw new Error(`No ancestor exists at outline level ${targetLevel}`);
-    }
-  }
-
-  const replacements = new Map<string, ConversationNode>();
-  const node: ConversationNode = {
-    ...input,
-    parentId: attachmentParent.id,
-    outlineLevel:
-      outlineDelta === 1
-        ? attachmentParent.outlineLevel + 1
-        : attachmentParent.outlineLevel,
-  };
-
-  if (outlineDelta === 1) {
-    replacements.set(attachmentParent.id, {
-      ...attachmentParent,
-      activeBranchRootId: node.id,
-    });
-  } else {
-    const successor = index.sameLevelChildByParentId.get(attachmentParent.id);
-    if (successor) {
-      replacements.set(successor.id, { ...successor, parentId: node.id });
-    }
-  }
-
+function createNode(input: Node, parent?: Node, outlineLevel = parent?.outlineLevel ?? 1): Node {
   return {
-    ...graph,
-    messages: [...replaceNodes(graph.messages, replacements), node],
-    activeCursorId: node.id,
+    ...input,
+    parentId: parent?.id,
+    outlineLevel,
+    activeBranchRootId: undefined,
   };
 }
 
-function insertProjected(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  input: ConversationNode,
-  previousId?: string,
-  nextId?: string,
-): ConversationGraphState {
-  const projection = projectActive(graph, index);
-  const previousIndex = previousId
-    ? projection.findIndex((node) => node.id === previousId)
-    : -1;
-  const nextIndex = nextId
-    ? projection.findIndex((node) => node.id === nextId)
-    : projection.length;
-
-  if (
-    (previousId && previousIndex < 0) ||
-    (nextId && nextIndex < 0) ||
-    nextIndex - previousIndex !== 1
-  ) {
-    throw new Error("Inserted nodes must target adjacent projected positions");
-  }
-
-  if (!previousId && nextId) {
-    const next = projection[nextIndex];
-    if (next.id !== graph.rootNodeId || next.outlineLevel !== 1) {
-      throw new Error("Only the root can be preceded by a new node");
+function insert(graph: State, index: Index, node: Node, anchor?: Node): State {
+  return produce(graph, (draft) => {
+    if (!anchor) {
+      draft.messages.push(node);
+      draft.rootNodeId = node.id;
+      draft.activeCursorId = node.id;
+      return;
     }
-    const root = { ...input, parentId: undefined, outlineLevel: 1 };
-    const oldRoot = { ...next, parentId: root.id };
-    return {
-      ...graph,
-      messages: [
-        ...graph.messages.map((node) => (node.id === next.id ? oldRoot : node)),
-        root,
-      ],
-      rootNodeId: root.id,
-      activeCursorId: root.id,
-    };
-  }
-  if (!previousId) return insert(graph, index, input);
 
-  const previous = index.nodesById.get(previousId)!;
-  const next = nextId ? index.nodesById.get(nextId)! : undefined;
+    const successor = index.sameLevelChildByParentId.get(anchor.id);
+
+    if (successor) {
+      draft.messages[index.positionById.get(successor.id)!].parentId = node.id;
+    }
+
+    draft.messages.push(node);
+    draft.activeCursorId = node.id;
+  });
+}
+
+function insertProjected(graph: State, index: Index, input: Node, previous?: Node): State {
+  const projection = projectActive(graph, index);
+  const next = previous ? projection[projection.indexOf(previous) + 1] : projection[0];
+
+  if (!previous) {
+    const root = createNode(input);
+
+    if (!next) return insert(graph, index, root);
+
+    return produce(graph, (draft) => {
+      draft.messages[index.positionById.get(next.id)!].parentId = root.id;
+      draft.messages.push(root);
+      draft.rootNodeId = root.id;
+      draft.activeCursorId = root.id;
+    });
+  }
+
   const targetLevel = next
     ? Math.min(previous.outlineLevel, next.outlineLevel)
     : previous.outlineLevel;
   let attachmentParent = previous;
-  while (
-    attachmentParent.outlineLevel > targetLevel &&
-    attachmentParent.parentId
-  ) {
+
+  while (attachmentParent.outlineLevel > targetLevel && attachmentParent.parentId) {
     attachmentParent = index.nodesById.get(attachmentParent.parentId)!;
   }
 
-  let inserted = insert(
-    { ...graph, activeCursorId: attachmentParent.id },
-    index,
-    input,
-    0,
-    attachmentParent.id,
-  );
+  const node = createNode(input, attachmentParent);
+
+  let inserted = insert(graph, index, node, attachmentParent);
+
   if (next && next.outlineLevel > targetLevel) {
-    inserted = {
-      ...inserted,
-      messages: inserted.messages.map((node) => {
-        if (node.id === attachmentParent.id) {
-          return { ...node, activeBranchRootId: undefined };
-        }
-        if (node.id === input.id) {
-          return { ...node, activeBranchRootId: next.id };
-        }
-        if (node.id === next.id) return { ...node, parentId: input.id };
-        return node;
-      }),
-      activeCursorId: input.id,
-    };
+    inserted = produce(inserted, (draft) => {
+      draft.messages[index.positionById.get(attachmentParent.id)!].activeBranchRootId = undefined;
+      draft.messages.at(-1)!.activeBranchRootId = next.id;
+      draft.messages[index.positionById.get(next.id)!].parentId = node.id;
+      draft.activeCursorId = node.id;
+    });
   }
+
   return inserted;
 }
 
-function getSameLevelChain(
-  index: ConversationGraphIndex,
-  node: ConversationNode,
-) {
+function getSameLevelChain(index: Index, node: Node) {
   let root = node;
   while (root.parentId) {
     const parent = index.nodesById.get(root.parentId)!;
     if (parent.outlineLevel !== root.outlineLevel) break;
     root = parent;
   }
-  const chain: ConversationNode[] = [];
-  let current: ConversationNode | undefined = root;
+  const chain: Node[] = [];
+  let current: Node | undefined = root;
   while (current) {
     chain.push(current);
     current = index.sameLevelChildByParentId.get(current.id);
@@ -461,125 +402,77 @@ function getSameLevelChain(
 }
 
 function swap(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  firstId: string,
-  secondId: string,
-): ConversationGraphState {
-  const first = index.nodesById.get(firstId);
-  const second = index.nodesById.get(secondId);
-
-  if (!first || !second) throw new Error("Cannot swap missing nodes");
-  if (first.outlineLevel !== second.outlineLevel) {
-    throw new Error("Only nodes at the same outline level can be swapped");
-  }
-
-  const chain = getSameLevelChain(index, first);
-  const firstIndex = chain.findIndex((node) => node.id === firstId);
-  const secondIndex = chain.findIndex((node) => node.id === secondId);
-
-  if (firstIndex < 0 || secondIndex < 0) {
-    throw new Error("Only nodes in the same outline chain can be swapped");
-  }
-
+  graph: State,
+  index: Index,
+  chain: Node[],
+  firstIndex: number,
+  secondIndex: number,
+): State {
   const oldRoot = chain[0];
   const reordered = chain.slice();
-  [reordered[firstIndex], reordered[secondIndex]] = [
-    reordered[secondIndex],
-    reordered[firstIndex],
-  ];
-  const replacements = new Map<string, ConversationNode>();
-  reordered.forEach((node, position) => {
-    replacements.set(node.id, {
-      ...node,
-      parentId: position === 0 ? oldRoot.parentId : reordered[position - 1].id,
+  [reordered[firstIndex], reordered[secondIndex]] = [reordered[secondIndex], reordered[firstIndex]];
+
+  return produce(graph, (draft) => {
+    reordered.forEach((node, position) => {
+      draft.messages[index.positionById.get(node.id)!].parentId =
+        position === 0 ? oldRoot.parentId : reordered[position - 1].id;
     });
-  });
 
-  let rootNodeId = graph.rootNodeId;
-  if (graph.rootNodeId === oldRoot.id) rootNodeId = reordered[0].id;
-  if (oldRoot.parentId) {
-    const owner = index.nodesById.get(oldRoot.parentId)!;
-    if (owner.activeBranchRootId === oldRoot.id) {
-      replacements.set(owner.id, {
-        ...owner,
-        activeBranchRootId: reordered[0].id,
-      });
+    if (graph.rootNodeId === oldRoot.id) {
+      draft.rootNodeId = reordered[0].id;
     }
-  }
 
-  return {
-    ...graph,
-    messages: replaceNodes(graph.messages, replacements),
-    rootNodeId,
-  };
+    if (oldRoot.parentId) {
+      const owner = index.nodesById.get(oldRoot.parentId)!;
+      if (owner.activeBranchRootId === oldRoot.id) {
+        draft.messages[index.positionById.get(owner.id)!].activeBranchRootId = reordered[0].id;
+      }
+    }
+  });
 }
 
-function collectSubtreeIds(index: ConversationGraphIndex, rootId: string) {
-  const collected = new Set<string>();
+function removeBranch(index: Index, branchId: string, removed: Set<string>) {
   const visit = (nodeId: string) => {
-    collected.add(nodeId);
+    removed.add(nodeId);
     for (const child of index.childrenByParentId.get(nodeId) ?? []) {
       visit(child.id);
     }
   };
-  visit(rootId);
-  return collected;
+  visit(branchId);
 }
 
-function remove(
-  graph: ConversationGraphState,
-  index: ConversationGraphIndex,
-  nodeId: string,
-): ConversationGraphState {
-  const node = index.nodesById.get(nodeId);
-  if (!node) return graph;
-
+function remove(graph: State, index: Index, node: Node): State {
   const parent = node.parentId ? index.nodesById.get(node.parentId) : undefined;
-  const isBranchRoot = parent && node.outlineLevel === parent.outlineLevel + 1;
+  const sameLevelSuccessor = index.sameLevelChildByParentId.get(node.id);
+  const removed = new Set([node.id]);
 
-  const removed = isBranchRoot
-    ? collectSubtreeIds(index, node.id)
-    : new Set([node.id]);
-  if (!isBranchRoot) {
-    for (const child of index.childrenByParentId.get(node.id) ?? []) {
-      if (child.outlineLevel > node.outlineLevel) {
-        for (const id of collectSubtreeIds(index, child.id)) removed.add(id);
-      }
+  for (const child of index.childrenByParentId.get(node.id) ?? []) {
+    if (child.outlineLevel > node.outlineLevel) {
+      removeBranch(index, child.id, removed);
     }
   }
-  const replacements = new Map<string, ConversationNode>();
-
-  if (!isBranchRoot) {
-    const sameLevelSuccessor = index.sameLevelChildByParentId.get(node.id);
+  return produce(graph, (draft) => {
     if (sameLevelSuccessor) {
-      removed.delete(sameLevelSuccessor.id);
-      replacements.set(sameLevelSuccessor.id, {
-        ...sameLevelSuccessor,
-        parentId: node.parentId,
-      });
+      draft.messages[index.positionById.get(sameLevelSuccessor.id)!].parentId = node.parentId;
     }
-  }
-  if (parent?.activeBranchRootId === node.id) {
-    replacements.set(parent.id, { ...parent, activeBranchRootId: undefined });
-  }
 
-  const messages = replaceNodes(
-    graph.messages.filter((candidate) => !removed.has(candidate.id)),
-    replacements,
-  );
-  const rootNodeId =
-    graph.rootNodeId === node.id
-      ? messages.find((candidate) => !candidate.parentId)?.id
-      : graph.rootNodeId;
-  const activeCursorId =
-    graph.activeCursorId && removed.has(graph.activeCursorId)
-      ? undefined
-      : graph.activeCursorId;
-  return { ...graph, messages, rootNodeId, activeCursorId };
+    if (parent?.activeBranchRootId === node.id) {
+      draft.messages[index.positionById.get(parent.id)!].activeBranchRootId =
+        sameLevelSuccessor?.id;
+    }
+
+    if (graph.rootNodeId === node.id) {
+      draft.rootNodeId = sameLevelSuccessor?.id;
+    }
+
+    if (graph.activeCursorId && removed.has(graph.activeCursorId)) {
+      draft.activeCursorId = parent?.id ?? sameLevelSuccessor?.id;
+    }
+    draft.messages = draft.messages.filter((candidate) => !removed.has(candidate.id));
+  });
 }
 
-function clone(graph: ConversationGraphState, createId: () => string) {
+function clone(graph: State, createId: () => string) {
   const cloned = structuredClone(graph);
   const ids = new Map<string, string>();
 
@@ -594,11 +487,14 @@ function clone(graph: ConversationGraphState, createId: () => string) {
     node.parentId = remapId(node.parentId);
     node.activeBranchRootId = remapId(node.activeBranchRootId);
 
-    for (const summary of Object.values(node.nodeSummaries ?? {})) {
+    for (const [kind, summary] of Object.entries(node.nodeSummaries ?? {})) {
       if (!summary) continue;
-      summary.sourceNodeIds = summary.sourceNodeIds
-        .map(remapId)
-        .filter((id): id is string => Boolean(id));
+      const sourceNodeIds = summary.sourceNodeIds.map(remapId);
+      if (sourceNodeIds.some((id) => !id)) {
+        delete node.nodeSummaries![kind as keyof typeof node.nodeSummaries];
+        continue;
+      }
+      summary.sourceNodeIds = sourceNodeIds as string[];
     }
   }
 
@@ -609,65 +505,89 @@ function clone(graph: ConversationGraphState, createId: () => string) {
   for (const node of cloned.messages) {
     for (const summary of Object.values(node.nodeSummaries ?? {})) {
       if (!summary) continue;
-      const sources = summary.sourceNodeIds
-        .map((id) => nodesById.get(id))
-        .filter((source): source is ConversationNode => Boolean(source));
+      const sources = summary.sourceNodeIds.map((id) => nodesById.get(id)!);
 
-      summary.sourceDigest = createSourceDigest(sources);
+      summary.sourceDigest = createCoverageDigest(sources);
     }
   }
 
   return { graph: cloned, ids };
 }
 
-function bindConversationGraph<TResult>(
-  graph: ConversationGraphState,
-  commit: (state: ConversationGraphState) => TResult,
-): ConversationGraphApi<TResult> {
-  const state: ConversationGraphState = {
-    messages: graph.messages,
-    rootNodeId: graph.rootNodeId,
-    activeCursorId: graph.activeCursorId,
-  };
-  let cachedIndex: ConversationGraphIndex | undefined;
-  let isValidated = false;
+function bindGraph<TResult>(workspace: Workspace, commit: (state: State) => TResult): Api<TResult> {
+  const state = workspace.state;
+  const getIndex = () => workspace.index;
+  const getValidatedIndex = () => workspace.validatedIndex;
 
-  const getIndex = () => (cachedIndex ??= buildIndex(state.messages));
-  const getValidatedIndex = () => {
-    const index = getIndex();
-    if (!isValidated) {
-      validate(state, index);
-      isValidated = true;
-    }
-    return index;
-  };
-
-  const findNode = (
-    nodeId: string,
-  ): ConversationGraphNodeApi<TResult> | undefined => {
-    const index = getIndex();
-    const value = index.nodesById.get(nodeId);
-    if (!value) return undefined;
-
+  const bindNode = (value: Node, index: Index): NodeApi<TResult> => {
     return {
       value,
+
       get parent() {
         return value.parentId ? index.nodesById.get(value.parentId) : undefined;
       },
+
       get sameLevelSuccessor() {
         return index.sameLevelChildByParentId.get(value.id);
       },
+
       get branches() {
         return (index.childrenByParentId.get(value.id) ?? []).filter(
           (child) => child.outlineLevel === value.outlineLevel + 1,
         );
       },
-      shiftLevel: (...args) =>
-        commit(shiftLevel(state, getValidatedIndex(), value.id, ...args)),
-      selectBranch: (...args) =>
-        commit(setBranch(state, getValidatedIndex(), value.id, ...args)),
-      remove: () => commit(remove(state, getValidatedIndex(), value.id)),
+
+      shiftLevel: (outlineDelta) => {
+        const index = getValidatedIndex();
+        if (outlineDelta === 0) return commit(state);
+        if (!value.parentId) {
+          throw new Error("The root node cannot change outline level");
+        }
+        const parent = index.nodesById.get(value.parentId)!;
+        const targetLevel = value.outlineLevel + outlineDelta;
+        if (targetLevel !== parent.outlineLevel && targetLevel !== parent.outlineLevel + 1) {
+          throw new Error("Invalid outline level change");
+        }
+        return commit(shiftLevel(state, index, value, parent, outlineDelta));
+      },
+
+      setBranch: (branch) => {
+        const index = getValidatedIndex();
+        if (branch === undefined) {
+          return commit(setBranch(state, index, value));
+        }
+
+        let resolved: Node | undefined;
+        if (typeof branch === "string") {
+          resolved = index.nodesById.get(branch);
+        } else {
+          resolved = index.nodesById.get(branch.id);
+        }
+
+        if (!resolved) {
+          if (typeof branch === "string") {
+            throw new Error(`Missing conversation node ${branch}`);
+          } else {
+            resolved = createNode(branch, value, value.outlineLevel + 1);
+            return commit(createBranch(state, index, value, resolved));
+          }
+        }
+
+        if (resolved.parentId !== value.id || resolved.outlineLevel !== value.outlineLevel + 1) {
+          throw new Error(`Node ${resolved.id} is not a branch of ${value.id}`);
+        }
+
+        return commit(setBranch(state, index, value, resolved));
+      },
+
+      remove: () => commit(remove(state, getValidatedIndex(), value)),
     };
+  };
+
+  const findNode = (nodeId: string): NodeApi<TResult> | undefined => {
+    const index = getIndex();
+    const value = index.nodesById.get(nodeId);
+    return value ? bindNode(value, index) : undefined;
   };
 
   return {
@@ -675,23 +595,77 @@ function bindConversationGraph<TResult>(
     validate() {
       getValidatedIndex();
     },
-    projectActive: () => projectActive(state, getValidatedIndex()),
-    projectToCursor: () => projectToCursor(state, getValidatedIndex()),
-    projectTo: (nodeId) =>
-      projectToCursor(
-        { ...state, activeCursorId: nodeId },
-        getValidatedIndex(),
-      ),
+    projectActive: () => workspace.projectActive(),
+    projectToCursor: () => workspace.projectToCursor(),
+    projectTo: (nodeId) => {
+      return workspace.projectTo(nodeId);
+    },
+
+    moveCursor: (nodeId) => {
+      if (!workspace.projectActive().some((node) => node.id === nodeId)) {
+        throw new Error("Conversation cursor must stay in the active projection");
+      }
+      return commit({ ...state, activeCursorId: nodeId });
+    },
+
     node: (nodeId) => {
       const node = findNode(nodeId);
       if (!node) throw new Error(`Missing conversation node ${nodeId}`);
       return node;
     },
+
     findNode,
-    insert: (...args) => commit(insert(state, getValidatedIndex(), ...args)),
-    insertProjected: (...args) =>
-      commit(insertProjected(state, getValidatedIndex(), ...args)),
-    swap: (...args) => commit(swap(state, getValidatedIndex(), ...args)),
+
+    insert: (input) => {
+      const index = getValidatedIndex();
+      if (index.nodesById.has(input.id)) {
+        throw new Error(`Duplicate conversation node id: ${input.id}`);
+      }
+
+      const anchor = state.activeCursorId ? index.nodesById.get(state.activeCursorId)! : undefined;
+      const node = createNode(input, anchor);
+
+      return commit(insert(state, index, node, anchor));
+    },
+
+    insertProjected: (input, previousId) => {
+      const index = getValidatedIndex();
+      if (index.nodesById.has(input.id)) {
+        throw new Error(`Duplicate conversation node id: ${input.id}`);
+      }
+
+      const projection = workspace.projectActive();
+      if (!previousId) {
+        return commit(insertProjected(state, index, input));
+      }
+
+      const previousIndex = projection.findIndex((node) => node.id === previousId);
+      if (previousIndex < 0) {
+        throw new Error("Inserted nodes must follow an active projected node");
+      }
+      return commit(insertProjected(state, index, input, projection[previousIndex]));
+    },
+
+    swap: (firstId, secondId) => {
+      const index = getValidatedIndex();
+      const first = index.nodesById.get(firstId);
+      const second = index.nodesById.get(secondId);
+      if (!first || !second) throw new Error("Cannot swap missing nodes");
+
+      if (first.outlineLevel !== second.outlineLevel) {
+        throw new Error("Only nodes at the same outline level can be swapped");
+      }
+
+      const chain = getSameLevelChain(index, first);
+      const firstIndex = chain.findIndex((node) => node.id === first.id);
+      const secondIndex = chain.findIndex((node) => node.id === second.id);
+      if (secondIndex < 0) {
+        throw new Error("Only nodes in the same outline chain can be swapped");
+      }
+
+      return commit(swap(state, index, chain, firstIndex, secondIndex));
+    },
+
     clone: (...args) => {
       const { graph: cloned, ids } = clone(state, ...args);
       return { conversation: commit(cloned), ids };
@@ -699,6 +673,6 @@ function bindConversationGraph<TResult>(
   };
 }
 
-export const ConversationGraph = Object.assign(bindConversationGraph, {
+export const Graph = Object.assign(bindGraph, {
   createMemory,
 });

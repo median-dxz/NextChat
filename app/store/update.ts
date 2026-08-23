@@ -1,4 +1,4 @@
-import { FETCH_COMMIT_URL, FETCH_TAG_URL, ModelProvider, StoreKey } from "../constant";
+import { FETCH_COMMIT_URL, FETCH_TAG_URL, ServiceProvider, StoreKey } from "../constant";
 import { getClientConfig } from "../config/client";
 import { createPersistStore } from "../utils/store";
 import { clientUpdate } from "../utils";
@@ -119,7 +119,7 @@ export const useUpdateStore = createPersistStore(
       }));
 
       try {
-        const api = new ClientApi(ModelProvider.GPT);
+        const api = new ClientApi(ServiceProvider.OpenAI);
         const usage = await api.llm.usage();
 
         if (usage) {

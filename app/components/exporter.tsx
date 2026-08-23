@@ -1,38 +1,42 @@
 /* eslint-disable @next/next/no-img-element */
-import { ChatMessage, useAppConfig, useChatStore } from "../store";
-import Locale from "../locales";
-import styles from "./exporter.module.scss";
-import { List, ListItem, Modal, Select, showImageModal, showToast } from "./ui-lib";
-import { IconButton } from "./button";
-import { copyToClipboard, downloadAs, getMessageImages, useMobileScreen } from "../utils";
-
-import CopyIcon from "../icons/copy.svg";
-import LoadingIcon from "../icons/three-dots.svg";
-import ChatGptIcon from "../icons/chatgpt.png";
-
-import DownloadIcon from "../icons/download.svg";
-import { useMemo, useRef, useState } from "react";
-import { MessageSelector, useMessageSelector } from "./message-selector";
-import { Avatar } from "./emoji";
-import dynamic from "next/dynamic";
-import NextImage from "next/image";
-
-import { toBlob, toPng } from "html-to-image";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
+import clsx from "clsx";
+import { toBlob, toPng } from "html-to-image";
+import dynamic from "next/dynamic";
+import NextImage from "next/image";
+import { useMemo, useRef, useState } from "react";
+
+import type { Conversation } from "@/app/utils/conversation";
 
 import { getClientConfig } from "../config/client";
-import { getMessageTextContent } from "../utils";
+import ChatGptIcon from "../icons/chatgpt.png";
+import CopyIcon from "../icons/copy.svg";
+import DownloadIcon from "../icons/download.svg";
+import LoadingIcon from "../icons/three-dots.svg";
+import Locale from "../locales";
+import { useAppConfig, useChatStore } from "../store";
+import {
+  copyToClipboard,
+  downloadAs,
+  getMessageImages,
+  getMessageText,
+  useMobileScreen,
+} from "../utils";
 import { formatReasoningForExport } from "../utils/thinking";
+import { IconButton } from "./button";
+import { Avatar } from "./emoji";
 import { MaskAvatar } from "./mask";
-import clsx from "clsx";
+import { MessageSelector, useMessageSelector } from "./message-selector";
+import styles from "./exporter.module.scss";
+import { List, ListItem, Modal, Select, showImageModal, showToast } from "./ui-lib";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-export function getExportMessageContent(message: ChatMessage, includeReasoning: boolean) {
-  const content = getMessageTextContent(message);
+export function getExportMessageContent(message: Conversation.Message, includeReasoning: boolean) {
+  const content = getMessageText(message.content);
   if (!includeReasoning || message.role !== "assistant" || !message.reasoning) {
     return content;
   }
@@ -161,7 +165,7 @@ export function MessageExporter() {
   const session = chatStore.currentSession();
   const { selection, updateSelection } = useMessageSelector();
   const selectedMessages = useMemo(() => {
-    const ret: ChatMessage[] = [];
+    const ret: Conversation.Message[] = [];
     if (exportConfig.includeContext) {
       ret.push(...session.mask.context);
     }
@@ -281,7 +285,7 @@ export function PreviewActions(props: {
 }
 
 export function ImagePreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -431,24 +435,24 @@ export function ImagePreviewer(props: {
                   fontFamily={config.fontFamily}
                   defaultShow
                 />
-                {getMessageImages(m).length == 1 && (
+                {getMessageImages(m.content).length == 1 && (
                   <img
                     key={i}
-                    src={getMessageImages(m)[0]}
+                    src={getMessageImages(m.content)[0]}
                     alt="message"
                     className={styles["message-image"]}
                   />
                 )}
-                {getMessageImages(m).length > 1 && (
+                {getMessageImages(m.content).length > 1 && (
                   <div
                     className={styles["message-images"]}
                     style={
                       {
-                        "--image-count": getMessageImages(m).length,
+                        "--image-count": getMessageImages(m.content).length,
                       } as React.CSSProperties
                     }
                   >
-                    {getMessageImages(m).map((src, i) => (
+                    {getMessageImages(m.content).map((src, i) => (
                       <img
                         key={i}
                         src={src}
@@ -468,7 +472,7 @@ export function ImagePreviewer(props: {
 }
 
 export function MarkdownPreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -477,7 +481,7 @@ export function MarkdownPreviewer(props: {
     props.messages
       .map((m) => {
         return m.role === "user"
-          ? `## ${Locale.Export.MessageFromYou}:\n${getMessageTextContent(m)}`
+          ? `## ${Locale.Export.MessageFromYou}:\n${getMessageText(m.content)}`
           : `## ${Locale.Export.MessageFromChatGPT}:\n${getExportMessageContent(m, props.includeReasoning).trim()}`;
       })
       .join("\n\n");
@@ -499,7 +503,7 @@ export function MarkdownPreviewer(props: {
 }
 
 export function JsonPreviewer(props: {
-  messages: ChatMessage[];
+  messages: Conversation.Message[];
   topic: string;
   includeReasoning: boolean;
 }) {

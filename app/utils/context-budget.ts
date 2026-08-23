@@ -1,4 +1,5 @@
-import type { ConversationMessageInput } from "./conversation";
+import type { Conversation } from "@/app/utils/conversation";
+
 import { estimateTokenLength } from "./token";
 
 function getContextSafetyReserve(contextWindowTokens: number) {
@@ -27,13 +28,11 @@ export function getEffectiveMaxOutputTokens(
   return Math.max(1, Math.min(configuredMaxOutputTokens, available));
 }
 
-export function estimateRequestMessageTokens(message: Pick<ConversationMessageInput, "content">) {
+export function estimateRequestMessageTokens(message: Pick<Conversation.MessageInput, "content">) {
   if (!Array.isArray(message.content)) {
     return estimateTokenLength(message.content);
   }
   return message.content.reduce((tokens, part) => {
-    if (part.text) return tokens + estimateTokenLength(part.text);
-    if (part.image_url?.url) return tokens + 1_024;
-    return tokens;
+    return part.type === "text" ? tokens + estimateTokenLength(part.text) : tokens + 1_024;
   }, 0);
 }

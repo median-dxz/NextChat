@@ -1,20 +1,14 @@
 "use client";
-import { ApiPath, TENCENT_BASE_URL } from "@/app/constant";
+import { ApiPath, ServiceProvider, TENCENT_BASE_URL } from "@/app/constant";
 import { useAccessStore } from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
+import type { ChatOptions, LLMModel, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import Locale from "../../locales";
 import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
+import { getMessageText, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
 import mapKeys from "lodash-es/mapKeys";
 import mapValues from "lodash-es/mapValues";
 import isArray from "lodash-es/isArray";
@@ -57,7 +51,8 @@ function capitalizeKeys(obj: any): any {
   }
 }
 
-export class HunyuanApi implements LLMApi {
+export class HunyuanApi extends LLMApi {
+  readonly providerName = ServiceProvider.Tencent;
   path(): string {
     const accessStore = useAccessStore.getState();
 
@@ -96,7 +91,7 @@ export class HunyuanApi implements LLMApi {
     const messages = options.messages.map((v, index) => ({
       // "Messages 中 system 角色必须位于列表的最开始"
       role: toTencentRole(v.role, index),
-      content: visionModel ? v.content : getMessageTextContent(v),
+      content: visionModel ? v.content : getMessageText(v.content),
     }));
 
     const modelConfig = options.config;
@@ -121,7 +116,7 @@ export class HunyuanApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request

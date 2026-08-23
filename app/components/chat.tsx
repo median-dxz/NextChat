@@ -42,10 +42,7 @@ import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
 import {
   BOT_HELLO,
-  ChatMessage,
   ChatSession,
-  createConversationNode,
-  createMessage,
   DEFAULT_TOPIC,
   ModelType,
   ModelConfig,
@@ -60,7 +57,7 @@ import {
   autoGrowTextArea,
   copyToClipboard,
   getMessageImages,
-  getMessageTextContent,
+  getMessageText,
   isDalle3,
   isVisionModel,
   safeLocalStorage,
@@ -96,7 +93,7 @@ import { useNavigate } from "react-router";
 import {
   CHAT_PAGE_SIZE,
   DEFAULT_TTS_ENGINE,
-  ModelProvider,
+  isServiceProviderName,
   Path,
   ServiceProvider,
   UNFINISHED_INPUT,
@@ -119,7 +116,7 @@ import { getModelProvider } from "../utils/model";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { CONVERSATION_ROLES, Conversation } from "../utils/conversation";
+import { Conversation } from "../utils/conversation";
 import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
 
 const localStorage = safeLocalStorage();
@@ -127,10 +124,10 @@ const localStorage = safeLocalStorage();
 const ttsPlayer = createTTSPlayer();
 
 function replaceMessageText(
-  message: Pick<ChatMessage, "content">,
+  message: Pick<Conversation.Message, "content">,
   text: string,
-): ChatMessage["content"] {
-  const images = getMessageImages(message);
+): Conversation.Message["content"] {
+  const images = getMessageImages(message.content);
   if (images.length === 0) return text;
 
   return [
@@ -212,8 +209,8 @@ export function SessionConfigModel(props: { onClose: () => void }) {
           updateMask={(updater) => {
             const mask = { ...session.mask };
             updater(mask);
-            chatStore.updateSessionMetadata(session.id, (session) => {
-              session.mask = mask;
+            chatStore.updateSession(session.id, (draft) => {
+              draft.mask = mask;
             });
           }}
           shouldSyncFromGlobal
@@ -424,7 +421,7 @@ export function ChatAction(props: {
   );
 }
 
-export function isMessageInStreamingTurn(messages: ChatMessage[], messageIndex: number) {
+export function isMessageInStreamingTurn(messages: Conversation.Message[], messageIndex: number) {
   const message = messages[messageIndex];
   if (!message) return false;
   if (message.streaming) return true;
@@ -588,10 +585,10 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const [model, providerName] = getModelProvider(s[0]);
-              chatStore.updateSessionMetadata(session.id, (session) => {
-                session.mask.modelConfig.model = model as ModelType;
-                session.mask.modelConfig.providerName = providerName as ServiceProvider;
-                session.mask.syncGlobalConfig = false;
+              chatStore.updateSession(session.id, (draft) => {
+                draft.mask.modelConfig.model = model as ModelType;
+                draft.mask.modelConfig.providerName = providerName as ServiceProvider;
+                draft.mask.syncGlobalConfig = false;
               });
               if (providerName == "ByteDance") {
                 const selectedModel = models.find(
@@ -624,8 +621,8 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const size = s[0];
-              chatStore.updateSessionMetadata(session.id, (session) => {
-                session.mask.modelConfig.size = size;
+              chatStore.updateSession(session.id, (draft) => {
+                draft.mask.modelConfig.size = size;
               });
               showToast(size);
             }}
@@ -651,8 +648,8 @@ export function ChatActions(props: {
             onSelection={(q) => {
               if (q.length === 0) return;
               const quality = q[0];
-              chatStore.updateSessionMetadata(session.id, (session) => {
-                session.mask.modelConfig.quality = quality;
+              chatStore.updateSession(session.id, (draft) => {
+                draft.mask.modelConfig.quality = quality;
               });
               showToast(quality);
             }}
@@ -678,8 +675,8 @@ export function ChatActions(props: {
             onSelection={(s) => {
               if (s.length === 0) return;
               const style = s[0];
-              chatStore.updateSessionMetadata(session.id, (session) => {
-                session.mask.modelConfig.style = style;
+              chatStore.updateSession(session.id, (draft) => {
+                draft.mask.modelConfig.style = style;
               });
               showToast(style);
             }}
@@ -709,8 +706,8 @@ export function ChatActions(props: {
             }))}
             onClose={() => setShowPluginSelector(false)}
             onSelection={(s) => {
-              chatStore.updateSessionMetadata(session.id, (session) => {
-                session.mask.plugin = s as string[];
+              chatStore.updateSession(session.id, (draft) => {
+                draft.mask.plugin = s as string[];
               });
             }}
           />
@@ -794,8 +791,8 @@ export function EditMessageModal(props: { onClose: () => void }) {
                 type="text"
                 value={session.topic}
                 onInput={(e) =>
-                  chatStore.updateSessionMetadata(session.id, (session) => {
-                    session.topic = e.currentTarget.value;
+                  chatStore.updateSession(session.id, (draft) => {
+                    draft.topic = e.currentTarget.value;
                   })
                 }
               />
@@ -818,7 +815,12 @@ export function EditMessageModal(props: { onClose: () => void }) {
               {(droppable) => (
                 <div ref={droppable.innerRef} {...droppable.droppableProps}>
                   {messages.map((message, index) => (
-                    <Draggable draggableId={message.id} index={index} key={message.id}>
+                    <Draggable
+                      draggableId={message.id}
+                      index={index}
+                      key={message.id}
+                      isDragDisabled={editingMessageId === message.id}
+                    >
                       {(draggable) => (
                         <div
                           ref={draggable.innerRef}
@@ -852,15 +854,18 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                     value={message.role}
                                     aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
                                     onChange={(event) =>
-                                      chatStore.updateConversation(session.id, (conversation) =>
-                                        conversation.updateNodeData(message.id, (target) => {
-                                          target.role = event.currentTarget
-                                            .value as ChatMessage["role"];
-                                        }),
-                                      )
+                                      chatStore.updateSession(session.id, (draft) => {
+                                        draft.conversation = draft.conversation.updateNodeData(
+                                          message.id,
+                                          (target) => {
+                                            target.role = event.currentTarget
+                                              .value as Conversation.Message["role"];
+                                          },
+                                        );
+                                      })
                                     }
                                   >
-                                    {CONVERSATION_ROLES.map((role) => (
+                                    {Conversation.roles.map((role) => (
                                       <option key={role} value={role}>
                                         {role}
                                       </option>
@@ -876,14 +881,13 @@ export function EditMessageModal(props: { onClose: () => void }) {
                                   styles["graph-editor-content-active"],
                               )}
                               aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
-                              value={getMessageTextContent(message)}
+                              value={getMessageText(message.content)}
                               onFocus={() => setEditingMessageId(message.id)}
-                              onBlur={() => {
+                              onBlur={() =>
                                 setEditingMessageId((current) =>
                                   current === message.id ? undefined : current,
-                                );
-                                window.getSelection()?.removeAllRanges();
-                              }}
+                                )
+                              }
                               onKeyDown={(event) => {
                                 if (event.key === "Escape") {
                                   event.preventDefault();
@@ -922,7 +926,7 @@ export function EditMessageModal(props: { onClose: () => void }) {
                               runGraphAction(() =>
                                 chatStore.insertMessageBetween(
                                   session.id,
-                                  createConversationNode({
+                                  Conversation.createNode({
                                     role: "user",
                                     content: "",
                                   }),
@@ -959,19 +963,19 @@ export function DeleteImageButton(props: { deleteImage: () => void }) {
 function NodeViewerModal(props: {
   nodeId: string;
   onClose: () => void;
-  onPin: (message: ChatMessage) => void;
+  onPin: (message: Conversation.Message) => void;
 }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const node = session.messages.find((item) => item.id === props.nodeId);
-  const [content, setContent] = useState(() => (node ? getMessageTextContent(node) : ""));
+  const [content, setContent] = useState(() => (node ? getMessageText(node.content) : ""));
   const [segment, setSegment] = useState(() => node?.nodeSummaries?.segment?.content ?? "");
   const [checkpoint, setCheckpoint] = useState(
     () => node?.nodeSummaries?.checkpoint?.content ?? "",
   );
   const [segmentOpen, setSegmentOpen] = useState(() => Boolean(segment));
   const [checkpointOpen, setCheckpointOpen] = useState(() => Boolean(checkpoint));
-  const [role, setRole] = useState<ChatMessage["role"]>(() => node?.role ?? "user");
+  const [role, setRole] = useState<Conversation.Message["role"]>(() => node?.role ?? "user");
   const [outlineLevel, setOutlineLevel] = useState(() => node?.outlineLevel ?? 1);
   const [editingProperty, setEditingProperty] = useState<"outline-level" | "role">();
   const [generating, setGenerating] = useState(false);
@@ -991,10 +995,10 @@ function NodeViewerModal(props: {
 
   const save = () => {
     try {
-      chatStore.updateConversation(session.id, (conversation) => {
+      chatStore.updateSession(session.id, (draft) => {
         const outlineDelta =
           outlineLevel === node.outlineLevel ? 0 : outlineLevel > node.outlineLevel ? 1 : -1;
-        let next = conversation.node(node.id).shiftLevel(outlineDelta);
+        let next = draft.conversation.node(node.id).shiftLevel(outlineDelta);
         next = next.updateNodeData(node.id, (target) => {
           target.role = role;
           target.content = replaceMessageText(target, content);
@@ -1006,7 +1010,7 @@ function NodeViewerModal(props: {
           const summary = next.summaries.node(node.id);
           next = role === "assistant" ? summary.edit(kind, value) : summary.remove(kind);
         }
-        return next;
+        draft.conversation = next;
       });
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error));
@@ -1133,9 +1137,11 @@ function NodeViewerModal(props: {
                   value={role}
                   aria-labelledby="node-role-label"
                   onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) => setRole(event.currentTarget.value as ChatMessage["role"])}
+                  onChange={(event) =>
+                    setRole(event.currentTarget.value as Conversation.Message["role"])
+                  }
                 >
-                  {CONVERSATION_ROLES.map((item) => (
+                  {Conversation.roles.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -1263,7 +1269,7 @@ function BranchSelectorModal(props: {
             >
               <span className={styles["branch-selector-indicator"]} />
               <span className={styles["branch-selector-copy"]}>
-                <strong>{getMessageTextContent(branch).slice(0, 120) || branch.id}</strong>
+                <strong>{getMessageText(branch.content).slice(0, 120) || branch.id}</strong>
               </span>
               <span className={styles["branch-selector-level"]}>L{branch.outlineLevel}</span>
             </button>
@@ -1299,7 +1305,10 @@ function GlobalMemoryModal(props: { onClose: () => void }) {
           ? undefined
           : {
               model,
-              providerName: providerName ?? ServiceProvider.OpenAI,
+              providerName:
+                providerName && isServiceProviderName(providerName)
+                  ? providerName
+                  : ServiceProvider.OpenAI,
             },
       );
       setContent(useChatStore.getState().currentSession().globalMemory.content);
@@ -1437,7 +1446,7 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
 }
 
 export function useEnsureAvailableModel(
-  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSessionMetadata">,
+  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSession">,
   config: Pick<ReturnType<typeof useAppConfig.getState>, "modelConfig" | "update">,
   session: ChatSession,
   models: ReadonlyArray<ReturnType<typeof useAllModels>[number]>,
@@ -1472,11 +1481,10 @@ export function useEnsureAvailableModel(
       });
     } else {
       // A detached session owns its model and must not rewrite global config.
-      chatStore.updateSessionMetadata(session.id, (session) => {
+      chatStore.updateSession(session.id, (session) => {
         if (
-          session.mask.syncGlobalConfig ||
-          (session.mask.modelConfig.model === nextModel.name &&
-            session.mask.modelConfig.providerName === nextProviderName)
+          session.mask.modelConfig.model === nextModel.name &&
+          session.mask.modelConfig.providerName === nextProviderName
         ) {
           return false;
         }
@@ -1502,7 +1510,7 @@ export function useEnsureAvailableModel(
 }
 
 export function useSyncGlobalModelConfig(
-  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSessionMetadata">,
+  chatStore: Pick<ReturnType<typeof useChatStore.getState>, "updateSession">,
   session: ChatSession,
   modelConfig: ModelConfig,
 ) {
@@ -1511,7 +1519,7 @@ export function useSyncGlobalModelConfig(
       return;
     }
 
-    chatStore.updateSessionMetadata(session.id, (session) => {
+    chatStore.updateSession(session.id, (session) => {
       if (!session.mask.syncGlobalConfig || isEqual(session.mask.modelConfig, modelConfig)) {
         return false;
       }
@@ -1522,7 +1530,7 @@ export function useSyncGlobalModelConfig(
 }
 
 function ChatView() {
-  type RenderMessage = ChatMessage & { preview?: boolean };
+  type RenderMessage = Conversation.Message & { preview?: boolean };
 
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
@@ -1680,7 +1688,7 @@ function ChatView() {
     chatStore.deleteMessage(session.id, msgId);
   };
 
-  const onResend = (message: ChatMessage) => {
+  const onResend = (message: Conversation.Message) => {
     // when it is resending a message
     // 1. for a user's message, find the next bot response
     // 2. for a bot's message, find the last user's input
@@ -1700,16 +1708,16 @@ function ChatView() {
     inputRef.current?.focus();
   };
 
-  const onPinMessage = (message: ChatMessage) => {
-    chatStore.updateSessionMetadata(session.id, (session) => {
+  const onPinMessage = (message: Conversation.Message) => {
+    chatStore.updateSession(session.id, (session) => {
       session.pinnedInputs.push({
-        ...createMessage({
+        ...Conversation.createMessage({
           role: message.role,
           content: message.content,
           date: message.date,
         }),
         outlineLevel: 0,
-      } as ChatMessage);
+      } as Conversation.Message);
     });
 
     showToast(Locale.Chat.Actions.PinToastContent, {
@@ -1730,7 +1738,7 @@ function ChatView() {
       setSpeechStatus(false);
     } else {
       var api: ClientApi;
-      api = new ClientApi(ModelProvider.GPT);
+      api = new ClientApi(ServiceProvider.OpenAI);
       const config = useAppConfig.getState();
       setSpeechLoading(true);
       ttsPlayer.init();
@@ -1775,14 +1783,25 @@ function ChatView() {
   }
 
   // preview messages
-  const visibleSessionMessages = Conversation(session).projectActive();
+  const conversation = Conversation(session);
+  const visibleSessionMessages = conversation.projectActive();
+
+  const retryableMessageIds = new Set<string>();
+  for (const node of visibleSessionMessages) {
+    if (node.role !== "user") continue;
+    const response = conversation.node(node.id).sameLevelSuccessor;
+    if (response?.role !== "assistant") continue;
+    retryableMessageIds.add(node.id);
+    retryableMessageIds.add(response.id);
+  }
+
   const renderMessages = context
     .concat(visibleSessionMessages as RenderMessage[])
     .concat(
       isLoading
         ? [
             {
-              ...createMessage({ role: "assistant", content: "……" }),
+              ...Conversation.createMessage({ role: "assistant", content: "……" }),
               preview: true,
             },
           ]
@@ -1792,7 +1811,7 @@ function ChatView() {
       userInput.length > 0 && config.sendPreviewBubble
         ? [
             {
-              ...createMessage({ role: "user", content: userInput }),
+              ...Conversation.createMessage({ role: "user", content: userInput }),
               preview: true,
             },
           ]
@@ -2018,7 +2037,7 @@ function ChatView() {
         event.preventDefault();
         const lastNonUserMessage = messages.filter((message) => message.role !== "user").pop();
         if (lastNonUserMessage) {
-          const lastMessageContent = getMessageTextContent(lastNonUserMessage);
+          const lastMessageContent = getMessageText(lastNonUserMessage.content);
           copyToClipboard(lastMessageContent);
         }
       }
@@ -2133,8 +2152,8 @@ function ChatView() {
                     const isUser = message.role === "user";
                     const isContext = absoluteIndex < context.length;
                     const storedNode = isContext || message.preview ? undefined : message;
-                    const messageText = getMessageTextContent(message);
-                    const messageImages = getMessageImages(message);
+                    const messageText = getMessageText(message.content);
+                    const messageImages = getMessageImages(message.content);
                     const isActiveTurn = isMessageInStreamingTurn(renderMessages, absoluteIndex);
                     const hasMessageOutput =
                       message.content.length > 0 || Boolean(message.reasoning);
@@ -2155,7 +2174,7 @@ function ChatView() {
                         10,
                       );
                       const newContent = replaceMessageText(message, newMessage);
-                      chatStore.updateSessionMetadata(session.id, (draft) => {
+                      chatStore.updateSession(session.id, (draft) => {
                         const item = draft.mask.context.find((item) => item.id === message.id);
                         if (item) item.content = newContent;
                       });
@@ -2230,6 +2249,7 @@ function ChatView() {
                                           text={Locale.Chat.Actions.Retry}
                                           icon={<ResetIcon />}
                                           onClick={() => onResend(message)}
+                                          disabled={!retryableMessageIds.has(message.id)}
                                         />
 
                                         <ChatAction

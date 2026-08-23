@@ -1,18 +1,12 @@
 import type { ClientApi } from "../client/api";
-import { requestText, toModelInputMessages } from "../client/request-text";
+import { requestText } from "../client/request-text";
+import type { ServiceProviderName } from "../constant";
 import { getContextInputBudget } from "../utils/context-budget";
-import {
-  Conversation,
-  createMessage,
-  type ChatMessage,
-  type ConversationApi,
-  type ConversationGraphState,
-  type NodeSummaryKind,
-} from "../utils/conversation";
+import { Conversation } from "../utils/conversation";
 import type { ModelConfig } from "./config";
 import { Mask } from "./mask";
 
-export interface SummaryMaintenanceSession extends ConversationGraphState {
+export interface SummaryMaintenanceSession extends Conversation.State {
   id: string;
   mask: Pick<Mask, "modelConfig" | "plugin">;
 }
@@ -21,20 +15,20 @@ export interface SummaryMaintenanceCommand {
   sessionId: string;
   targetNodeId: string;
   force?: boolean;
-  onlyKind?: NodeSummaryKind;
+  onlyKind?: Conversation.SummaryKind;
 }
 
 export interface SummaryMaintenanceDependencies {
   getSession(sessionId: string): SummaryMaintenanceSession | undefined;
   updateConversation(
     sessionId: string,
-    updater: (conversation: ConversationApi) => ConversationApi | undefined,
+    updater: (conversation: Conversation.Api) => Conversation.Api | undefined,
   ): void;
-  getClientApi(providerName?: string): ClientApi;
+  createClient(providerName: ServiceProviderName): ClientApi;
   resolveDefaultModel(
     currentModel: string,
-    providerName: string,
-  ): [model: string, providerName: string];
+    providerName: ServiceProviderName,
+  ): [model: string, providerName: ServiceProviderName];
   summaryPrompt: string;
 }
 
@@ -49,26 +43,22 @@ interface SummaryJob {
 
 async function requestSummary(
   api: ClientApi,
-  messages: ChatMessage[],
+  messages: Conversation.MessageInput[],
   modelConfig: ModelConfig,
   model: string,
-  providerName: string,
+  providerName: ServiceProviderName,
   summaryPrompt: string,
-  pluginIds: string[],
 ) {
   const content = await requestText(
     api,
-    toModelInputMessages(
-      messages.concat(
-        createMessage({
-          role: "system",
-          content: summaryPrompt,
-          date: "",
-        }),
-      ),
+    messages.concat(
+      Conversation.createMessage({
+        role: "system",
+        content: summaryPrompt,
+        date: "",
+      }),
     ),
-    { ...modelConfig, model, providerName },
-    pluginIds,
+    { ...modelConfig, model },
   );
   if (!content) {
     throw new Error(`Summary request returned empty content (${providerName}/${model})`);
@@ -94,36 +84,25 @@ export function createSummaryMaintenance(
     const segmentPlan =
       command.onlyKind === "checkpoint"
         ? undefined
-        : Conversation(session).planning(target.id).segment({
-            sourceTokenTarget: modelConfig.segmentTargetSourceTokens,
-            maxSourceNodes: modelConfig.segmentMaxSourceNodes,
+        : Conversation(session).summaries.plan(target.id).segment({
+            tokenTarget: modelConfig.segmentTargetSourceTokens,
+            itemTarget: modelConfig.segmentMaxSourceNodes,
             inputBudget,
             force: command.force,
           });
-    const [model, providerName] = modelConfig.compressModel
-      ? [modelConfig.compressModel, modelConfig.compressProviderName]
-      : dependencies.resolveDefaultModel(modelConfig.model, modelConfig.providerName);
+    const [model, providerName] =
+      modelConfig.compressModel && modelConfig.compressProviderName
+        ? [modelConfig.compressModel, modelConfig.compressProviderName]
+        : dependencies.resolveDefaultModel(modelConfig.model, modelConfig.providerName);
 
     if (segmentPlan) {
       const content = await requestSummary(
-        dependencies.getClientApi(providerName),
-        [
-          ...segmentPlan.background.map((background) =>
-            background.kind === "segment"
-              ? createMessage({
-                  role: "assistant",
-                  content: background.content ?? "",
-                  date: "",
-                })
-              : background.node!,
-          ),
-          ...segmentPlan.sourceNodes,
-        ],
+        dependencies.createClient(providerName),
+        segmentPlan.inputs.map((input) => input.message),
         modelConfig,
         model,
         providerName,
         dependencies.summaryPrompt,
-        session.mask.plugin ?? [],
       );
       dependencies.updateConversation(command.sessionId, (conversation) =>
         conversation.summaries.commitGenerated(segmentPlan, content),
@@ -138,29 +117,22 @@ export function createSummaryMaintenance(
     );
     if (!checkpointSession || !checkpointTarget) return;
     const checkpointPlan = Conversation(checkpointSession)
-      .planning(checkpointTarget.id)
+      .summaries.plan(checkpointTarget.id)
       .checkpoint({
-        targetSegments: modelConfig.checkpointTargetSegments,
-        mergeTokenTarget: modelConfig.checkpointMergeTargetTokens,
+        tokenTarget: modelConfig.checkpointMergeTargetTokens,
+        itemTarget: modelConfig.checkpointTargetSegments,
         inputBudget,
         force: command.force,
       });
     if (!checkpointPlan) return;
 
     const content = await requestSummary(
-      dependencies.getClientApi(providerName),
-      checkpointPlan.inputs.map((input) =>
-        createMessage({
-          role: "assistant",
-          content: input.content,
-          date: "",
-        }),
-      ),
+      dependencies.createClient(providerName),
+      checkpointPlan.inputs.map((input) => input.message),
       modelConfig,
       model,
       providerName,
       dependencies.summaryPrompt,
-      checkpointSession.mask.plugin ?? [],
     );
     dependencies.updateConversation(command.sessionId, (conversation) =>
       conversation.summaries.commitGenerated(checkpointPlan, content),
@@ -177,10 +149,15 @@ export function createSummaryMaintenance(
         return Promise.resolve();
       }
 
-      const chainRootId = Conversation(initialSession).planning(command.targetNodeId).chainRootId;
-      if (!chainRootId) return Promise.resolve();
-
-      const jobKey = `${command.sessionId}:${chainRootId}`;
+      const conversation = Conversation(initialSession);
+      let chainRoot = initialTarget;
+      while (chainRoot.parentId) {
+        const parent = conversation.findNode(chainRoot.parentId)?.value;
+        if (!parent || parent.outlineLevel !== chainRoot.outlineLevel) break;
+        chainRoot = parent;
+      }
+      // The lock follows the Outline Chain lifecycle, while plans stay free of scheduler metadata.
+      const jobKey = `${command.sessionId}:${chainRoot.id}`;
       const pending = jobs.get(jobKey);
       if (pending?.targetNodeId === command.targetNodeId) {
         return pending.promise;

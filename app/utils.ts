@@ -1,16 +1,23 @@
-import { useEffect, useState } from "react";
-import { showToast } from "./components/ui-lib";
-import Locale from "./locales";
-import type { ConversationContent } from "./utils/conversation";
-import { REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS_FOR_THINKING, ServiceProvider } from "./constant";
-import { fetch as tauriStreamFetch } from "./utils/stream";
-import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
-import { useAccessStore } from "./store";
-import { ModelSize } from "./typing";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { check } from "@tauri-apps/plugin-updater";
+import { useEffect, useState } from "react";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import { showToast } from "./components/ui-lib";
+import {
+  EXCLUDE_VISION_MODEL_REGEXES,
+  REQUEST_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS_FOR_THINKING,
+  ServiceProvider,
+  VISION_MODEL_REGEXES,
+} from "./constant";
+import Locale from "./locales";
+import { useAccessStore } from "./store";
+import { ModelSize } from "./typing";
+import { fetch as tauriStreamFetch } from "./utils/stream";
 
 export function trimTopic(topic: string) {
   // Fix an issue where double quotes still show in the Indonesian language
@@ -223,16 +230,11 @@ export function isMacOS(): boolean {
   return false;
 }
 
-type MessageContentSource = {
-  content: ConversationContent;
-  role?: unknown;
-};
-
-export function getMessageTextContent(message: MessageContentSource) {
-  if (typeof message.content === "string") {
-    return message.content;
+export function getMessageText(content: Conversation.Content) {
+  if (typeof content === "string") {
+    return content;
   }
-  for (const c of message.content) {
+  for (const c of content) {
     if (c.type === "text") {
       return c.text ?? "";
     }
@@ -240,34 +242,12 @@ export function getMessageTextContent(message: MessageContentSource) {
   return "";
 }
 
-export function getMessageTextContentWithoutThinking(message: MessageContentSource) {
-  let content = "";
-
-  if (typeof message.content === "string") {
-    content = message.content;
-  } else {
-    for (const c of message.content) {
-      if (c.type === "text") {
-        content = c.text ?? "";
-        break;
-      }
-    }
-  }
-
-  // Filter out thinking lines (starting with "> ")
-  return content
-    .split("\n")
-    .filter((line) => !line.startsWith("> ") && line.trim() !== "")
-    .join("\n")
-    .trim();
-}
-
-export function getMessageImages(message: MessageContentSource): string[] {
-  if (typeof message.content === "string") {
+export function getMessageImages(content: Conversation.Content): string[] {
+  if (typeof content === "string") {
     return [];
   }
   const urls: string[] = [];
-  for (const c of message.content) {
+  for (const c of content) {
     if (c.type === "image_url") {
       urls.push(c.image_url?.url ?? "");
     }

@@ -1,21 +1,15 @@
 "use client";
-import { ApiPath, Baidu, BAIDU_BASE_URL } from "@/app/constant";
+import { ApiPath, Baidu, BAIDU_BASE_URL, ServiceProvider } from "@/app/constant";
 import { useAccessStore } from "@/app/store";
 import { getAccessToken } from "@/app/utils/baidu";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
+import type { ChatOptions, LLMModel, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import Locale from "../../locales";
 import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent, getTimeoutMSByModel } from "@/app/utils";
+import { getMessageText, getTimeoutMSByModel } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
 import { toBaiduRole } from "./roles";
 
@@ -42,7 +36,8 @@ interface RequestPayload {
   max_tokens?: number;
 }
 
-export class ErnieApi implements LLMApi {
+export class ErnieApi extends LLMApi {
+  readonly providerName = ServiceProvider.Baidu;
   path(path: string): string {
     const accessStore = useAccessStore.getState();
 
@@ -78,7 +73,7 @@ export class ErnieApi implements LLMApi {
     const messages: RequestPayload["messages"] = options.messages.map((v) => ({
       // "error_code": 336006, "error_msg": "the role of message with even index in the messages must be user or function",
       role: toBaiduRole(v.role),
-      content: getMessageTextContent(v),
+      content: getMessageText(v.content),
     }));
 
     // "error_code": 336006, "error_msg": "the length of messages must be an odd number",
@@ -134,7 +129,7 @@ export class ErnieApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request

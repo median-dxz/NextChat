@@ -1,5 +1,6 @@
 import {
   GoogleSafetySettingsThreshold,
+  ACCESS_CODE_PREFIX,
   ServiceProvider,
   StoreKey,
   ApiPath,
@@ -19,7 +20,6 @@ import {
   SILICONFLOW_BASE_URL,
   AI302_BASE_URL,
 } from "../constant";
-import { getHeaders } from "../client/api";
 import { getClientConfig } from "../config/client";
 import type { DangerConfig } from "../config/types";
 import { createPersistStore } from "../utils/store";
@@ -251,11 +251,19 @@ export const useAccessStore = createPersistStore(
     fetch() {
       if (fetchState > 0 || getClientConfig()?.buildMode === "export") return;
       fetchState = 1;
+      const access = get();
+      const credential = access.openaiApiKey.trim()
+        ? access.openaiApiKey.trim()
+        : this.enabledAccessControl() && access.accessCode.trim()
+          ? ACCESS_CODE_PREFIX + access.accessCode.trim()
+          : "";
       fetch("/api/config", {
         method: "post",
         body: null,
         headers: {
-          ...getHeaders(DEFAULT_CONFIG.modelConfig.providerName),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
         },
       })
         .then((res) => res.json())

@@ -1,20 +1,24 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
-import { ApiPath, SILICONFLOW_BASE_URL, SiliconFlow, DEFAULT_MODELS } from "@/app/constant";
-import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
-import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
-import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
+
 import { getClientConfig } from "@/app/config/client";
 import {
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+  ApiPath,
+  DEFAULT_MODELS,
+  SILICONFLOW_BASE_URL,
+  ServiceProvider,
+  SiliconFlow,
+} from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel, isVisionModel } from "@/app/utils";
+import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
+import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
 import { RequestPayload } from "./openai";
 
-import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
 export interface SiliconFlowListModelResponse {
   object: string;
   data: Array<{
@@ -24,7 +28,8 @@ export interface SiliconFlowListModelResponse {
   }>;
 }
 
-export class SiliconflowApi implements LLMApi {
+export class SiliconflowApi extends LLMApi {
+  readonly providerName = ServiceProvider.SiliconFlow;
   private disableListModels = false;
 
   path(path: string): string {
@@ -66,14 +71,14 @@ export class SiliconflowApi implements LLMApi {
     const visionModel = isVisionModel(options.config.model);
     const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const role = toOpenAICompatibleRole(v.role);
-      if (v.role === "model") {
-        const content = getMessageTextContentWithoutThinking(v);
+      const role = v.role;
+      if (v.role === "assistant") {
+        const content = getMessageText(v.content);
         messages.push({ role, content });
       } else {
         const content = visionModel
           ? await preProcessImageContent(v.content)
-          : getMessageTextContent(v);
+          : getMessageText(v.content);
         messages.push({ role, content });
       }
     }
@@ -104,7 +109,7 @@ export class SiliconflowApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // console.log(chatPayload);
@@ -116,22 +121,23 @@ export class SiliconflowApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -223,7 +229,7 @@ export class SiliconflowApi implements LLMApi {
     const res = await fetch(this.path(SiliconFlow.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders("SiliconFlow"),
+        ...this.getHeaders(),
       },
     });
 

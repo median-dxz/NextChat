@@ -1,30 +1,24 @@
-import type { ClientApi, LLMConfig, ModelInputMessage } from "./api";
-import type { ConversationMessageInput } from "../utils/conversation";
+import type { Conversation } from "@/app/utils/conversation";
 
-export function toModelInputMessages(
-  messages: readonly ConversationMessageInput[],
-): ModelInputMessage[] {
-  return messages.map((message) => ({
-    role:
-      message.role === "system" ? "instruction" : message.role === "assistant" ? "model" : "user",
-    content: message.content,
-  }));
-}
+import type { ClientApi, LLMConfig } from "./api";
 
 export function requestText(
   api: ClientApi,
-  messages: ModelInputMessage[],
+  messages: Conversation.MessageInput[],
   config: LLMConfig,
-  pluginIds: string[] = [],
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     api.llm.chat({
-      messages,
+      messages: messages.map(({ role, content }) => ({ role, content })),
       config: {
-        ...config,
+        model: config.model,
+        temperature: config.temperature,
+        top_p: config.top_p,
+        max_tokens: config.max_tokens,
+        presence_penalty: config.presence_penalty,
+        frequency_penalty: config.frequency_penalty,
         stream: false,
       },
-      pluginIds,
       onReasoningUpdate() {},
       onFinish(message, response) {
         if (response?.status === 200) {
@@ -34,7 +28,7 @@ export function requestText(
 
         reject(
           new Error(
-            `Text request failed (${config.providerName}/${config.model}, status ${response?.status ?? "unknown"})`,
+            `Text request failed (${api.llm.providerName}/${config.model}, status ${response?.status ?? "unknown"})`,
           ),
         );
       },

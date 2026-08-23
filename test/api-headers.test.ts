@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { getHeaders } from "../app/client/api";
+import { ClientApi } from "../app/client/api";
 import { ServiceProvider } from "../app/constant";
 import { useAccessStore } from "../app/store/access";
 
@@ -20,6 +20,7 @@ describe("provider authentication headers", () => {
       iflytekApiKey: "iflytek-key",
       iflytekApiSecret: "iflytek-secret",
       ai302ApiKey: "302-key",
+      accessCode: "",
     });
   });
 
@@ -35,15 +36,22 @@ describe("provider authentication headers", () => {
     [ServiceProvider.DeepSeek, "Authorization", "Bearer deepseek-key"],
     [ServiceProvider.ChatGLM, "Authorization", "Bearer chatglm-key"],
     [ServiceProvider.SiliconFlow, "Authorization", "Bearer siliconflow-key"],
-    [
-      ServiceProvider.Iflytek,
-      "Authorization",
-      "Bearer iflytek-key:iflytek-secret",
-    ],
+    [ServiceProvider.Iflytek, "Authorization", "Bearer iflytek-key:iflytek-secret"],
     [ServiceProvider["302.AI"], "Authorization", "Bearer 302-key"],
   ])("maps %s to its configured key and header", (provider, header, value) => {
-    const headers = getHeaders(provider);
+    const api = new ClientApi(provider);
+    const headers = api.llm.getHeaders();
 
+    expect(api.llm.providerName).toBe(provider);
     expect(headers[header]).toBe(value);
   });
+
+  test.each([ServiceProvider.Baidu, ServiceProvider.Tencent])(
+    "does not reuse OpenAI credentials for %s",
+    (provider) => {
+      const api = new ClientApi(provider);
+
+      expect(api.llm.getHeaders()).not.toHaveProperty("Authorization");
+    },
+  );
 });

@@ -1,20 +1,18 @@
-import VoiceIcon from "@/app/icons/voice.svg";
-import VoiceOffIcon from "@/app/icons/voice-off.svg";
-import PowerIcon from "@/app/icons/power.svg";
-
-import styles from "./realtime-chat.module.scss";
 import clsx from "clsx";
-
-import { useState, useRef, useEffect } from "react";
-
-import { useChatStore, createConversationNode, useAppConfig } from "@/app/store";
+import { useEffect, useRef, useState } from "react";
+import { Modality, RTClient, RTInputAudioItem, RTResponse, TurnDetection } from "rt-client";
 
 import { IconButton } from "@/app/components/button";
-
-import { Modality, RTClient, RTInputAudioItem, RTResponse, TurnDetection } from "rt-client";
-import { AudioHandler } from "@/app/lib/audio";
-import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
+import PowerIcon from "@/app/icons/power.svg";
+import VoiceIcon from "@/app/icons/voice.svg";
+import VoiceOffIcon from "@/app/icons/voice-off.svg";
+import { AudioHandler } from "@/app/lib/audio";
+import { useAppConfig, useChatStore } from "@/app/store";
+import { uploadImage } from "@/app/utils/chat";
+import { Conversation } from "@/app/utils/conversation";
+
+import styles from "./realtime-chat.module.scss";
 
 interface RealtimeChatProps {
   onClose?: () => void;
@@ -133,11 +131,13 @@ export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeC
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
       if (item.type === "message" && item.role === "assistant") {
-        const botMessage = createConversationNode({
+        const botMessage = Conversation.createNode({
           role: item.role,
           content: "",
         });
-        chatStore.updateConversation(session.id, (conversation) => conversation.insert(botMessage));
+        chatStore.updateSession(session.id, (draft) => {
+          draft.conversation = draft.conversation.insert(botMessage);
+        });
         let messageContent = "";
         let hasAudio = false;
         for await (const content of item) {
@@ -160,21 +160,21 @@ export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeC
             };
             await Promise.all([textTask(), audioTask()]);
           }
-          chatStore.updateConversation(session.id, (conversation) =>
-            conversation.updateNodeData(botMessage.id, (message) => {
+          chatStore.updateSession(session.id, (draft) => {
+            draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
               message.content = messageContent;
-            }),
-          );
+            });
+          });
         }
         if (hasAudio) {
           // upload audio get audio_url
           const blob = audioHandlerRef.current?.savePlayFile();
           uploadImage(blob!).then((audio_url) => {
-            chatStore.updateConversation(session.id, (conversation) =>
-              conversation.updateNodeData(botMessage.id, (message) => {
+            chatStore.updateSession(session.id, (draft) => {
+              draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
                 message.audio_url = audio_url;
-              }),
-            );
+              });
+            });
           });
         }
       }
@@ -184,21 +184,23 @@ export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeC
   const handleInputAudio = async (item: RTInputAudioItem) => {
     await item.waitForCompletion();
     if (item.transcription) {
-      const userMessage = createConversationNode({
+      const userMessage = Conversation.createNode({
         role: "user",
         content: item.transcription,
       });
-      chatStore.updateConversation(session.id, (conversation) => conversation.insert(userMessage));
+      chatStore.updateSession(session.id, (draft) => {
+        draft.conversation = draft.conversation.insert(userMessage);
+      });
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;
       // upload audio get audio_url
       const blob = audioHandlerRef.current?.saveRecordFile(audioStartMillis, audioEndMillis);
       uploadImage(blob!).then((audio_url) => {
-        chatStore.updateConversation(session.id, (conversation) =>
-          conversation.updateNodeData(userMessage.id, (message) => {
+        chatStore.updateSession(session.id, (draft) => {
+          draft.conversation = draft.conversation.updateNodeData(userMessage.id, (message) => {
             message.audio_url = audio_url;
-          }),
-        );
+          });
+        });
       });
     }
     // stop streaming play after get input audio.

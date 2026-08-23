@@ -1,13 +1,7 @@
 import { ServiceProvider } from "../../app/constant";
 import type { ModelConfig } from "../../app/store/config";
-import {
-  Conversation,
-  createConversationNode,
-  createSourceDigest,
-  type ChatMessage,
-  type ConversationGraphState,
-  type ConversationNode,
-} from "../../app/utils/conversation";
+import { Conversation } from "../../app/utils/conversation";
+import { createCoverageDigest } from "../../app/utils/conversation/node";
 
 export const TEST_MODEL_CONFIG: ModelConfig = {
   model: "gpt-4o-mini",
@@ -38,9 +32,9 @@ export const TEST_MODEL_CONFIG: ModelConfig = {
 };
 
 export function conversationNode(
-  input: Pick<ConversationNode, "id" | "role"> & Partial<ConversationNode>,
-): ConversationNode {
-  return createConversationNode({
+  input: Pick<Conversation.Node, "id" | "role"> & Partial<Conversation.Node>,
+): Conversation.Node {
+  return Conversation.createNode({
     date: "",
     content: input.id,
     outlineLevel: 1,
@@ -49,10 +43,8 @@ export function conversationNode(
 }
 
 export function linearConversation(
-  messages: Array<
-    Pick<ChatMessage, "role"> & Partial<Omit<ConversationNode, "role">>
-  >,
-): ConversationGraphState {
+  messages: Array<Pick<Conversation.Message, "role"> & Partial<Omit<Conversation.Node, "role">>>,
+): Conversation.State {
   let parentId: string | undefined;
   const nodes = messages.map((message, index) => {
     const node = conversationNode({
@@ -70,9 +62,9 @@ export function linearConversation(
 }
 
 export function conversationState(
-  messages: ConversationNode[],
-  overrides: Partial<ConversationGraphState> = {},
-): ConversationGraphState {
+  messages: Conversation.Node[],
+  overrides: Partial<Conversation.State> = {},
+): Conversation.State {
   return {
     messages,
     rootNodeId: messages[0]?.id,
@@ -82,25 +74,25 @@ export function conversationState(
 }
 
 export function generatedSummary(
-  sourceNodes: ConversationNode[],
+  sourceNodes: Conversation.Node[],
   content = "summary",
   provenance: "generated" | "user-edited" = "generated",
 ) {
   return {
     content,
     sourceNodeIds: sourceNodes.map((node) => node.id),
-    sourceDigest: createSourceDigest(sourceNodes),
+    sourceDigest: createCoverageDigest(sourceNodes),
     provenance,
   } as const;
 }
 
 export function chatSession(
-  graph: ConversationGraphState = conversationState([]),
+  graph: Conversation.State = conversationState([]),
   options: {
     id?: string;
     modelConfig?: Partial<ModelConfig>;
     pendingOutlineDelta?: -1 | 1;
-    pinnedInputs?: ChatMessage[];
+    pinnedInputs?: Conversation.Message[];
     pluginIds?: string[];
   } = {},
 ) {

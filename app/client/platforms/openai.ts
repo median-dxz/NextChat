@@ -1,44 +1,37 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
+
+import { getClientConfig } from "@/app/config/client";
 import {
   ApiPath,
-  OPENAI_BASE_URL,
-  DEFAULT_MODELS,
-  OpenaiPath,
   Azure,
+  DEFAULT_MODELS,
+  OPENAI_BASE_URL,
+  OpenaiPath,
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
 } from "@/app/constant";
-import { ChatMessageTool, useAccessStore, useAppConfig, usePluginStore } from "@/app/store";
-import { collectModelsWithDefaultModel } from "@/app/utils/model";
+import { useAccessStore, useAppConfig } from "@/app/store";
+import { DalleQuality, DalleStyle, ModelSize } from "@/app/typing";
 import {
-  preProcessImageContent,
-  uploadImage,
+  getMessageText,
+  getTimeoutMSByModel,
+  isDalle3 as _isDalle3,
+  isVisionModel,
+} from "@/app/utils";
+import {
   base64Image2Blob,
+  preProcessImageContent,
   streamWithThink,
+  uploadImage,
 } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
-import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
-
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  LLMUsage,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
-import Locale from "../../locales";
-import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  isDalle3 as _isDalle3,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import type { Conversation } from "@/app/utils/conversation";
+import { collectModelsWithDefaultModel } from "@/app/utils/model";
 import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
+
+import Locale from "../../locales";
+import type { ChatOptions, LLMModel, LLMUsage, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -74,7 +67,11 @@ export interface DalleRequestPayload {
   style: DalleStyle;
 }
 
-export class ChatGPTApi implements LLMApi {
+export class ChatGPTApi extends LLMApi {
+  constructor(readonly providerName: "OpenAI" | "Azure" = ServiceProvider.OpenAI) {
+    super();
+  }
+
   private disableListModels = true;
 
   path(path: string): string {
@@ -154,7 +151,7 @@ export class ChatGPTApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(ServiceProvider.OpenAI),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -181,7 +178,8 @@ export class ChatGPTApi implements LLMApi {
       options.config.model.startsWith("o4-mini");
     const isGpt5 = options.config.model.startsWith("gpt-5");
     if (isDalle3) {
-      const prompt = getMessageTextContent(options.messages.slice(-1)?.pop() as any);
+      const lastMessage = options.messages.at(-1);
+      const prompt = lastMessage ? getMessageText(lastMessage.content) : "";
       requestPayload = {
         model: options.config.model,
         prompt,
@@ -198,8 +196,8 @@ export class ChatGPTApi implements LLMApi {
       for (const v of options.messages) {
         const content = visionModel
           ? await preProcessImageContent(v.content)
-          : getMessageTextContent(v);
-        const role = toOpenAICompatibleRole(v.role);
+          : getMessageText(v.content);
+        const role = v.role;
         if (!(isO1OrO3 && role === "system")) messages.push({ role, content });
       }
 
@@ -249,7 +247,7 @@ export class ChatGPTApi implements LLMApi {
 
     try {
       let chatPath = "";
-      if (modelConfig.providerName === ServiceProvider.Azure) {
+      if (this.providerName === ServiceProvider.Azure) {
         // find model, and get displayName as deployName
         const { models: configModels, customModels: configCustomModels } = useAppConfig.getState();
         const {
@@ -278,23 +276,23 @@ export class ChatGPTApi implements LLMApi {
       }
       if (shouldStream) {
         let index = -1;
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
-        // console.log("getAsTools", tools, funcs);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -369,7 +367,7 @@ export class ChatGPTApi implements LLMApi {
           method: "POST",
           body: JSON.stringify(requestPayload),
           signal: controller.signal,
-          headers: getHeaders(modelConfig.providerName),
+          headers: this.getHeaders(),
         };
 
         // make a fetch request
@@ -402,11 +400,11 @@ export class ChatGPTApi implements LLMApi {
     const [used, subs] = await Promise.all([
       fetch(this.path(`${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`), {
         method: "GET",
-        headers: getHeaders(ServiceProvider.OpenAI),
+        headers: this.getHeaders(),
       }),
       fetch(this.path(OpenaiPath.SubsPath), {
         method: "GET",
-        headers: getHeaders(ServiceProvider.OpenAI),
+        headers: this.getHeaders(),
       }),
     ]);
 
@@ -456,7 +454,7 @@ export class ChatGPTApi implements LLMApi {
     const res = await fetch(this.path(OpenaiPath.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(ServiceProvider.OpenAI),
+        ...this.getHeaders(),
       },
     });
 

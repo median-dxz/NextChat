@@ -7,7 +7,7 @@ import ReturnIcon from "@/app/icons/return.svg";
 import Locale from "@/app/locales";
 import { Path } from "@/app/constant";
 import React, { useMemo, useRef } from "react";
-import { copyToClipboard, getMessageTextContent, useMobileScreen } from "@/app/utils";
+import { copyToClipboard, getMessageText, useMobileScreen } from "@/app/utils";
 import { useNavigate, useLocation } from "react-router";
 import { useAppConfig } from "@/app/store";
 import MinIcon from "@/app/icons/min.svg";
@@ -247,14 +247,7 @@ export function Sd() {
                             <ChatAction
                               text={Locale.Sd.Actions.Copy}
                               icon={<CopyIcon />}
-                              onClick={() =>
-                                copyToClipboard(
-                                  getMessageTextContent({
-                                    role: "user",
-                                    content: item.params.prompt,
-                                  }),
-                                )
-                              }
+                              onClick={() => copyToClipboard(getMessageText(item.params.prompt))}
                             />
                             <ChatAction
                               text={Locale.Sd.Actions.Retry}

@@ -1,20 +1,20 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
-import { ApiPath, DEEPSEEK_BASE_URL, DeepSeek } from "@/app/constant";
-import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
-import { streamWithThink } from "@/app/utils/chat";
-import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
-import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  getMessageTextContentWithoutThinking,
-  getTimeoutMSByModel,
-} from "@/app/utils";
-import { RequestPayload } from "./openai";
-import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
 
-export class DeepSeekApi implements LLMApi {
+import { getClientConfig } from "@/app/config/client";
+import { ApiPath, DeepSeek, DEEPSEEK_BASE_URL, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel } from "@/app/utils";
+import { streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
+import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
+import { RequestPayload } from "./openai";
+
+export class DeepSeekApi extends LLMApi {
+  readonly providerName = ServiceProvider.DeepSeek;
   private disableListModels = true;
 
   path(path: string): string {
@@ -55,14 +55,9 @@ export class DeepSeekApi implements LLMApi {
   async chat(options: ChatOptions) {
     const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const role = toOpenAICompatibleRole(v.role);
-      if (v.role === "model") {
-        const content = getMessageTextContentWithoutThinking(v);
-        messages.push({ role, content });
-      } else {
-        const content = getMessageTextContent(v);
-        messages.push({ role, content });
-      }
+      const role = v.role;
+      const content = getMessageText(v.content);
+      messages.push({ role, content });
     }
 
     // 检测并修复消息顺序，确保除system外的第一个消息是user
@@ -110,7 +105,7 @@ export class DeepSeekApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -120,22 +115,23 @@ export class DeepSeekApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;

@@ -1,16 +1,26 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
-import { ApiPath, MOONSHOT_BASE_URL, Moonshot, REQUEST_TIMEOUT_MS } from "@/app/constant";
-import { useAccessStore, ChatMessageTool, usePluginStore } from "@/app/store";
-import { stream } from "@/app/utils/chat";
-import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
-import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent } from "@/app/utils";
-import { RequestPayload } from "./openai";
-import { fetch } from "@/app/utils/stream";
-import { toOpenAICompatibleRole } from "./roles";
 
-export class MoonshotApi implements LLMApi {
+import { getClientConfig } from "@/app/config/client";
+import {
+  ApiPath,
+  MOONSHOT_BASE_URL,
+  Moonshot,
+  REQUEST_TIMEOUT_MS,
+  ServiceProvider,
+} from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText } from "@/app/utils";
+import { stream } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
+import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
+import { RequestPayload } from "./openai";
+
+export class MoonshotApi extends LLMApi {
+  readonly providerName = ServiceProvider.Moonshot;
   private disableListModels = true;
 
   path(path: string): string {
@@ -51,8 +61,8 @@ export class MoonshotApi implements LLMApi {
   async chat(options: ChatOptions) {
     const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const content = getMessageTextContent(v);
-      const role = toOpenAICompatibleRole(v.role);
+      const content = getMessageText(v.content);
+      const role = v.role;
       messages.push({ role, content });
     }
 
@@ -82,29 +92,30 @@ export class MoonshotApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
       const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
               };
             }>;
             const tool_calls = choices[0]?.delta?.tool_calls;

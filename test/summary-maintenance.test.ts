@@ -8,15 +8,15 @@ import {
 import { Conversation } from "../app/utils/conversation";
 import { chatSession, linearConversation } from "./fixtures/conversation";
 import { createDeferredClientApi } from "./helpers/deferred-client-api";
-import { createSessionRepository } from "./helpers/session-repository";
+import { createInMemorySessionStore } from "./helpers/session-repository";
 
 function createHarness(session: SummaryMaintenanceSession) {
-  const repository = createSessionRepository([session]);
+  const repository = createInMemorySessionStore([session]);
   const provider = createDeferredClientApi();
   const maintenance = createSummaryMaintenance({
     getSession: repository.getSession,
     updateConversation: repository.updateConversation,
-    getClientApi: () => provider.api,
+    createClient: () => provider.api,
     resolveDefaultModel: () => ["summary-model", ServiceProvider.OpenAI],
     summaryPrompt: "Summarize the conversation",
   });
@@ -57,7 +57,9 @@ describe("summary maintenance", () => {
     const second = maintenance.maintain(command);
     expect(first).toBe(second);
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
-    expect(provider.requests[0].pluginIds).toEqual(["coalesce-plugin"]);
+    expect(provider.requests[0]).not.toHaveProperty("pluginIds");
+    expect(provider.requests[0]).not.toHaveProperty("tools");
+    expect(provider.requests[0].config).not.toHaveProperty("providerName");
     provider.finish(0, "segment result");
     await vi.waitFor(() => expect(provider.requests).toHaveLength(2));
     provider.finish(1, "checkpoint result");
@@ -82,7 +84,7 @@ describe("summary maintenance", () => {
       onlyKind: "segment",
     });
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
-    repository.updateSession(session.id, (draft) => {
+    repository.mutateSession(session.id, (draft) => {
       draft.messages = Conversation(draft)
         .summaries.node(targetNodeId)
         .edit("segment", "manual segment").state.messages;
@@ -128,9 +130,7 @@ describe("summary maintenance", () => {
     await second;
 
     expect(
-      repository
-        .getSession(session.id)!
-        .messages.find((message) => message.id === secondTargetId)
+      repository.getSession(session.id)!.messages.find((message) => message.id === secondTargetId)
         ?.nodeSummaries?.segment?.content,
     ).toBe("second segment");
   });

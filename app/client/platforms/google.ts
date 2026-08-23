@@ -1,23 +1,20 @@
-import { ApiPath, Google } from "@/app/constant";
-import { ChatOptions, getHeaders, LLMApi, LLMModel, LLMUsage, SpeechOptions } from "../api";
-import { useAccessStore, usePluginStore, ChatMessageTool } from "@/app/store";
-import { stream } from "@/app/utils/chat";
-import { getClientConfig } from "@/app/config/client";
-import { GEMINI_BASE_URL } from "@/app/constant";
-
-import {
-  getMessageTextContent,
-  getMessageImages,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
-import { preProcessImageContent } from "@/app/utils/chat";
 import { nanoid } from "nanoid";
-import { RequestPayload } from "./openai";
+
+import { getClientConfig } from "@/app/config/client";
+import { ApiPath, GEMINI_BASE_URL, Google, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageImages, getMessageText, getTimeoutMSByModel, isVisionModel } from "@/app/utils";
+import { preProcessImageContent, stream } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, LLMUsage, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+import { RequestPayload } from "./openai";
 import { toGeminiRole } from "./roles";
 
-export class GeminiProApi implements LLMApi {
+export class GeminiProApi extends LLMApi {
+  readonly providerName = ServiceProvider.Google;
   path(path: string, shouldStream = false): string {
     const accessStore = useAccessStore.getState();
 
@@ -87,9 +84,9 @@ export class GeminiProApi implements LLMApi {
       _messages.push({ role: v.role, content });
     }
     const messages = _messages.map((v) => {
-      let parts: any[] = [{ text: getMessageTextContent(v) }];
+      let parts: any[] = [{ text: getMessageText(v.content) }];
       if (isVisionModel(options.config.model)) {
-        const images = getMessageImages(v);
+        const images = getMessageImages(v.content);
         if (images.length > 0) {
           multimodal = true;
           parts = parts.concat(
@@ -174,7 +171,7 @@ export class GeminiProApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       const isThinking = options.config.model.includes("-thinking");
@@ -185,11 +182,12 @@ export class GeminiProApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore.getState().getAsTools(options.pluginIds);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(modelConfig.providerName),
+          this.getHeaders(),
           // @ts-ignore
           tools.length > 0
             ? // @ts-ignore
@@ -198,7 +196,7 @@ export class GeminiProApi implements LLMApi {
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const chunkJson = JSON.parse(text);
 
@@ -228,7 +226,7 @@ export class GeminiProApi implements LLMApi {
               0,
               {
                 role: "model",
-                parts: toolCallMessage.tool_calls.map((tool: ChatMessageTool) => ({
+                parts: toolCallMessage.tool_calls.map((tool: Conversation.MessageTool) => ({
                   functionCall: {
                     name: tool?.function?.name,
                     args: JSON.parse(tool?.function?.arguments as string),

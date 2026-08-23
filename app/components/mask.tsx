@@ -1,44 +1,40 @@
-import { IconButton } from "./button";
-import { ErrorBoundary } from "./error";
-
-import styles from "./mask.module.scss";
-
-import DownloadIcon from "../icons/download.svg";
-import UploadIcon from "../icons/upload.svg";
-import EditIcon from "../icons/edit.svg";
-import AddIcon from "../icons/add.svg";
-import CloseIcon from "../icons/close.svg";
-import DeleteIcon from "../icons/delete.svg";
-import EyeIcon from "../icons/eye.svg";
-import CopyIcon from "../icons/copy.svg";
-import DragIcon from "../icons/drag.svg";
-
-import { DEFAULT_MASK_AVATAR, Mask, useMaskStore } from "../store/mask";
-import {
-  ChatMessage,
-  createMessage,
-  ModelConfig,
-  ModelType,
-  useAppConfig,
-  useChatStore,
-} from "../store";
-import { MultimodalContent } from "../client/api";
-import { CONVERSATION_ROLES } from "../utils/conversation";
-import { Input, List, ListItem, Modal, Popover, Select, showConfirm } from "./ui-lib";
-import { Avatar, AvatarPicker } from "./emoji";
-import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
+import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
+import clsx from "clsx";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
-import chatStyle from "./chat.module.scss";
-import { useState } from "react";
-import { copyToClipboard, downloadAs, getMessageImages, readFromFile } from "../utils";
-import { Updater } from "../typing";
-import { ModelConfigList } from "./model-config";
+import { Conversation } from "@/app/utils/conversation";
+
+import { MultimodalContent } from "../client/api";
 import { FileName, Path } from "../constant";
+import AddIcon from "../icons/add.svg";
+import CloseIcon from "../icons/close.svg";
+import CopyIcon from "../icons/copy.svg";
+import DeleteIcon from "../icons/delete.svg";
+import DownloadIcon from "../icons/download.svg";
+import DragIcon from "../icons/drag.svg";
+import EditIcon from "../icons/edit.svg";
+import EyeIcon from "../icons/eye.svg";
+import UploadIcon from "../icons/upload.svg";
+import Locale, { AllLangs, ALL_LANG_OPTIONS, Lang } from "../locales";
 import { BUILTIN_MASK_STORE } from "../masks";
-import { DragDropContext, Droppable, Draggable, OnDragEndResponder } from "@hello-pangea/dnd";
-import { getMessageTextContent } from "../utils";
-import clsx from "clsx";
+import { ModelConfig, ModelType, useAppConfig, useChatStore } from "../store";
+import { DEFAULT_MASK_AVATAR, Mask, useMaskStore } from "../store/mask";
+import { Updater } from "../typing";
+import {
+  copyToClipboard,
+  downloadAs,
+  getMessageImages,
+  getMessageText,
+  readFromFile,
+} from "../utils";
+import { IconButton } from "./button";
+import chatStyle from "./chat.module.scss";
+import { Avatar, AvatarPicker } from "./emoji";
+import { ErrorBoundary } from "./error";
+import styles from "./mask.module.scss";
+import { ModelConfigList } from "./model-config";
+import { Input, List, ListItem, Modal, Popover, Select, showConfirm } from "./ui-lib";
 
 // drag and drop helper function
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -236,8 +232,8 @@ export function MaskConfig(props: {
 
 function ContextPromptItem(props: {
   index: number;
-  prompt: ChatMessage;
-  update: (prompt: ChatMessage) => void;
+  prompt: Conversation.Message;
+  update: (prompt: Conversation.Message) => void;
   remove: () => void;
 }) {
   const [focusingInput, setFocusingInput] = useState(false);
@@ -259,7 +255,7 @@ function ContextPromptItem(props: {
               })
             }
           >
-            {CONVERSATION_ROLES.map((r) => (
+            {Conversation.roles.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -268,7 +264,7 @@ function ContextPromptItem(props: {
         </>
       )}
       <Input
-        value={getMessageTextContent(props.prompt)}
+        value={getMessageText(props.prompt.content)}
         type="text"
         className={chatStyle["context-content"]}
         rows={focusingInput ? 5 : 1}
@@ -299,12 +295,12 @@ function ContextPromptItem(props: {
 }
 
 export function ContextPrompts(props: {
-  context: ChatMessage[];
-  updateContext: (updater: (context: ChatMessage[]) => void) => void;
+  context: Conversation.Message[];
+  updateContext: (updater: (context: Conversation.Message[]) => void) => void;
 }) {
   const context = props.context;
 
-  const addContextPrompt = (prompt: ChatMessage, i: number) => {
+  const addContextPrompt = (prompt: Conversation.Message, i: number) => {
     props.updateContext((context) => context.splice(i, 0, prompt));
   };
 
@@ -312,12 +308,12 @@ export function ContextPrompts(props: {
     props.updateContext((context) => context.splice(i, 1));
   };
 
-  const updateContextPrompt = (i: number, prompt: ChatMessage) => {
+  const updateContextPrompt = (i: number, prompt: Conversation.Message) => {
     props.updateContext((context) => {
-      const images = getMessageImages(context[i]);
+      const images = getMessageImages(context[i].content);
       context[i] = prompt;
       if (images.length > 0) {
-        const text = getMessageTextContent(context[i]);
+        const text = getMessageText(context[i].content);
         const newContext: MultimodalContent[] = [{ type: "text", text }];
         for (const img of images) {
           newContext.push({ type: "image_url", image_url: { url: img } });
@@ -362,7 +358,7 @@ export function ContextPrompts(props: {
                           className={chatStyle["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
-                              createMessage({
+                              Conversation.createMessage({
                                 role: "user",
                                 content: "",
                                 date: new Date().toLocaleString(),
@@ -392,7 +388,7 @@ export function ContextPrompts(props: {
               className={chatStyle["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
-                  createMessage({
+                  Conversation.createMessage({
                     role: "user",
                     content: "",
                     date: "",

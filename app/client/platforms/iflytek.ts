@@ -1,19 +1,26 @@
 "use client";
-import { ApiPath, IFLYTEK_BASE_URL, Iflytek, REQUEST_TIMEOUT_MS } from "@/app/constant";
+import {
+  ApiPath,
+  IFLYTEK_BASE_URL,
+  Iflytek,
+  REQUEST_TIMEOUT_MS,
+  ServiceProvider,
+} from "@/app/constant";
 import { useAccessStore } from "@/app/store";
 
-import { ChatOptions, getHeaders, LLMApi, LLMModel, SpeechOptions } from "../api";
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import Locale from "../../locales";
 import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent } from "@/app/utils";
+import { getMessageText } from "@/app/utils";
 import { fetch } from "@/app/utils/stream";
 
 import { RequestPayload } from "./openai";
-import { toOpenAICompatibleRole } from "./roles";
 
-export class SparkApi implements LLMApi {
+export class SparkApi extends LLMApi {
+  readonly providerName = ServiceProvider.Iflytek;
   private disableListModels = true;
 
   path(path: string): string {
@@ -54,8 +61,8 @@ export class SparkApi implements LLMApi {
   async chat(options: ChatOptions) {
     const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const content = getMessageTextContent(v);
-      const role = toOpenAICompatibleRole(v.role);
+      const content = getMessageText(v.content);
+      const role = v.role;
       messages.push({ role, content });
     }
 
@@ -85,7 +92,7 @@ export class SparkApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(modelConfig.providerName),
+        headers: this.getHeaders(),
       };
 
       // Make a fetch request
