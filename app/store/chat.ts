@@ -132,16 +132,16 @@ function migrateSessionToConversation(session: any) {
     .filter((message: Conversation.Message) => message.role === "system")
     .map((message: Conversation.Message) => ({ ...message, outlineLevel: 0 }));
   const oldMemory = String(session.memoryPrompt ?? "").trim();
-  session.globalMemory = oldMemory
-    ? {
-        ...Conversation.createMemory(),
-        enabled: true,
-        content: oldMemory,
-      }
-    : Conversation.createMemory();
+
+  session.globalMemory = Conversation.createMemory();
+  Object.assign(session.globalMemory, {
+    enabled: session.mask?.modelConfig?.sendMemory ?? true,
+    content: oldMemory,
+  });
+
   session.mask.context = [];
   session.mask.modelConfig.enableConversationSummaries =
-    session.mask.modelConfig.sendMemory ?? true;
+    session.mask?.modelConfig?.sendMemory ?? true;
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
   session.mask.modelConfig.memoryModel ??= "";
   session.mask.modelConfig.memoryProviderName ??= "";
@@ -156,12 +156,14 @@ function migrateSessionToConversation(session: any) {
     1000,
     session.mask.modelConfig.segmentTargetSourceTokens,
   );
+
   delete session.mask.modelConfig.historyMessageCount;
   delete session.mask.modelConfig.compressMessageLengthThreshold;
   delete session.mask.modelConfig.sendMemory;
   delete session.memoryPrompt;
   delete session.lastSummarizeIndex;
   delete session.clearContextIndex;
+
   Conversation(session).validate();
 }
 

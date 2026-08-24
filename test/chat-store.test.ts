@@ -328,7 +328,12 @@ describe("chat store persistence and owned lifecycles", () => {
       "question",
       "answer",
     ]);
-    expect(migrated.globalMemory.content).toBe("legacy memory");
+    expect(migrated.globalMemory).toMatchObject({
+      enabled: true,
+      prompt: "",
+      content: "legacy memory",
+    });
+    expect(migrated).not.toHaveProperty("clearContextIndex");
     expect(() => Conversation(migrated).validate()).not.toThrow();
   });
 
