@@ -1,95 +1,84 @@
-import { useDebouncedCallback } from "use-debounce";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
 
-import SendWhiteIcon from "../icons/send-white.svg";
-import BrainIcon from "../icons/brain.svg";
-import RenameIcon from "../icons/rename.svg";
-import EditIcon from "../icons/rename.svg";
-import ExportIcon from "../icons/share.svg";
-import ReturnIcon from "../icons/return.svg";
-import CopyIcon from "../icons/copy.svg";
-import SpeakIcon from "../icons/speak.svg";
-import SpeakStopIcon from "../icons/speak-stop.svg";
-import LoadingIcon from "../icons/three-dots.svg";
-import LoadingButtonIcon from "../icons/loading.svg";
-import PromptIcon from "../icons/prompt.svg";
-import MaskIcon from "../icons/mask.svg";
-import MaxIcon from "../icons/max.svg";
-import MinIcon from "../icons/min.svg";
-import ResetIcon from "../icons/reload.svg";
-import ReloadIcon from "../icons/reload.svg";
-import SettingsIcon from "../icons/chat-settings.svg";
-import DeleteIcon from "../icons/clear.svg";
-import PinIcon from "../icons/pin.svg";
-import ConfirmIcon from "../icons/confirm.svg";
-import CloseIcon from "../icons/close.svg";
-import CancelIcon from "../icons/cancel.svg";
-import ImageIcon from "../icons/image.svg";
-import AddIcon from "../icons/add.svg";
-import DragIcon from "../icons/drag.svg";
-import BranchIcon from "../icons/branch.svg";
-import ContinueIcon from "../icons/continue.svg";
+import BrainIcon from "../../icons/brain.svg";
+import BranchIcon from "../../icons/branch.svg";
+import CancelIcon from "../../icons/cancel.svg";
+import SettingsIcon from "../../icons/chat-settings.svg";
+import DeleteIcon from "../../icons/clear.svg";
+import CloseIcon from "../../icons/close.svg";
+import ConfirmIcon from "../../icons/confirm.svg";
+import ContinueIcon from "../../icons/continue.svg";
+import CopyIcon from "../../icons/copy.svg";
+import ImageIcon from "../../icons/image.svg";
+import LoadingButtonIcon from "../../icons/loading.svg";
+import MaskIcon from "../../icons/mask.svg";
+import MaxIcon from "../../icons/max.svg";
+import MinIcon from "../../icons/min.svg";
+import PinIcon from "../../icons/pin.svg";
+import PromptIcon from "../../icons/prompt.svg";
+import ResetIcon from "../../icons/reload.svg";
+import { default as EditIcon, default as RenameIcon } from "../../icons/rename.svg";
+import ReturnIcon from "../../icons/return.svg";
+import SendWhiteIcon from "../../icons/send-white.svg";
+import ExportIcon from "../../icons/share.svg";
+import SpeakStopIcon from "../../icons/speak-stop.svg";
+import SpeakIcon from "../../icons/speak.svg";
+import LoadingIcon from "../../icons/three-dots.svg";
 
-import BottomIcon from "../icons/bottom.svg";
-import StopIcon from "../icons/pause.svg";
-import RobotIcon from "../icons/robot.svg";
-import SizeIcon from "../icons/size.svg";
-import QualityIcon from "../icons/hd.svg";
-import StyleIcon from "../icons/palette.svg";
-import PluginIcon from "../icons/plugin.svg";
-import ShortcutkeyIcon from "../icons/shortcutkey.svg";
-import McpToolIcon from "../icons/tool.svg";
-import HeadphoneIcon from "../icons/headphone.svg";
+import BottomIcon from "../../icons/bottom.svg";
+import QualityIcon from "../../icons/hd.svg";
+import HeadphoneIcon from "../../icons/headphone.svg";
+import StyleIcon from "../../icons/palette.svg";
+import StopIcon from "../../icons/pause.svg";
+import PluginIcon from "../../icons/plugin.svg";
+import RobotIcon from "../../icons/robot.svg";
+import ShortcutkeyIcon from "../../icons/shortcutkey.svg";
+import SizeIcon from "../../icons/size.svg";
+import McpToolIcon from "../../icons/tool.svg";
 import {
   BOT_HELLO,
   ChatSession,
   DEFAULT_TOPIC,
-  ModelType,
   ModelConfig,
+  ModelType,
   SubmitKey,
   useAccessStore,
   useAppConfig,
   useChatStore,
   usePluginStore,
-} from "../store";
+} from "../../store";
 
 import {
   autoGrowTextArea,
   copyToClipboard,
   getMessageImages,
   getMessageText,
+  getModelSizes,
   isDalle3,
   isVisionModel,
   safeLocalStorage,
-  getModelSizes,
+  showPlugins,
   supportsCustomSize,
   useMobileScreen,
-  showPlugins,
-} from "../utils";
+} from "../../utils";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
 
-import dynamic from "next/dynamic";
 import isEqual from "lodash-es/isEqual";
+import dynamic from "next/dynamic";
 
-import { DalleQuality, DalleStyle, ModelSize } from "../typing";
-import { Prompt, usePromptStore } from "../store/prompt";
-import Locale from "../locales";
+import Locale from "../../locales";
+import { Prompt, usePromptStore } from "../../store/prompt";
+import { DalleQuality, DalleStyle, ModelSize } from "../../typing";
 
-import { IconButton } from "./button";
+import { IconButton } from "../button";
 import styles from "./chat.module.scss";
 
-import {
-  List,
-  ListItem,
-  Modal,
-  Select,
-  Selector,
-  showConfirm,
-  showPrompt,
-  showToast,
-} from "./ui-lib";
 import { useNavigate } from "react-router";
+import { ClientApi } from "../../client/api";
+import { ChatCommandPrefix, useChatCommand, useCommand } from "../../command";
+import { getClientConfig } from "../../config/client";
 import {
   CHAT_PAGE_SIZE,
   DEFAULT_TTS_ENGINE,
@@ -97,49 +86,32 @@ import {
   Path,
   ServiceProvider,
   UNFINISHED_INPUT,
-} from "../constant";
-import { Avatar } from "./emoji";
-import { MaskAvatar, MaskConfig } from "./mask";
-import { useMaskStore } from "../store/mask";
-import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
-import { prettyObject } from "../utils/format";
-import { ExportMessageModal } from "./exporter";
-import { ReasoningDisclosure } from "./reasoning";
-import { getClientConfig } from "../config/client";
-import { useAllModels } from "../utils/hooks";
-import { ClientApi } from "../client/api";
-import { createTTSPlayer } from "../utils/audio";
-import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
+} from "../../constant";
+import { useMaskStore } from "../../store/mask";
+import { createTTSPlayer } from "../../utils/audio";
+import { prettyObject } from "../../utils/format";
+import { useAllModels } from "../../utils/hooks";
+import { MsEdgeTTS, OUTPUT_FORMAT } from "../../utils/ms_edge_tts";
+import { Avatar } from "../emoji";
+import { ExportMessageModal } from "../exporter";
+import { MaskAvatar, MaskConfig } from "../mask";
+import { ReasoningDisclosure } from "../reasoning";
+import { Modal, Select, Selector, showConfirm, showPrompt, showToast } from "../ui-lib";
 
-import { isEmpty } from "lodash-es";
-import { getModelProvider } from "../utils/model";
-import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
+import clsx from "clsx";
+import { isEmpty } from "lodash-es";
+import { Conversation } from "../../utils/conversation";
+import { getModelProvider } from "../../utils/model";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { Conversation } from "../utils/conversation";
-import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
+import { useSessionEditor } from "./session-editor";
+import { EditMessageModal } from "./edit-message-modal";
 
 const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
 
-function replaceMessageText(
-  message: Pick<Conversation.Message, "content">,
-  text: string,
-): Conversation.Message["content"] {
-  const images = getMessageImages(message.content);
-  if (images.length === 0) return text;
-
-  return [
-    { type: "text", text },
-    ...images.map((url) => ({
-      type: "image_url" as const,
-      image_url: { url },
-    })),
-  ];
-}
-
-const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
+const Markdown = dynamic(async () => (await import("../markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
@@ -735,223 +707,6 @@ export function ChatActions(props: {
   );
 }
 
-export function EditMessageModal(props: { onClose: () => void }) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const messages = Conversation(session).projectActive();
-  const [editingMessageId, setEditingMessageId] = useState<string>();
-  const runGraphAction = (action: () => void) => {
-    try {
-      action();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error));
-    }
-  };
-  const onDragEnd: OnDragEndResponder = (result) => {
-    if (!result.destination || result.source.index === result.destination.index) return;
-    const source = messages[result.source.index];
-    const destination = messages[result.destination.index];
-    runGraphAction(() => chatStore.swapMessages(session.id, source.id, destination.id));
-  };
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Chat.EditMessage.Title}
-        onClose={props.onClose}
-        className={styles["graph-editor-dialog"]}
-        contentClassName={styles["graph-editor-dialog-content"]}
-        showMaximize={false}
-        actions={[
-          <IconButton
-            text={Locale.UI.Cancel}
-            icon={<CancelIcon />}
-            key="cancel"
-            onClick={() => {
-              props.onClose();
-            }}
-          />,
-          <IconButton
-            type="primary"
-            text={Locale.UI.Confirm}
-            icon={<ConfirmIcon />}
-            key="ok"
-            onClick={props.onClose}
-          />,
-        ]}
-      >
-        <List>
-          <ListItem
-            title={Locale.Chat.EditMessage.Topic.Title}
-            subTitle={Locale.Chat.EditMessage.Topic.SubTitle}
-            className={styles["graph-editor-topic-row"]}
-          >
-            <div className={styles["graph-editor-topic"]}>
-              <input
-                type="text"
-                value={session.topic}
-                onInput={(e) =>
-                  chatStore.updateSession(session.id, (draft) => {
-                    draft.topic = e.currentTarget.value;
-                  })
-                }
-              />
-              <IconButton
-                icon={<ReloadIcon />}
-                bordered
-                aria={Locale.Chat.Actions.RefreshTitle}
-                title={Locale.Chat.Actions.RefreshTitle}
-                onClick={() => {
-                  showToast(Locale.Chat.Actions.RefreshToast);
-                  chatStore.generateSessionTitle(session, true);
-                }}
-              />
-            </div>
-          </ListItem>
-        </List>
-        <div className={styles["graph-editor"]}>
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="conversation-graph-editor">
-              {(droppable) => (
-                <div ref={droppable.innerRef} {...droppable.droppableProps}>
-                  {messages.map((message, index) => (
-                    <Draggable
-                      draggableId={message.id}
-                      index={index}
-                      key={message.id}
-                      isDragDisabled={editingMessageId === message.id}
-                    >
-                      {(draggable) => (
-                        <div
-                          ref={draggable.innerRef}
-                          {...draggable.draggableProps}
-                          className={styles["graph-editor-entry"]}
-                          style={
-                            {
-                              ...draggable.draggableProps.style,
-                              "--outline-indent": Math.min(message.outlineLevel - 1, 8),
-                            } as React.CSSProperties & {
-                              "--outline-indent": number;
-                            }
-                          }
-                        >
-                          <div className={styles["graph-editor-row"]}>
-                            {editingMessageId !== message.id && (
-                              <>
-                                <div
-                                  className={styles["graph-editor-drag"]}
-                                  {...draggable.dragHandleProps}
-                                  aria-label={`${Locale.Chat.Graph.Drag} ${index + 1}`}
-                                  title={Locale.Chat.Graph.Drag}
-                                >
-                                  <DragIcon />
-                                </div>
-                                <div className={styles["graph-editor-role"]}>
-                                  <span className={styles["graph-editor-level"]}>
-                                    L{message.outlineLevel}
-                                  </span>
-                                  <Select
-                                    value={message.role}
-                                    aria-label={`${Locale.Chat.Graph.Role} ${index + 1}`}
-                                    onChange={(event) =>
-                                      chatStore.updateSession(session.id, (draft) => {
-                                        draft.conversation = draft.conversation.updateNodeData(
-                                          message.id,
-                                          (target) => {
-                                            target.role = event.currentTarget
-                                              .value as Conversation.Message["role"];
-                                          },
-                                        );
-                                      })
-                                    }
-                                  >
-                                    {Conversation.roles.map((role) => (
-                                      <option key={role} value={role}>
-                                        {role}
-                                      </option>
-                                    ))}
-                                  </Select>
-                                </div>
-                              </>
-                            )}
-                            <textarea
-                              rows={editingMessageId === message.id ? 5 : 1}
-                              className={clsx(
-                                editingMessageId === message.id &&
-                                  styles["graph-editor-content-active"],
-                              )}
-                              aria-label={`${Locale.Chat.Actions.Edit} ${index + 1}`}
-                              value={getMessageText(message.content)}
-                              onFocus={() => setEditingMessageId(message.id)}
-                              onBlur={() =>
-                                setEditingMessageId((current) =>
-                                  current === message.id ? undefined : current,
-                                )
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === "Escape") {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  event.currentTarget.blur();
-                                }
-                              }}
-                              onChange={(event) =>
-                                chatStore.updateMessageContent(
-                                  session.id,
-                                  message.id,
-                                  event.target.value,
-                                )
-                              }
-                            />
-                            {editingMessageId !== message.id && (
-                              <IconButton
-                                icon={<DeleteIcon />}
-                                aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
-                                bordered
-                                className={styles["graph-editor-delete"]}
-                                onClick={() => chatStore.deleteMessage(session.id, message.id)}
-                              />
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            className={clsx(
-                              styles["graph-editor-insert"],
-                              messages[index + 1] &&
-                                messages[index + 1].outlineLevel !== message.outlineLevel &&
-                                styles["graph-editor-outline-divider"],
-                            )}
-                            aria-label={`${Locale.Chat.Graph.Insert} ${index + 1}`}
-                            onClick={() =>
-                              runGraphAction(() =>
-                                chatStore.insertMessageBetween(
-                                  session.id,
-                                  Conversation.createNode({
-                                    role: "user",
-                                    content: "",
-                                  }),
-                                  message.id,
-                                ),
-                              )
-                            }
-                          >
-                            <AddIcon />
-                          </button>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {droppable.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
 export function DeleteImageButton(props: { deleteImage: () => void }) {
   return (
     <div className={styles["delete-image"]} onClick={props.deleteImage}>
@@ -960,112 +715,53 @@ export function DeleteImageButton(props: { deleteImage: () => void }) {
   );
 }
 
-function NodeViewerModal(props: {
+export function NodeViewerModal(props: {
   nodeId: string;
   onClose: () => void;
   onPin: (message: Conversation.Message) => void;
 }) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const node = session.messages.find((item) => item.id === props.nodeId);
-  const [content, setContent] = useState(() => (node ? getMessageText(node.content) : ""));
-  const [segment, setSegment] = useState(() => node?.nodeSummaries?.segment?.content ?? "");
-  const [checkpoint, setCheckpoint] = useState(
-    () => node?.nodeSummaries?.checkpoint?.content ?? "",
+  const {
+    session,
+    draft,
+    levelOptions,
+    dispatch,
+    close,
+    save,
+    generateSummary: requestSummary,
+    generatingKinds,
+  } = useSessionEditor(props.onClose);
+  const node = session?.messages.find((item) => item.id === props.nodeId);
+  const draftNode = draft?.conversation.findNode(props.nodeId)?.value;
+  const [segmentOpen, setSegmentOpen] = useState(() => Boolean(node?.nodeSummaries?.segment));
+  const [checkpointOpen, setCheckpointOpen] = useState(() =>
+    Boolean(node?.nodeSummaries?.checkpoint),
   );
-  const [segmentOpen, setSegmentOpen] = useState(() => Boolean(segment));
-  const [checkpointOpen, setCheckpointOpen] = useState(() => Boolean(checkpoint));
-  const [role, setRole] = useState<Conversation.Message["role"]>(() => node?.role ?? "user");
-  const [outlineLevel, setOutlineLevel] = useState(() => node?.outlineLevel ?? 1);
   const [editingProperty, setEditingProperty] = useState<"outline-level" | "role">();
-  const [generating, setGenerating] = useState(false);
+  useEffect(() => {
+    if (draftNode?.nodeSummaries?.segment) setSegmentOpen(true);
+    if (draftNode?.nodeSummaries?.checkpoint) setCheckpointOpen(true);
+  }, [draftNode?.nodeSummaries?.segment, draftNode?.nodeSummaries?.checkpoint]);
 
-  if (!node) return null;
-
-  const outlineLevelOptions = ([-1, 0, 1] as const).flatMap((delta) => {
-    const level = node.outlineLevel + delta;
-    if (level < 1) return [];
-    try {
-      Conversation(session).node(node.id).shiftLevel(delta);
-      return [level];
-    } catch {
-      return [];
-    }
-  });
-
-  const save = () => {
-    try {
-      chatStore.updateSession(session.id, (draft) => {
-        const outlineDelta =
-          outlineLevel === node.outlineLevel ? 0 : outlineLevel > node.outlineLevel ? 1 : -1;
-        let next = draft.conversation.node(node.id).shiftLevel(outlineDelta);
-        next = next.updateNodeData(node.id, (target) => {
-          target.role = role;
-          target.content = replaceMessageText(target, content);
-        });
-        for (const [kind, value] of [
-          ["segment", segment],
-          ["checkpoint", checkpoint],
-        ] as const) {
-          const summary = next.summaries.node(node.id);
-          next = role === "assistant" ? summary.edit(kind, value) : summary.remove(kind);
-        }
-        draft.conversation = next;
-      });
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error));
-      return;
-    }
-    props.onClose();
-  };
-  const refreshSummaryDrafts = (kind?: "segment" | "checkpoint") => {
-    const current = useChatStore
-      .getState()
-      .sessions.find((item) => item.id === session.id)
-      ?.messages.find((item) => item.id === node.id);
-
-    if (!kind || kind === "segment") {
-      const value = current?.nodeSummaries?.segment?.content ?? "";
-      setSegment(value);
-      setSegmentOpen(Boolean(value));
-    }
-    if (!kind || kind === "checkpoint") {
-      const value = current?.nodeSummaries?.checkpoint?.content ?? "";
-      setCheckpoint(value);
-      setCheckpointOpen(Boolean(value));
-    }
-  };
-  const generateSummary = async (kind?: "segment" | "checkpoint") => {
-    setGenerating(true);
-    try {
-      await chatStore.generateNodeSummary(session.id, node.id, true, kind);
-      refreshSummaryDrafts(kind);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error));
-    } finally {
-      setGenerating(false);
-    }
-  };
-  const deleteSummary = (kind: "segment" | "checkpoint") => {
-    chatStore.deleteNodeSummary(session.id, node.id, kind);
-    if (kind === "segment") setSegment("");
-    else setCheckpoint("");
+  if (!session || !draft || !node || !draftNode) return null;
+  const generating = generatingKinds.length > 0;
+  const outlineLevelOptions = levelOptions(draftNode.id);
+  const generateSummary = (kind: Conversation.SummaryKind) => requestSummary(draftNode.id, kind);
+  const deleteSummary = (kind: Conversation.SummaryKind) => {
+    dispatch({ type: "user-edit-summary", nodeId: draftNode.id, kind });
   };
   const summaryEditors = [
     {
       kind: "segment" as const,
       label: Locale.Chat.Graph.Segment,
-      value: segment,
+      value: draftNode.nodeSummaries?.segment?.content ?? "",
       open: segmentOpen,
-      setValue: setSegment,
       setOpen: setSegmentOpen,
     },
     {
       kind: "checkpoint" as const,
       label: Locale.Chat.Graph.Checkpoint,
-      value: checkpoint,
+      value: draftNode.nodeSummaries?.checkpoint?.content ?? "",
       open: checkpointOpen,
-      setValue: setCheckpoint,
       setOpen: setCheckpointOpen,
     },
   ];
@@ -1074,27 +770,18 @@ function NodeViewerModal(props: {
     <div className="modal-mask">
       <Modal
         title={Locale.Chat.Graph.Node}
-        onClose={props.onClose}
+        onClose={close}
         className={styles["node-viewer-dialog"]}
         contentClassName={styles["node-viewer-dialog-content"]}
         showMaximize={false}
         actions={[
-          ...(role === "assistant"
-            ? [
-                <IconButton
-                  key="generate"
-                  text={Locale.Chat.Graph.GenerateSummary}
-                  icon={generating ? <LoadingButtonIcon /> : <BrainIcon />}
-                  disabled={generating}
-                  onClick={() => void generateSummary()}
-                />,
-              ]
-            : []),
+          <IconButton key="cancel" text={Locale.UI.Cancel} icon={<CancelIcon />} onClick={close} />,
           <IconButton
             key="save"
             type="primary"
             text={Locale.Chat.Graph.Save}
             icon={<ConfirmIcon />}
+            disabled={generating}
             onClick={save}
           />,
         ]}
@@ -1106,10 +793,19 @@ function NodeViewerModal(props: {
               {editingProperty === "outline-level" ? (
                 <Select
                   autoFocus
-                  value={outlineLevel}
+                  value={draftNode.outlineLevel}
                   aria-labelledby="node-outline-level-label"
+                  disabled={generating}
                   onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) => setOutlineLevel(Number(event.currentTarget.value))}
+                  onChange={(event) => {
+                    const level = Number(event.currentTarget.value);
+                    const delta = level > draftNode.outlineLevel ? 1 : -1;
+                    dispatch({
+                      type: "shift-node-level",
+                      nodeId: draftNode.id,
+                      delta,
+                    });
+                  }}
                 >
                   {outlineLevelOptions.map((level) => (
                     <option key={level} value={level}>
@@ -1121,11 +817,11 @@ function NodeViewerModal(props: {
                 <button
                   type="button"
                   className={styles["node-viewer-property-tag"]}
-                  aria-label={`${Locale.Chat.Graph.OutlineLevel}: L${outlineLevel}`}
-                  disabled={outlineLevelOptions.length === 1}
+                  aria-label={`${Locale.Chat.Graph.OutlineLevel}: L${draftNode.outlineLevel}`}
+                  disabled={generating || outlineLevelOptions.length === 1}
                   onClick={() => setEditingProperty("outline-level")}
                 >
-                  L{outlineLevel}
+                  L{draftNode.outlineLevel}
                 </button>
               )}
             </div>
@@ -1134,12 +830,14 @@ function NodeViewerModal(props: {
               {editingProperty === "role" ? (
                 <Select
                   autoFocus
-                  value={role}
+                  value={draftNode.role}
                   aria-labelledby="node-role-label"
+                  disabled={generating}
                   onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) =>
-                    setRole(event.currentTarget.value as Conversation.Message["role"])
-                  }
+                  onChange={(event) => {
+                    const role = event.currentTarget.value as Conversation.Message["role"];
+                    dispatch({ type: "set-node-role", nodeId: draftNode.id, role });
+                  }}
                 >
                   {Conversation.roles.map((item) => (
                     <option key={item} value={item}>
@@ -1151,17 +849,26 @@ function NodeViewerModal(props: {
                 <button
                   type="button"
                   className={styles["node-viewer-property-tag"]}
-                  aria-label={`${Locale.Chat.Graph.Role}: ${role}`}
+                  aria-label={`${Locale.Chat.Graph.Role}: ${draftNode.role}`}
+                  disabled={generating}
                   onClick={() => setEditingProperty("role")}
                 >
-                  {role}
+                  {draftNode.role}
                 </button>
               )}
             </div>
           </div>
           <label className={styles["node-viewer-content"]}>
             <span>{Locale.Chat.Actions.Edit}</span>
-            <textarea rows={5} value={content} onChange={(e) => setContent(e.target.value)} />
+            <textarea
+              rows={5}
+              value={getMessageText(draftNode.content)}
+              disabled={generating}
+              onChange={(event) => {
+                const text = event.target.value;
+                dispatch({ type: "set-node-text", nodeId: draftNode.id, text });
+              }}
+            />
           </label>
           <div className={styles["node-viewer-secondary-action"]}>
             <IconButton
@@ -1171,34 +878,50 @@ function NodeViewerModal(props: {
               onClick={() => props.onPin(node)}
             />
           </div>
-          {role === "assistant" && (
+          {draftNode.role === "assistant" && (
             <div className={styles["node-summary-editor"]}>
-              {summaryEditors.map((editor) => (
+              {summaryEditors.map((summaryEditor) => (
                 <details
-                  key={editor.kind}
-                  open={editor.open}
-                  onToggle={(event) => editor.setOpen(event.currentTarget.open)}
+                  key={summaryEditor.kind}
+                  open={summaryEditor.open}
+                  onToggle={(event) => summaryEditor.setOpen(event.currentTarget.open)}
                 >
                   <summary>
-                    <span>{editor.label}</span>
-                    <span>{editor.value ? `${editor.value.length}` : "—"}</span>
+                    <span>{summaryEditor.label}</span>
+                    <span>{summaryEditor.value ? `${summaryEditor.value.length}` : "—"}</span>
                   </summary>
                   <textarea
                     rows={4}
-                    value={editor.value}
-                    onChange={(event) => editor.setValue(event.currentTarget.value)}
+                    value={summaryEditor.value}
+                    disabled={generating}
+                    onChange={(event) => {
+                      const content = event.currentTarget.value;
+                      dispatch({
+                        type: "user-edit-summary",
+                        nodeId: draftNode.id,
+                        kind: summaryEditor.kind,
+                        content,
+                      });
+                    }}
                   />
                   <div className={styles["node-summary-actions"]}>
                     <IconButton
                       text={Locale.Chat.Graph.GenerateSummary}
-                      icon={<BrainIcon />}
+                      icon={
+                        generatingKinds.includes(summaryEditor.kind) ? (
+                          <LoadingButtonIcon />
+                        ) : (
+                          <BrainIcon />
+                        )
+                      }
                       disabled={generating}
-                      onClick={() => void generateSummary(editor.kind)}
+                      onClick={() => void generateSummary(summaryEditor.kind)}
                     />
                     <IconButton
                       text={Locale.Chat.Actions.Delete}
                       icon={<DeleteIcon />}
-                      onClick={() => deleteSummary(editor.kind)}
+                      disabled={generating}
+                      onClick={() => deleteSummary(summaryEditor.kind)}
                     />
                   </div>
                 </details>
@@ -2173,7 +1896,7 @@ function ChatView() {
                         messageText,
                         10,
                       );
-                      const newContent = replaceMessageText(message, newMessage);
+                      const newContent = Conversation.replaceText(message.content, newMessage);
                       chatStore.updateSession(session.id, (draft) => {
                         const item = draft.mask.context.find((item) => item.id === message.id);
                         if (item) item.content = newContent;
@@ -2208,13 +1931,15 @@ function ChatView() {
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
                               <div className={styles["chat-message-avatar"]}>
-                                <div className={styles["chat-message-edit"]}>
-                                  <IconButton
-                                    icon={<EditIcon />}
-                                    aria={Locale.Chat.Actions.Edit}
-                                    onClick={editMessage}
-                                  />
-                                </div>
+                                {!message.streaming && (
+                                  <div className={styles["chat-message-edit"]}>
+                                    <IconButton
+                                      icon={<EditIcon />}
+                                      aria={Locale.Chat.Actions.Edit}
+                                      onClick={editMessage}
+                                    />
+                                  </div>
+                                )}
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (

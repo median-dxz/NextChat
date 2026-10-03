@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Locale from "../locales";
 import { Markdown } from "./markdown";
-import styles from "./chat.module.scss";
+import styles from "./chat/chat.module.scss";
 
 export interface ReasoningDisclosureProps {
   reasoning?: string;

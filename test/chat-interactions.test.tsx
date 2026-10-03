@@ -27,7 +27,7 @@ import { useAppConfig, useChatStore } from "../app/store";
 import {
   getChatScrollUpdate,
   useScrollToBottom,
-} from "../app/components/chat-scroll";
+} from "../app/components/chat/chat-scroll";
 import { ReasoningDisclosure } from "../app/components/reasoning";
 import { useAllModels } from "../app/utils/hooks";
 

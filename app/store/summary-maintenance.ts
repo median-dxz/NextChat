@@ -3,6 +3,7 @@ import { requestText } from "../client/request-text";
 import type { ServiceProviderName } from "../constant";
 import { getContextInputBudget } from "../utils/context-budget";
 import { Conversation } from "../utils/conversation";
+import type { SummaryMaintenancePlan } from "../utils/conversation/summary";
 import type { ModelConfig } from "./config";
 import { Mask } from "./mask";
 
@@ -17,6 +18,8 @@ export interface SummaryMaintenanceCommand {
   force?: boolean;
   onlyKind?: Conversation.SummaryKind;
 }
+
+type GenerationCommand = Omit<SummaryMaintenanceCommand, "sessionId">;
 
 export interface SummaryMaintenanceDependencies {
   getSession(sessionId: string): SummaryMaintenanceSession | undefined;
@@ -34,6 +37,16 @@ export interface SummaryMaintenanceDependencies {
 
 export interface SummaryMaintenance {
   maintain(command: SummaryMaintenanceCommand): Promise<void>;
+  generate(
+    session: SummaryMaintenanceSession,
+    command: GenerationCommand,
+    readConversation: () => Conversation.Api | undefined,
+    receive: (
+      nodeId: string,
+      kind: Conversation.SummaryKind,
+      summary: Conversation.Summary,
+    ) => void,
+  ): Promise<void>;
 }
 
 interface SummaryJob {
@@ -60,9 +73,11 @@ async function requestSummary(
     ),
     { ...modelConfig, model },
   );
+
   if (!content) {
     throw new Error(`Summary request returned empty content (${providerName}/${model})`);
   }
+
   return content;
 }
 
@@ -71,25 +86,34 @@ export function createSummaryMaintenance(
 ): SummaryMaintenance {
   const jobs = new Map<string, SummaryJob>();
 
-  const run = async (command: SummaryMaintenanceCommand) => {
-    const session = dependencies.getSession(command.sessionId);
-    const target = session?.messages.find((node) => node.id === command.targetNodeId);
-    if (!session || !target || target.role !== "assistant") return;
+  const run = async (
+    session: SummaryMaintenanceSession,
+    command: GenerationCommand,
+    readConversation: () => Conversation.Api | undefined,
+    receive: (plan: SummaryMaintenancePlan, content: string, source: Conversation.Api) => void,
+  ) => {
+    const conversation = readConversation();
+    if (!conversation) return;
+
+    const target = conversation.findNode(command.targetNodeId)?.value;
+    if (!target || target.role !== "assistant") return;
 
     const modelConfig = session.mask.modelConfig;
     const inputBudget = getContextInputBudget(
       modelConfig.contextWindowTokens,
       modelConfig.max_tokens,
     );
+
     const segmentPlan =
       command.onlyKind === "checkpoint"
         ? undefined
-        : Conversation(session).summaries.plan(target.id).segment({
+        : conversation.summaries.plan(target.id).segment({
             tokenTarget: modelConfig.segmentTargetSourceTokens,
             itemTarget: modelConfig.segmentMaxSourceNodes,
             inputBudget,
             force: command.force,
           });
+
     const [model, providerName] =
       modelConfig.compressModel && modelConfig.compressProviderName
         ? [modelConfig.compressModel, modelConfig.compressProviderName]
@@ -104,26 +128,22 @@ export function createSummaryMaintenance(
         providerName,
         dependencies.summaryPrompt,
       );
-      dependencies.updateConversation(command.sessionId, (conversation) =>
-        conversation.summaries.commitGenerated(segmentPlan, content),
-      );
+
+      if (!readConversation()) return;
+      receive(segmentPlan, content, conversation);
     }
 
     if (command.onlyKind === "segment") return;
 
-    const checkpointSession = dependencies.getSession(command.sessionId);
-    const checkpointTarget = checkpointSession?.messages.find(
-      (node) => node.id === command.targetNodeId,
-    );
-    if (!checkpointSession || !checkpointTarget) return;
-    const checkpointPlan = Conversation(checkpointSession)
-      .summaries.plan(checkpointTarget.id)
-      .checkpoint({
-        tokenTarget: modelConfig.checkpointMergeTargetTokens,
-        itemTarget: modelConfig.checkpointTargetSegments,
-        inputBudget,
-        force: command.force,
-      });
+    const checkpointConversation = readConversation();
+    if (!checkpointConversation) return;
+
+    const checkpointPlan = checkpointConversation.summaries.plan(command.targetNodeId).checkpoint({
+      tokenTarget: modelConfig.checkpointMergeTargetTokens,
+      itemTarget: modelConfig.checkpointTargetSegments,
+      inputBudget,
+      force: command.force,
+    });
     if (!checkpointPlan) return;
 
     const content = await requestSummary(
@@ -134,9 +154,9 @@ export function createSummaryMaintenance(
       providerName,
       dependencies.summaryPrompt,
     );
-    dependencies.updateConversation(command.sessionId, (conversation) =>
-      conversation.summaries.commitGenerated(checkpointPlan, content),
-    );
+
+    if (!readConversation()) return;
+    receive(checkpointPlan, content, checkpointConversation);
   };
 
   return {
@@ -156,6 +176,7 @@ export function createSummaryMaintenance(
         if (!parent || parent.outlineLevel !== chainRoot.outlineLevel) break;
         chainRoot = parent;
       }
+
       // The lock follows the Outline Chain lifecycle, while plans stay free of scheduler metadata.
       const jobKey = `${command.sessionId}:${chainRoot.id}`;
       const pending = jobs.get(jobKey);
@@ -167,15 +188,45 @@ export function createSummaryMaintenance(
       let execution: Promise<void>;
       execution = previous
         .catch(() => undefined)
-        .then(() => run(command))
+        .then(async () => {
+          const session = dependencies.getSession(command.sessionId);
+          if (!session) return;
+
+          await run(
+            session,
+            command,
+            () => {
+              const latest = dependencies.getSession(command.sessionId);
+              return latest ? Conversation(latest) : undefined;
+            },
+            (plan, content) => {
+              dependencies.updateConversation(command.sessionId, (conversation) =>
+                conversation.summaries.commitGenerated(plan, content),
+              );
+            },
+          );
+        })
         .finally(() => {
           if (jobs.get(jobKey)?.promise === execution) jobs.delete(jobKey);
         });
+
       jobs.set(jobKey, {
         targetNodeId: command.targetNodeId,
         promise: execution,
       });
+
       return execution;
+    },
+
+    generate(session, command, readConversation, receive) {
+      return run(session, command, readConversation, (plan, content, source) => {
+        // Draft generation keeps the request's source; background maintain validates the latest state.
+        const accepted = source.summaries.commitGenerated(plan, content);
+        if (!accepted) throw new Error("Summary generation does not match its request snapshot");
+
+        const summary = accepted.node(plan.target.nodeId).value.nodeSummaries![plan.target.kind]!;
+        receive(plan.target.nodeId, plan.target.kind, summary);
+      });
     },
   };
 }

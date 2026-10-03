@@ -3,12 +3,20 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL(".", import.meta.url)),
-      nanoid: fileURLToPath(
-        new URL("./test/mocks/nanoid.ts", import.meta.url),
-      ),
-    },
+    alias: [
+      {
+        find: "@",
+        replacement: fileURLToPath(new URL(".", import.meta.url)),
+      },
+      {
+        find: "nanoid",
+        replacement: fileURLToPath(new URL("./test/mocks/nanoid.ts", import.meta.url)),
+      },
+      {
+        find: /^.*\/icons\/[^/]+\.svg$/,
+        replacement: fileURLToPath(new URL("./test/mocks/icon.ts", import.meta.url)),
+      },
+    ],
   },
   test: {
     globals: true,

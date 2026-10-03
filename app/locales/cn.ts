@@ -39,6 +39,8 @@ const cn: PartialLocaleType = {
       minutes > 0 ? `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒` : `${seconds} 秒`,
     EditMessage: {
       Title: "编辑消息记录",
+      StreamingExcluded: "本次编辑已跳过生成中的回复；回复结束后重新打开即可编辑。",
+      ExcludedNodeAffected: "无法修改仍在生成的回复",
       Topic: {
         Title: "聊天主题",
         SubTitle: "更改当前聊天主题",

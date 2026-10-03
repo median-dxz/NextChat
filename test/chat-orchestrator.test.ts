@@ -30,6 +30,7 @@ function createHarness(session: ChatOrchestratorSession) {
     handlers: { "target-tool": vi.fn() },
   };
   const orchestrator = createChatOrchestrator({
+    withStructure: async (_sessionId, action) => action(),
     getSession: repository.getSession,
     updateSession: repository.updateSession,
     createClient: () => provider.api,

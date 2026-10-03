@@ -30,8 +30,9 @@ export type CheckpointMaintenancePlan = SummaryMaintenancePlan<
 >;
 
 export interface SummaryApi<TResult> {
-  edit(kind: SummaryKind, content: string): TResult;
+  confirm(kind: SummaryKind, summary: Summary): Summary | undefined;
   remove(kind: SummaryKind): TResult;
+  update(kind: SummaryKind, summary: Summary | undefined): TResult;
 }
 
 function bindConversationSummary<TResult>(
@@ -49,9 +50,18 @@ function bindConversationSummary<TResult>(
     const summaryIndex = workspace.summaryIndex(projection);
 
     return {
-      edit(kind, content) {
-        const value = content.trim();
-        if (!value) return this.remove(kind);
+      // Replace the full snapshot; freshness remains derived from its original source digest.
+      update(kind, summary) {
+        if (!summary) return this.remove(kind);
+        if (node.role !== "assistant") throw new Error("Only assistant nodes can own summaries");
+        return commitNode((target) => {
+          target.nodeSummaries ??= {};
+          target.nodeSummaries[kind] = summary;
+        });
+      },
+
+      confirm(kind, summary) {
+        if (!summary.content.trim()) return;
 
         if (node.role !== "assistant") {
           throw new Error("Only assistant nodes can own summaries");
@@ -60,16 +70,11 @@ function bindConversationSummary<TResult>(
         const chain = chains.find((candidate) =>
           candidate.nodes.some((candidateNode) => candidateNode.id === node.id),
         );
-        const ownerIndex = chain?.nodes.findIndex((candidate) => candidate.id === node.id) ?? -1;
-        if (!chain || ownerIndex < 0) {
+        if (!chain) {
           throw new Error(`Missing outline chain for ${node.id}`);
         }
 
-        const sourceNodeIds =
-          node.nodeSummaries?.[kind]?.sourceNodeIds ??
-          (kind === "checkpoint"
-            ? chain.nodes.slice(0, ownerIndex + 1).map((source) => source.id)
-            : [node.id]);
+        const sourceNodeIds = summary.sourceNodeIds;
         const sourceStart = chain.nodes.findIndex((source) => source.id === sourceNodeIds[0]);
 
         if (sourceStart < 0) {
@@ -77,8 +82,7 @@ function bindConversationSummary<TResult>(
         }
 
         const candidate: Summary = {
-          content,
-          sourceNodeIds,
+          ...summary,
           sourceDigest: chain.digest.range(sourceStart, sourceStart + sourceNodeIds.length),
           provenance: "user-edited",
         };
@@ -87,10 +91,7 @@ function bindConversationSummary<TResult>(
           throw new Error(`Invalid ${kind} summary coverage for ${node.id}`);
         }
 
-        return commitNode((target) => {
-          target.nodeSummaries ??= {};
-          target.nodeSummaries[kind] = candidate;
-        });
+        return candidate;
       },
 
       remove(kind) {

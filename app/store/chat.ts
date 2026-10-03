@@ -23,6 +23,7 @@ import { extractMcpJson, isMcpJson } from "../mcp/utils";
 import { deepClone } from "../utils/clone";
 
 import { Conversation } from "../utils/conversation";
+import { ChatSessionEditor } from "./chat-session-editor";
 import { prettyObject } from "../utils/format";
 import { collectModelsWithDefaultModel } from "../utils/model";
 import { createPersistStore } from "../utils/store";
@@ -217,6 +218,7 @@ export const useChatStore = createPersistStore(
 
     let chatOrchestrator: ChatOrchestrator;
     let summaryMaintenance: SummaryMaintenance;
+    const edits = new Map<string, { closed: Promise<void>; release(): void }>();
 
     function commitSession(
       sessionId: string,
@@ -237,6 +239,41 @@ export const useChatStore = createPersistStore(
     }
 
     const methods = {
+      beginSessionEdit(sessionId: string) {
+        if (edits.has(sessionId)) throw new Error("This session is already being edited");
+        const session = get().sessions.find((item) => item.id === sessionId);
+        if (!session) throw new Error("Chat session no longer exists");
+        let resolve!: () => void;
+        const closed = new Promise<void>((done) => {
+          resolve = done;
+        });
+        const lease = {
+          closed,
+          release() {
+            if (edits.get(sessionId) !== lease) return;
+            edits.delete(sessionId);
+            resolve();
+          },
+        };
+        edits.set(sessionId, lease);
+        return { editor: ChatSessionEditor.open(session), release: lease.release };
+      },
+
+      async withConversationStructure<T>(
+        sessionId: string,
+        action: () => T | Promise<T>,
+      ): Promise<T> {
+        const edit = edits.get(sessionId);
+        if (edit) {
+          await edit.closed;
+          return get().withConversationStructure(sessionId, action);
+        }
+        if (!get().sessions.some((session) => session.id === sessionId)) {
+          throw new Error("Chat session no longer exists");
+        }
+        return action();
+      },
+
       forkSession() {
         // 获取当前会话
         const currentSession = get().currentSession();
@@ -272,6 +309,7 @@ export const useChatStore = createPersistStore(
           sessions: [createEmptySession()],
           currentSessionIndex: 0,
         }));
+        for (const edit of edits.values()) edit.release();
       },
 
       selectSession(index: number) {
@@ -412,13 +450,17 @@ export const useChatStore = createPersistStore(
         chatOrchestrator.cancelAll();
       },
 
-      generateSessionTitle(targetSession: ChatSession, refreshTitle: boolean = false) {
+      async requestSessionTitle(
+        targetSession: ChatSession,
+        refreshTitle: boolean = false,
+      ): Promise<string | undefined> {
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
+
         // skip summarize when using dalle3?
         if (isDalle3(modelConfig.model)) {
-          return;
+          return undefined;
         }
 
         const [titleModel, titleProviderName] =
@@ -428,6 +470,7 @@ export const useChatStore = createPersistStore(
                 session.mask.modelConfig.model,
                 session.mask.modelConfig.providerName,
               );
+
         // remove error messages if any
         const messages = Conversation(session).projectToCursor();
 
@@ -450,19 +493,32 @@ export const useChatStore = createPersistStore(
               content: Locale.Store.Prompt.Topic,
             }),
           ];
-          const topicAtRequest = session.topic;
-          void requestText(new ClientApi(titleProviderName), topicMessages, {
+
+          const message = await requestText(new ClientApi(titleProviderName), topicMessages, {
             ...modelConfig,
             model: titleModel,
-          })
-            .then((message) => {
-              get().updateSession(session.id, (draft) => {
-                if (draft.topic !== topicAtRequest) return false;
-                draft.topic = message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC;
-              });
-            })
-            .catch((error) => console.error("[Title]", error));
+          });
+
+          return message.length > 0 ? trimTopic(message) : DEFAULT_TOPIC;
         }
+
+        return undefined;
+      },
+
+      generateSessionTitle(targetSession: ChatSession, refreshTitle: boolean = false) {
+        const topicAtRequest = targetSession.topic;
+
+        void get()
+          .requestSessionTitle(targetSession, refreshTitle)
+          .then((topic) => {
+            if (topic === undefined) return;
+
+            get().updateSession(targetSession.id, (draft) => {
+              if (draft.topic !== topicAtRequest) return false;
+              draft.topic = topic;
+            });
+          })
+          .catch((error) => console.error("[Title]", error));
       },
 
       async generateNodeSummary(
@@ -477,6 +533,30 @@ export const useChatStore = createPersistStore(
           force,
           onlyKind,
         });
+      },
+
+      async requestNodeSummary(
+        session: ChatSession,
+        nodeId: string,
+        force: boolean,
+        onlyKind: Conversation.SummaryKind | undefined,
+        readConversation: () => Conversation.Api | undefined,
+        receive: (
+          nodeId: string,
+          kind: Conversation.SummaryKind,
+          summary: Conversation.Summary,
+        ) => void,
+      ): Promise<void> {
+        return summaryMaintenance.generate(
+          session,
+          {
+            targetNodeId: nodeId,
+            force,
+            onlyKind,
+          },
+          readConversation,
+          receive,
+        );
       },
 
       deleteNodeSummary(sessionId: string, nodeId: string, kind: Conversation.SummaryKind) {
@@ -585,93 +665,98 @@ export const useChatStore = createPersistStore(
       },
 
       deleteMessage(sessionId: string, messageId: string) {
-        get().updateSession(sessionId, (draft) => {
-          const next = draft.conversation.findNode(messageId)?.remove();
-          if (!next) return false;
-          draft.conversation = next;
+        return get().withConversationStructure(sessionId, () => {
+          get().updateSession(sessionId, (draft) => {
+            const next = draft.conversation.findNode(messageId)?.remove();
+            if (!next) return false;
+            draft.conversation = next;
+          });
         });
       },
 
       async retryMessage(sessionId: string, messageId: string) {
         const session = get().sessions.find((item) => item.id === sessionId);
         if (!session || get().currentSession().id !== sessionId) return false;
-        const target = Conversation(session).node(messageId);
-
-        let user = target.value;
-
-        if (user.role === "assistant") {
-          if (target.parent?.role !== "user") return false;
-          user = target.parent;
-        }
-
         await chatOrchestrator.start({
           kind: "retry",
           sessionId,
-          sourceNodeId: user.id,
+          sourceNodeId: messageId,
         });
         return true;
       },
 
       setNextOutlineDelta(sessionId: string, delta?: -1 | 1) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        const cursor = session.messages.find((item) => item.id === session.activeCursorId);
-        if (!cursor || (delta === -1 && cursor.outlineLevel <= 1)) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.pendingOutlineDelta = draft.pendingOutlineDelta === delta ? undefined : delta;
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          const cursor = session.messages.find((item) => item.id === session.activeCursorId);
+          if (!cursor || (delta === -1 && cursor.outlineLevel <= 1)) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.pendingOutlineDelta = draft.pendingOutlineDelta === delta ? undefined : delta;
+          });
         });
       },
 
       continueFromNode(sessionId: string, nodeId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        const activeIds = new Set(
-          Conversation(session)
-            .projectActive()
-            .map((node) => node.id),
-        );
-        if (!activeIds.has(nodeId)) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.conversation = draft.conversation.moveCursor(nodeId);
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          const activeIds = new Set(
+            Conversation(session)
+              .projectActive()
+              .map((node) => node.id),
+          );
+          if (!activeIds.has(nodeId)) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.conversation = draft.conversation.moveCursor(nodeId);
+          });
         });
       },
 
       selectConversationBranch(sessionId: string, parentId: string, branchRootId?: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.conversation = draft.conversation.node(parentId).setBranch(branchRootId);
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.conversation = draft.conversation.node(parentId).setBranch(branchRootId);
+          });
         });
       },
 
       startConversationBranch(sessionId: string, parentId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        const activeIds = new Set(
-          Conversation(session)
-            .projectActive()
-            .map((node) => node.id),
-        );
-        if (!activeIds.has(parentId)) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.pendingOutlineDelta = 1;
-          draft.conversation = draft.conversation.moveCursor(parentId);
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          const activeIds = new Set(
+            Conversation(session)
+              .projectActive()
+              .map((node) => node.id),
+          );
+          if (!activeIds.has(parentId)) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.pendingOutlineDelta = 1;
+            draft.conversation = draft.conversation.moveCursor(parentId);
+          });
         });
       },
 
       insertMessageBetween(sessionId: string, message: Conversation.Node, previousId?: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.conversation = draft.conversation.insertProjected(message, previousId);
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.conversation = draft.conversation.insertProjected(message, previousId);
+          });
         });
       },
 
       swapMessages(sessionId: string, firstId: string, secondId: string) {
-        const session = get().sessions.find((item) => item.id === sessionId);
-        if (!session) return;
-        get().updateSession(sessionId, (draft) => {
-          draft.conversation = draft.conversation.swap(firstId, secondId);
+        return get().withConversationStructure(sessionId, () => {
+          const session = get().sessions.find((item) => item.id === sessionId);
+          if (!session) return;
+          get().updateSession(sessionId, (draft) => {
+            draft.conversation = draft.conversation.swap(firstId, secondId);
+          });
         });
       },
 
@@ -778,6 +863,9 @@ export const useChatStore = createPersistStore(
     });
 
     chatOrchestrator = createChatOrchestrator({
+      withStructure(sessionId, action) {
+        return get().withConversationStructure(sessionId, action);
+      },
       getSession(sessionId) {
         return get().sessions.find((session) => session.id === sessionId);
       },

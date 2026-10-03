@@ -5,6 +5,7 @@ import type * as GraphTypes from "./graph";
 import {
   createMessage as makeMessage,
   createNode as makeNode,
+  replaceText as replaceNodeText,
   roles as conversationRoles,
   type NodeDraft,
 } from "./node";
@@ -64,5 +65,6 @@ export namespace Conversation {
   export const roles = conversationRoles;
   export const createMessage = makeMessage;
   export const createNode = makeNode;
+  export const replaceText = replaceNodeText;
   export const createMemory = Graph.createMemory;
 }

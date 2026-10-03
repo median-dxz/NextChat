@@ -6,7 +6,8 @@ import {
   type SummaryMaintenanceSession,
 } from "../app/store/summary-maintenance";
 import { Conversation } from "../app/utils/conversation";
-import { chatSession, linearConversation } from "./fixtures/conversation";
+import { ChatSessionEditor } from "../app/store/chat-session-editor";
+import { chatSession, generatedSummary, linearConversation } from "./fixtures/conversation";
 import { createDeferredClientApi } from "./helpers/deferred-client-api";
 import { createInMemorySessionStore } from "./helpers/session-repository";
 
@@ -47,6 +48,66 @@ function summarySession(id: string, pairs = 1) {
 }
 
 describe("summary maintenance", () => {
+  test("delivers a complete draft snapshot bound to the request source", async () => {
+    const session = summarySession("draft-source");
+    const targetNodeId = session.messages.at(-1)!.id;
+    const { maintenance, provider } = createHarness(session);
+    let editor = ChatSessionEditor.open({ ...session, topic: "draft" }).apply({
+      type: "set-node-text",
+      nodeId: targetNodeId,
+      text: "draft answer",
+    });
+    const source = editor.state.conversation;
+
+    const pending = maintenance.generate(
+      session,
+      { targetNodeId, force: true, onlyKind: "segment" },
+      () => editor.state.conversation,
+      (nodeId, kind, summary) => {
+        editor = editor.apply({ type: "update-summary", nodeId, kind, summary });
+      },
+    );
+    expect(provider.requests[0].messages[1].content).toBe("draft answer");
+    provider.finish(0, "generated result");
+    await pending;
+    editor = editor.apply({
+      type: "set-node-text",
+      nodeId: targetNodeId,
+      text: "changed after generating",
+    });
+
+    const result = editor.prepareCommit({ topic: "draft", conversation: source }).conversation;
+
+    expect(result.node(targetNodeId).value.nodeSummaries?.segment).toEqual(
+      generatedSummary(source.state.messages, "generated result"),
+    );
+    expect(result.node(targetNodeId).value.content).toBe("changed after generating");
+  });
+
+  test("rejects background results after their raw source changes", async () => {
+    const session = summarySession("changed-source");
+    const { maintenance, provider, repository } = createHarness(session);
+
+    const pending = maintenance.maintain({
+      sessionId: session.id,
+      targetNodeId: session.messages.at(-1)!.id,
+      force: true,
+      onlyKind: "segment",
+    });
+    await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
+
+    repository.mutateSession(session.id, (draft) => {
+      draft.messages = Conversation(draft).updateNodeData(draft.messages[0].id, (node) => {
+        node.content = "new source";
+      }).state.messages;
+    });
+
+    provider.finish(0, "obsolete result");
+    await pending;
+
+    expect(repository.getSession(session.id)!.messages.at(-1)?.nodeSummaries).toBeUndefined();
+  });
+
   test("coalesces one target and commits Segment before Checkpoint", async () => {
     const session = summarySession("coalesce");
     const targetNodeId = session.messages.at(-1)!.id;
@@ -85,9 +146,14 @@ describe("summary maintenance", () => {
     });
     await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
     repository.mutateSession(session.id, (draft) => {
-      draft.messages = Conversation(draft)
-        .summaries.node(targetNodeId)
-        .edit("segment", "manual segment").state.messages;
+      const conversation = Conversation(draft);
+      const summary = conversation.summaries.node(targetNodeId);
+      const manual = summary.confirm(
+        "segment",
+        generatedSummary([conversation.node(targetNodeId).value], "manual segment"),
+      );
+
+      draft.messages = summary.update("segment", manual).state.messages;
     });
     provider.finish(0, "late generated segment");
     await pending;

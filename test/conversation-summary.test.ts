@@ -30,9 +30,13 @@ describe("conversation summary", () => {
       { id: "e", role: "user" },
       { id: "f", role: "assistant" },
     ]);
+
     const first = Conversation(graph).summaries.plan("b").segment(segmentOptions)!;
     const afterFirst = Conversation(graph).summaries.commitGenerated(first, "first")!;
-    const withSparseSegment = afterFirst.summaries.node("d").edit("segment", "manual");
+
+    const summary = afterFirst.summaries.node("d");
+    const manual = summary.confirm("segment", generatedSummary([graph.messages[3]], "manual"));
+    const withSparseSegment = summary.update("segment", manual);
     const next = withSparseSegment.summaries.plan("f").segment(segmentOptions)!;
 
     expect(first.coverage.nodeIds).toEqual(["a", "b"]);

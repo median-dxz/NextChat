@@ -39,6 +39,9 @@ const en = {
       minutes > 0 ? `${minutes} min ${seconds.toString().padStart(2, "0")} sec` : `${seconds} sec`,
     EditMessage: {
       Title: "Edit All Messages",
+      StreamingExcluded:
+        "Replies that were generating when this editor opened have been skipped. Reopen after they finish to edit them.",
+      ExcludedNodeAffected: "Cannot modify a generating reply",
       Topic: {
         Title: "Topic",
         SubTitle: "Change the current topic",

@@ -131,38 +131,50 @@ export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeC
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
       if (item.type === "message" && item.role === "assistant") {
-        const botMessage = Conversation.createNode({
-          role: item.role,
-          content: "",
-        });
-        chatStore.updateSession(session.id, (draft) => {
-          draft.conversation = draft.conversation.insert(botMessage);
+        const botMessage = await chatStore.withConversationStructure(session.id, () => {
+          const message = Conversation.createNode({
+            role: item.role,
+            content: "",
+            streaming: true,
+          });
+          chatStore.updateSession(session.id, (draft) => {
+            draft.conversation = draft.conversation.insert(message);
+          });
+          return message;
         });
         let messageContent = "";
         let hasAudio = false;
-        for await (const content of item) {
-          if (content.type === "text") {
-            for await (const text of content.textChunks()) {
-              messageContent += text;
-            }
-          } else if (content.type === "audio") {
-            const textTask = async () => {
-              for await (const text of content.transcriptChunks()) {
+        try {
+          for await (const content of item) {
+            if (content.type === "text") {
+              for await (const text of content.textChunks()) {
                 messageContent += text;
               }
-            };
-            const audioTask = async () => {
-              audioHandlerRef.current?.startStreamingPlayback();
-              for await (const audio of content.audioChunks()) {
-                hasAudio = true;
-                audioHandlerRef.current?.playChunk(audio);
-              }
-            };
-            await Promise.all([textTask(), audioTask()]);
+            } else if (content.type === "audio") {
+              const textTask = async () => {
+                for await (const text of content.transcriptChunks()) {
+                  messageContent += text;
+                }
+              };
+              const audioTask = async () => {
+                audioHandlerRef.current?.startStreamingPlayback();
+                for await (const audio of content.audioChunks()) {
+                  hasAudio = true;
+                  audioHandlerRef.current?.playChunk(audio);
+                }
+              };
+              await Promise.all([textTask(), audioTask()]);
+            }
+            chatStore.updateSession(session.id, (draft) => {
+              draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
+                message.content = messageContent;
+              });
+            });
           }
+        } finally {
           chatStore.updateSession(session.id, (draft) => {
             draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
-              message.content = messageContent;
+              message.streaming = false;
             });
           });
         }
@@ -184,12 +196,12 @@ export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeC
   const handleInputAudio = async (item: RTInputAudioItem) => {
     await item.waitForCompletion();
     if (item.transcription) {
-      const userMessage = Conversation.createNode({
-        role: "user",
-        content: item.transcription,
-      });
-      chatStore.updateSession(session.id, (draft) => {
-        draft.conversation = draft.conversation.insert(userMessage);
+      const userMessage = await chatStore.withConversationStructure(session.id, () => {
+        const message = Conversation.createNode({ role: "user", content: item.transcription });
+        chatStore.updateSession(session.id, (draft) => {
+          draft.conversation = draft.conversation.insert(message);
+        });
+        return message;
       });
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;

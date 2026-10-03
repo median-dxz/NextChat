@@ -29,7 +29,7 @@ import {
   readFromFile,
 } from "../utils";
 import { IconButton } from "./button";
-import chatStyle from "./chat.module.scss";
+import chatStyle from "./chat/chat.module.scss";
 import { Avatar, AvatarPicker } from "./emoji";
 import { ErrorBoundary } from "./error";
 import styles from "./mask.module.scss";

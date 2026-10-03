@@ -343,11 +343,39 @@ function insert(graph: State, index: Index, node: Node, anchor?: Node): State {
   });
 }
 
-function insertProjected(graph: State, index: Index, input: Node, previous?: Node): State {
+function projectedInsertionPosition(graph: State, index: Index, previousId?: string) {
   const projection = projectActive(graph, index);
-  const next = previous ? projection[projection.indexOf(previous) + 1] : projection[0];
+  if (!previousId) {
+    return { next: projection[0], parent: undefined, branch: undefined };
+  }
 
-  if (!previous) {
+  const previousIndex = projection.findIndex((node) => node.id === previousId);
+  if (previousIndex < 0) {
+    throw new Error("Inserted nodes must follow an active projected node");
+  }
+
+  const previous = projection[previousIndex];
+  const next = projection[previousIndex + 1];
+  const targetLevel = next
+    ? Math.min(previous.outlineLevel, next.outlineLevel)
+    : previous.outlineLevel;
+
+  let parent = previous;
+  while (parent.outlineLevel > targetLevel && parent.parentId) {
+    parent = index.nodesById.get(parent.parentId)!;
+  }
+
+  return {
+    next,
+    parent,
+    branch: next && next.outlineLevel > targetLevel ? next : undefined,
+  };
+}
+
+function insertProjected(graph: State, index: Index, input: Node, previousId?: string): State {
+  const { next, parent, branch } = projectedInsertionPosition(graph, index, previousId);
+
+  if (!parent) {
     const root = createNode(input);
 
     if (!next) return insert(graph, index, root);
@@ -360,24 +388,15 @@ function insertProjected(graph: State, index: Index, input: Node, previous?: Nod
     });
   }
 
-  const targetLevel = next
-    ? Math.min(previous.outlineLevel, next.outlineLevel)
-    : previous.outlineLevel;
-  let attachmentParent = previous;
+  const node = createNode(input, parent);
 
-  while (attachmentParent.outlineLevel > targetLevel && attachmentParent.parentId) {
-    attachmentParent = index.nodesById.get(attachmentParent.parentId)!;
-  }
+  let inserted = insert(graph, index, node, parent);
 
-  const node = createNode(input, attachmentParent);
-
-  let inserted = insert(graph, index, node, attachmentParent);
-
-  if (next && next.outlineLevel > targetLevel) {
+  if (branch) {
     inserted = produce(inserted, (draft) => {
-      draft.messages[index.positionById.get(attachmentParent.id)!].activeBranchRootId = undefined;
-      draft.messages.at(-1)!.activeBranchRootId = next.id;
-      draft.messages[index.positionById.get(next.id)!].parentId = node.id;
+      draft.messages[index.positionById.get(parent.id)!].activeBranchRootId = undefined;
+      draft.messages.at(-1)!.activeBranchRootId = branch.id;
+      draft.messages[index.positionById.get(branch.id)!].parentId = node.id;
       draft.activeCursorId = node.id;
     });
   }
@@ -634,16 +653,7 @@ function bindGraph<TResult>(workspace: Workspace, commit: (state: State) => TRes
         throw new Error(`Duplicate conversation node id: ${input.id}`);
       }
 
-      const projection = workspace.projectActive();
-      if (!previousId) {
-        return commit(insertProjected(state, index, input));
-      }
-
-      const previousIndex = projection.findIndex((node) => node.id === previousId);
-      if (previousIndex < 0) {
-        throw new Error("Inserted nodes must follow an active projected node");
-      }
-      return commit(insertProjected(state, index, input, projection[previousIndex]));
+      return commit(insertProjected(state, index, input, previousId));
     },
 
     swap: (firstId, secondId) => {

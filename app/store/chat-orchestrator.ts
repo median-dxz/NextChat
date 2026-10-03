@@ -80,6 +80,7 @@ export interface ChatCompletionEffects {
 }
 
 export interface ChatOrchestratorDependencies {
+  withStructure<T>(sessionId: string, action: () => T | Promise<T>): Promise<T>;
   getSession(sessionId: string): ChatOrchestratorSession | undefined;
   updateSession(
     sessionId: string,
@@ -269,85 +270,99 @@ export function createChatOrchestrator(
       const modelConfig = initialSession.mask.modelConfig;
       const systemInputs = await resolveSystemInputs(modelConfig);
 
-      const session = dependencies.getSession(command.sessionId);
-      if (!session) throw new Error("Chat session no longer exists");
+      const { session, assembly, committedUser, committedAssistant } =
+        await dependencies.withStructure(command.sessionId, () => {
+          const session = dependencies.getSession(command.sessionId);
+          if (!session) throw new Error("Chat session no longer exists");
 
-      let conversation = Conversation(session);
-      let userNode: Conversation.Node;
+          let conversation = Conversation(session);
+          let userNode: Conversation.Node;
 
-      if (command.kind === "retry") {
-        const source = conversation.node(command.sourceNodeId);
-        const response = source.sameLevelSuccessor!;
+          if (command.kind === "retry") {
+            const target = conversation.node(command.sourceNodeId);
+            const source =
+              target.value.role === "assistant" && target.parent
+                ? conversation.node(target.parent.id)
+                : target;
+            const response = source.sameLevelSuccessor;
+            if (source.value.role !== "user" || response?.role !== "assistant") {
+              throw new Error("Retry requires a user message followed by an assistant response");
+            }
 
-        userNode = source.value;
-        conversation = conversation.node(response.id).remove().moveCursor(userNode.id);
-      } else {
-        userNode = Conversation.createNode({
-          role: "user",
-          content: prepareInput(command, modelConfig),
-          isMcpResponse: command.isMcpResponse,
-        });
+            userNode = source.value;
+            conversation = conversation.node(response.id).remove().moveCursor(userNode.id);
+          } else {
+            userNode = Conversation.createNode({
+              role: "user",
+              content: prepareInput(command, modelConfig),
+              isMcpResponse: command.isMcpResponse,
+            });
 
-        const activeCursorId = conversation.state.activeCursorId;
-        const cursor = activeCursorId ? conversation.node(activeCursorId).value : undefined;
-        const outlineDelta = session.pendingOutlineDelta ?? 0;
+            const activeCursorId = conversation.state.activeCursorId;
+            const cursor = activeCursorId ? conversation.node(activeCursorId).value : undefined;
+            const outlineDelta = session.pendingOutlineDelta ?? 0;
 
-        if (!cursor) {
-          conversation = conversation.insert(userNode);
-        } else if (outlineDelta === -1 && cursor.outlineLevel > 1) {
-          let target = cursor;
-          const targetLevel = target.outlineLevel - 1;
-          while (target.outlineLevel > targetLevel) {
-            target = conversation.node(target.parentId!).value;
+            if (!cursor) {
+              conversation = conversation.insert(userNode);
+            } else if (outlineDelta === -1 && cursor.outlineLevel > 1) {
+              let target = cursor;
+              const targetLevel = target.outlineLevel - 1;
+              while (target.outlineLevel > targetLevel) {
+                target = conversation.node(target.parentId!).value;
+              }
+              conversation = conversation.moveCursor(target.id).insert(userNode);
+            } else if (outlineDelta === 1) {
+              conversation = conversation
+                .node(cursor.id)
+                .setBranch(userNode)
+                .moveCursor(userNode.id);
+            } else {
+              conversation = conversation.insert(userNode);
+            }
           }
-          conversation = conversation.moveCursor(target.id).insert(userNode);
-        } else if (outlineDelta === 1) {
-          conversation = conversation.node(cursor.id).setBranch(userNode).moveCursor(userNode.id);
-        } else {
-          conversation = conversation.insert(userNode);
-        }
-      }
 
-      const assistantNode = Conversation.createNode({
-        role: "assistant",
-        streaming: true,
-        model: modelConfig.model,
-      });
-      const globalMemoryInput =
-        session.globalMemory.enabled && session.globalMemory.content.trim()
-          ? Conversation.createMessage({
-              role: "system",
-              content: session.globalMemory.content,
-              date: "",
-            })
-          : undefined;
-      const assembly = conversation.context.assemble({
-        systemInputs,
-        pinnedInputs: session.pinnedInputs,
-        globalMemoryInput,
-        budget: {
-          contextWindowTokens: modelConfig.contextWindowTokens,
-          requestedOutputTokens: modelConfig.max_tokens,
-        },
-        recentRawNodeCount: modelConfig.recentRawNodeCount,
-        summaries: modelConfig.enableConversationSummaries ? "enabled" : "disabled",
-      });
+          const assistantNode = Conversation.createNode({
+            role: "assistant",
+            streaming: true,
+            model: modelConfig.model,
+          });
+          const globalMemoryInput =
+            session.globalMemory.enabled && session.globalMemory.content.trim()
+              ? Conversation.createMessage({
+                  role: "system",
+                  content: session.globalMemory.content,
+                  date: "",
+                })
+              : undefined;
+          const assembly = conversation.context.assemble({
+            systemInputs,
+            pinnedInputs: session.pinnedInputs,
+            globalMemoryInput,
+            budget: {
+              contextWindowTokens: modelConfig.contextWindowTokens,
+              requestedOutputTokens: modelConfig.max_tokens,
+            },
+            recentRawNodeCount: modelConfig.recentRawNodeCount,
+            summaries: modelConfig.enableConversationSummaries ? "enabled" : "disabled",
+          });
 
-      dependencies.updateSession(command.sessionId, (session) => {
-        if (command.kind === "retry") {
-          conversation = conversation.insertProjected(assistantNode, userNode.id);
-        } else {
-          conversation = conversation.insert(assistantNode);
-        }
+          dependencies.updateSession(command.sessionId, (session) => {
+            if (command.kind === "retry") {
+              conversation = conversation.insertProjected(assistantNode, userNode.id);
+            } else {
+              conversation = conversation.insert(assistantNode);
+            }
 
-        session.conversation = conversation;
-        if (command.kind === "input") {
-          session.pendingOutlineDelta = undefined;
-        }
-      });
+            session.conversation = conversation;
+            if (command.kind === "input") {
+              session.pendingOutlineDelta = undefined;
+            }
+          });
 
-      const committedUser = conversation.node(userNode.id).value;
-      const committedAssistant = conversation.node(assistantNode.id).value;
+          const committedUser = conversation.node(userNode.id).value;
+          const committedAssistant = conversation.node(assistantNode.id).value;
+          return { session, assembly, committedUser, committedAssistant };
+        });
 
       const runId = nanoid();
       let reasoningStartedAt: number | undefined;

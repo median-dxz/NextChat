@@ -1,4 +1,4 @@
-import chatStyles from "@/app/components/chat.module.scss";
+import chatStyles from "@/app/components/chat/chat.module.scss";
 import styles from "@/app/components/sd/sd.module.scss";
 import homeStyles from "@/app/components/home.module.scss";
 

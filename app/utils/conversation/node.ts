@@ -88,6 +88,12 @@ export function createNode(override: Partial<Node>): Node {
   return { outlineLevel: 1, ...createMessage(override) };
 }
 
+export function replaceText(content: Content, text: string): Content {
+  if (typeof content === "string") return text;
+  const attachments = content.filter((part) => part.type !== "text");
+  return attachments.length > 0 ? [{ type: "text", text }, ...attachments] : text;
+}
+
 function encodeField(value: string) {
   // Length prefixes keep adjacent fields unambiguous even when content contains separators.
   return `${value.length}:${value}`;
