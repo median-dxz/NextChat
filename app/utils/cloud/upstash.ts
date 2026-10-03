@@ -11,8 +11,7 @@ export function createUpstashClient(store: SyncStore) {
   const chunkCountKey = `${storeKey}-chunk-count`;
   const chunkIndexKey = (i: number) => `${storeKey}-chunk-${i}`;
 
-  const proxyUrl =
-    store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
+  const proxyUrl = store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
 
   return {
     async check() {
@@ -56,9 +55,7 @@ export function createUpstashClient(store: SyncStore) {
       if (!Number.isInteger(chunkCount)) return;
 
       const chunks = await Promise.all(
-        new Array(chunkCount)
-          .fill(0)
-          .map((_, i) => this.redisGet(chunkIndexKey(i))),
+        new Array(chunkCount).fill(0).map((_, i) => this.redisGet(chunkIndexKey(i))),
       );
       console.log("[Upstash] get full chunks", chunks);
       return chunks.join("");

@@ -21,7 +21,7 @@ import { SideBar } from "./sidebar";
 import { useAppConfig } from "../store/config";
 import { AuthPage } from "./auth";
 import { getClientConfig } from "../config/client";
-import { type ClientApi, getClientApi } from "../client/api";
+import { ClientApi } from "../client/api";
 import { useAccessStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem, isMcpEnabled } from "@/app/mcp/actions";
@@ -59,23 +59,17 @@ const PluginPage = dynamic(async () => (await import("./plugin")).PluginPage, {
   loading: () => <Loading noLogo />,
 });
 
-const SearchChat = dynamic(
-  async () => (await import("./search-chat")).SearchChatPage,
-  {
-    loading: () => <Loading noLogo />,
-  },
-);
+const SearchChat = dynamic(async () => (await import("./search-chat")).SearchChatPage, {
+  loading: () => <Loading noLogo />,
+});
 
 const Sd = dynamic(async () => (await import("./sd")).Sd, {
   loading: () => <Loading noLogo />,
 });
 
-const McpMarketPage = dynamic(
-  async () => (await import("./mcp-market")).McpMarketPage,
-  {
-    loading: () => <Loading noLogo />,
-  },
-);
+const McpMarketPage = dynamic(async () => (await import("./mcp-market")).McpMarketPage, {
+  loading: () => <Loading noLogo />,
+});
 
 export function useSwitchTheme() {
   const config = useAppConfig();
@@ -90,12 +84,8 @@ export function useSwitchTheme() {
       document.body.classList.add("light");
     }
 
-    const metaDescriptionDark = document.querySelector(
-      'meta[name="theme-color"][media*="dark"]',
-    );
-    const metaDescriptionLight = document.querySelector(
-      'meta[name="theme-color"][media*="light"]',
-    );
+    const metaDescriptionDark = document.querySelector('meta[name="theme-color"][media*="dark"]');
+    const metaDescriptionLight = document.querySelector('meta[name="theme-color"][media*="light"]');
 
     if (config.theme === "auto") {
       metaDescriptionDark?.setAttribute("content", "#151515");
@@ -131,8 +121,7 @@ const loadAsyncGoogleFont = () => {
   const linkEl = document.createElement("link");
   const proxyFontUrl = "/google-fonts";
   const remoteFontUrl = "https://fonts.googleapis.com";
-  const googleFontUrl =
-    getClientConfig()?.buildMode === "export" ? remoteFontUrl : proxyFontUrl;
+  const googleFontUrl = getClientConfig()?.buildMode === "export" ? remoteFontUrl : proxyFontUrl;
   linkEl.rel = "stylesheet";
   linkEl.href =
     googleFontUrl +
@@ -160,8 +149,7 @@ function Screen() {
   const isSdNew = location.pathname === Path.SdNew;
 
   const isMobileScreen = useMobileScreen();
-  const shouldTightBorder =
-    getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
+  const shouldTightBorder = getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
 
   useEffect(() => {
     loadAsyncGoogleFont();
@@ -216,7 +204,7 @@ function Screen() {
 export function useLoadData() {
   const config = useAppConfig();
 
-  const api: ClientApi = getClientApi(config.modelConfig.providerName);
+  const api = new ClientApi(config.modelConfig.providerName);
 
   useEffect(() => {
     (async () => {

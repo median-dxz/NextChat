@@ -24,9 +24,7 @@ export function TTSConfigList(props: {
           type="checkbox"
           checked={props.ttsConfig.enable}
           onChange={(e) =>
-            props.updateConfig(
-              (config) => (config.enable = e.currentTarget.checked),
-            )
+            props.updateConfig((config) => (config.enable = e.currentTarget.checked))
           }
         ></input>
       </ListItem>
@@ -49,10 +47,7 @@ export function TTSConfigList(props: {
           value={props.ttsConfig.engine}
           onChange={(e) => {
             props.updateConfig(
-              (config) =>
-                (config.engine = TTSConfigValidator.engine(
-                  e.currentTarget.value,
-                )),
+              (config) => (config.engine = TTSConfigValidator.engine(e.currentTarget.value)),
             );
           }}
         >
@@ -70,10 +65,7 @@ export function TTSConfigList(props: {
               value={props.ttsConfig.model}
               onChange={(e) => {
                 props.updateConfig(
-                  (config) =>
-                    (config.model = TTSConfigValidator.model(
-                      e.currentTarget.value,
-                    )),
+                  (config) => (config.model = TTSConfigValidator.model(e.currentTarget.value)),
                 );
               }}
             >
@@ -92,10 +84,7 @@ export function TTSConfigList(props: {
               value={props.ttsConfig.voice}
               onChange={(e) => {
                 props.updateConfig(
-                  (config) =>
-                    (config.voice = TTSConfigValidator.voice(
-                      e.currentTarget.value,
-                    )),
+                  (config) => (config.voice = TTSConfigValidator.voice(e.currentTarget.value)),
                 );
               }}
             >
@@ -119,9 +108,7 @@ export function TTSConfigList(props: {
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
-                    (config.speed = TTSConfigValidator.speed(
-                      e.currentTarget.valueAsNumber,
-                    )),
+                    (config.speed = TTSConfigValidator.speed(e.currentTarget.valueAsNumber)),
                 );
               }}
             ></InputRange>

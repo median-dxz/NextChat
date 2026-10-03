@@ -1,9 +1,4 @@
-import {
-  Stability,
-  StoreKey,
-  ACCESS_CODE_PREFIX,
-  ApiPath,
-} from "@/app/constant";
+import { Stability, StoreKey, ACCESS_CODE_PREFIX, ApiPath } from "@/app/constant";
 import { getBearerToken } from "@/app/client/api";
 import { createPersistStore } from "@/app/utils/store";
 import { nanoid } from "nanoid";
@@ -71,9 +66,7 @@ export const useSdStore = createPersistStore<
           bearerToken = getBearerToken(accessStore.stabilityApiKey);
         }
         if (!bearerToken && accessStore.enabledAccessControl()) {
-          bearerToken = getBearerToken(
-            ACCESS_CODE_PREFIX + accessStore.accessCode,
-          );
+          bearerToken = getBearerToken(ACCESS_CODE_PREFIX + accessStore.accessCode);
         }
         const headers = {
           Accept: "application/json",

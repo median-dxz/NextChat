@@ -1,12 +1,7 @@
 import DeleteIcon from "../icons/delete.svg";
 
 import styles from "./home.module.scss";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  OnDragEndResponder,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, OnDragEndResponder } from "@hello-pangea/dnd";
 
 import { useChatStore } from "../store";
 
@@ -49,8 +44,7 @@ export function ChatItem(props: {
         <div
           className={clsx(styles["chat-item"], {
             [styles["chat-item-selected"]]:
-              props.selected &&
-              (currentPath === Path.Chat || currentPath === Path.Home),
+              props.selected && (currentPath === Path.Chat || currentPath === Path.Home),
           })}
           onClick={props.onClick}
           ref={(ele) => {
@@ -59,21 +53,14 @@ export function ChatItem(props: {
           }}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          title={`${props.title}\n${Locale.ChatItem.ChatItemCount(
-            props.count,
-          )}`}
+          title={`${props.title}\n${Locale.ChatItem.ChatItemCount(props.count)}`}
         >
           {props.narrow ? (
             <div className={styles["chat-item-narrow"]}>
               <div className={clsx(styles["chat-item-avatar"], "no-dark")}>
-                <MaskAvatar
-                  avatar={props.mask.avatar}
-                  model={props.mask.modelConfig.model}
-                />
+                <MaskAvatar avatar={props.mask.avatar} model={props.mask.modelConfig.model} />
               </div>
-              <div className={styles["chat-item-narrow-count"]}>
-                {props.count}
-              </div>
+              <div className={styles["chat-item-narrow-count"]}>{props.count}</div>
             </div>
           ) : (
             <>
@@ -122,10 +109,7 @@ export function ChatList(props: { narrow?: boolean }) {
       return;
     }
 
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
@@ -136,11 +120,7 @@ export function ChatList(props: { narrow?: boolean }) {
     <DragDropContext onDragEnd={onDragEnd}>
       <Droppable droppableId="chat-list">
         {(provided) => (
-          <div
-            className={styles["chat-list"]}
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-          >
+          <div className={styles["chat-list"]} ref={provided.innerRef} {...provided.droppableProps}>
             {sessions.map((item, i) => (
               <ChatItem
                 title={item.topic}

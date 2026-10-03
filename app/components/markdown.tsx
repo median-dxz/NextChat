@@ -15,11 +15,7 @@ import ReloadButtonIcon from "../icons/reload.svg";
 import React from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { FullScreen } from "./ui-lib";
-import {
-  ArtifactsShareButton,
-  HTMLPreview,
-  HTMLPreviewHandler,
-} from "./artifacts";
+import { ArtifactsShareButton, HTMLPreview, HTMLPreviewHandler } from "./artifacts";
 import { useChatStore } from "../store";
 import { IconButton } from "./button";
 
@@ -64,25 +60,13 @@ export function PreCode(props: { children?: React.ReactNode }) {
   }, 600);
 
   const config = useAppConfig();
-  const enableArtifacts =
-    session.mask?.enableArtifacts !== false && config.enableArtifacts;
+  const enableArtifacts = session.mask?.enableArtifacts !== false && config.enableArtifacts;
 
   //Wrap the paragraph for plain-text
   useEffect(() => {
     if (ref.current) {
-      const codeElements = ref.current.querySelectorAll(
-        "code",
-      ) as NodeListOf<HTMLElement>;
-      const wrapLanguages = [
-        "",
-        "md",
-        "markdown",
-        "text",
-        "txt",
-        "plaintext",
-        "tex",
-        "latex",
-      ];
+      const codeElements = ref.current.querySelectorAll("code") as NodeListOf<HTMLElement>;
+      const wrapLanguages = ["", "md", "markdown", "text", "txt", "plaintext", "tex", "latex"];
       codeElements.forEach((codeElement) => {
         let languageClass = codeElement.className.match(/language-(\w+)/);
         let name = languageClass ? languageClass[1] : "";
@@ -101,17 +85,13 @@ export function PreCode(props: { children?: React.ReactNode }) {
           className="copy-code-button"
           onClick={() => {
             if (ref.current) {
-              copyToClipboard(
-                ref.current.querySelector("code")?.innerText ?? "",
-              );
+              copyToClipboard(ref.current.querySelector("code")?.innerText ?? "");
             }
           }}
         ></span>
         {props.children}
       </pre>
-      {mermaidCode.length > 0 && (
-        <MermaidRenderer code={mermaidCode} key={mermaidCode} />
-      )}
+      {mermaidCode.length > 0 && <MermaidRenderer code={mermaidCode} key={mermaidCode} />}
       {htmlCode.length > 0 && enableArtifacts && (
         <FullScreen className="no-dark html" right={70}>
           <ArtifactsShareButton
@@ -141,8 +121,7 @@ function CustomCode(props: { children?: React.ReactNode; className?: string }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
-  const enableCodeFold =
-    session.mask?.enableCodeFold !== false && config.enableCodeFold;
+  const enableCodeFold = session.mask?.enableCodeFold !== false && config.enableCodeFold;
 
   const ref = useRef<HTMLPreElement>(null);
   const [collapsed, setCollapsed] = useState(true);
@@ -193,21 +172,17 @@ function CustomCode(props: { children?: React.ReactNode; className?: string }) {
 }
 
 function escapeBrackets(text: string) {
-  const pattern =
-    /(```[\s\S]*?```|`.*?`)|\\\[([\s\S]*?[^\\])\\\]|\\\((.*?)\\\)/g;
-  return text.replace(
-    pattern,
-    (match, codeBlock, squareBracket, roundBracket) => {
-      if (codeBlock) {
-        return codeBlock;
-      } else if (squareBracket) {
-        return `$$${squareBracket}$$`;
-      } else if (roundBracket) {
-        return `$${roundBracket}$`;
-      }
-      return match;
-    },
-  );
+  const pattern = /(```[\s\S]*?```|`.*?`)|\\\[([\s\S]*?[^\\])\\\]|\\\((.*?)\\\)/g;
+  return text.replace(pattern, (match, codeBlock, squareBracket, roundBracket) => {
+    if (codeBlock) {
+      return codeBlock;
+    } else if (squareBracket) {
+      return `$$${squareBracket}$$`;
+    } else if (roundBracket) {
+      return `$${roundBracket}$`;
+    }
+    return match;
+  });
 }
 
 function tryWrapHtmlCode(text: string) {
@@ -235,12 +210,7 @@ type MarkdownLinkProps = React.ComponentPropsWithoutRef<"a"> & {
   node?: unknown;
 };
 
-function MarkdownLink({
-  node: _node,
-  href = "",
-  target,
-  ...anchorProps
-}: MarkdownLinkProps) {
+function MarkdownLink({ node: _node, href = "", target, ...anchorProps }: MarkdownLinkProps) {
   if (/\.(aac|mp3|opus|wav)$/.test(href)) {
     return (
       <figure>
@@ -317,11 +287,7 @@ export function Markdown(
       onDoubleClickCapture={props.onDoubleClickCapture}
       dir="auto"
     >
-      {props.loading ? (
-        <LoadingIcon />
-      ) : (
-        <MarkdownContent content={props.content} />
-      )}
+      {props.loading ? <LoadingIcon /> : <MarkdownContent content={props.content} />}
     </div>
   );
 }

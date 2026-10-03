@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const tr: PartialLocaleType = {
-  WIP: "Çalışma devam ediyor...",
   Error: {
     Unauthorized: isApp
       ? `😆 Sohbet bazı sorunlarla karşılaştı, endişelenmeyin:
@@ -23,7 +22,6 @@ const tr: PartialLocaleType = {
     SubTips: "Veya OpenAI veya Google API anahtarınızı girin",
     Input: "Erişim kodunu buraya girin",
     Confirm: "Onayla",
-    Later: "Sonra",
     Return: "Geri",
     SaasTips: "Ayarlar çok karmaşık, hemen kullanmak istiyorum",
     TopTips:
@@ -43,12 +41,10 @@ const tr: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Mesaj listesine bak",
-      CompressedHistory: "Sıkıştırılmış geçmişi gör",
       Export: "Sohbet kayıtlarını dışa aktar",
       Copy: "Kopyala",
       Stop: "Durdur",
       Retry: "Yeniden dene",
-      Pin: "Sabitlenmiş",
       PinToastContent: "1 konuşma varsayılan ifadeye sabitlendi",
       PinToastAction: "Görünüm",
       Delete: "Sil",
@@ -61,7 +57,6 @@ const tr: PartialLocaleType = {
       newm: "Maske ile yeni sohbet oluştur",
       next: "Sonraki sohbet",
       prev: "Önceki sohbet",
-      clear: "Konteksti temizle",
       del: "Sohbeti sil",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const tr: PartialLocaleType = {
       },
       Prompt: "Kısayol komutu",
       Masks: "Tüm maskeler",
-      Clear: "Sohbeti temizle",
       Settings: "Sohbet ayarları",
       UploadImage: "Resim yükle",
     },
-    Rename: "Sohbeti yeniden adlandır",
     Typing: "Yazıyor…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} gönder`;
@@ -89,7 +82,6 @@ const tr: PartialLocaleType = {
     },
     Send: "Gönder",
     Config: {
-      Reset: "Hafızayı temizle",
       SaveAs: "Maske olarak kaydet",
     },
     IsContext: "Varsayılan ifade",
@@ -125,11 +117,7 @@ const tr: PartialLocaleType = {
   },
   Memory: {
     Title: "Geçmiş Özeti",
-    EmptyContent: "Sohbet içeriği çok kısa, özetleme gerek yok",
     Send: "Sohbet kayıtlarını otomatik olarak sıkıştır ve bağlam olarak gönder",
-    Copy: "Özeti kopyala",
-    Reset: "[kullanılmadı]",
-    ResetConfirm: "Geçmiş özetini temizlemek istediğinize emin misiniz?",
   },
   Home: {
     NewChat: "Yeni sohbet",
@@ -152,8 +140,7 @@ const tr: PartialLocaleType = {
         Title: "Tüm verileri temizle",
         SubTitle: "Tüm sohbet ve ayar verilerini temizle",
         Action: "Hemen temizle",
-        Confirm:
-          "Tüm sohbet ve ayar verilerini temizlemek istediğinizden emin misiniz?",
+        Confirm: "Tüm sohbet ve ayar verilerini temizlemek istediğinizden emin misiniz?",
       },
     },
     Lang: {
@@ -190,7 +177,6 @@ const tr: PartialLocaleType = {
     },
     SendKey: "Gönderme Tuşu",
     Theme: "Tema",
-    TightBorder: "Sınır Yok Modu",
     SendPreviewBubble: {
       Title: "Önizleme Balonu",
       SubTitle: "Markdown içeriğini önizleme balonunda görüntüle",
@@ -246,8 +232,7 @@ const tr: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Maske Başlangıç Sayfası",
-        SubTitle:
-          "Yeni sohbet başlatıldığında maske başlangıç sayfasını göster",
+        SubTitle: "Yeni sohbet başlatıldığında maske başlangıç sayfasını göster",
       },
       Builtin: {
         Title: "Yerleşik Maskeleri Gizle",
@@ -257,8 +242,7 @@ const tr: PartialLocaleType = {
     Prompt: {
       Disable: {
         Title: "İpucu Tamamlamayı Devre Dışı Bırak",
-        SubTitle:
-          "Giriş kutusunun başına / yazarak otomatik tamamlamayı tetikle",
+        SubTitle: "Giriş kutusunun başına / yazarak otomatik tamamlamayı tetikle",
       },
       List: "Özelleştirilmiş İpucu Listesi",
       ListCount: (builtin: number, custom: number) =>
@@ -279,8 +263,7 @@ const tr: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Geçmiş Mesaj Uzunluğu Sıkıştırma Eşiği",
-      SubTitle:
-        "Sıkıştırılmamış geçmiş mesaj bu değeri aştığında sıkıştırma yapılır",
+      SubTitle: "Sıkıştırılmamış geçmiş mesaj bu değeri aştığında sıkıştırma yapılır",
     },
 
     Usage: {
@@ -290,8 +273,7 @@ const tr: PartialLocaleType = {
       },
       IsChecking: "Kontrol ediliyor…",
       Check: "Yeniden kontrol et",
-      NoAccess:
-        "Bakiye görüntülemek için API Anahtarı veya erişim şifresi girin",
+      NoAccess: "Bakiye görüntülemek için API Anahtarı veya erişim şifresi girin",
     },
 
     Access: {
@@ -310,8 +292,7 @@ const tr: PartialLocaleType = {
       },
       CustomEndpoint: {
         Title: "Özelleştirilmiş API",
-        SubTitle:
-          "Özelleştirilmiş Azure veya OpenAI hizmeti kullanmak ister misiniz?",
+        SubTitle: "Özelleştirilmiş Azure veya OpenAI hizmeti kullanmak ister misiniz?",
       },
       Provider: {
         Title: "Model Sağlayıcısı",
@@ -438,8 +419,7 @@ const tr: PartialLocaleType = {
       },
       CustomModel: {
         Title: "Özelleştirilmiş Model Adı",
-        SubTitle:
-          "Özelleştirilmiş model seçenekleri ekleyin, İngilizce virgül ile ayırın",
+        SubTitle: "Özelleştirilmiş model seçenekleri ekleyin, İngilizce virgül ile ayırın",
       },
     },
 
@@ -454,8 +434,7 @@ const tr: PartialLocaleType = {
     },
     TopP: {
       Title: "Nükleer Örnekleme (top_p)",
-      SubTitle:
-        "Rastgeleliğe benzer, ancak rastgelelik ile birlikte değiştirmeyin",
+      SubTitle: "Rastgeleliğe benzer, ancak rastgelelik ile birlikte değiştirmeyin",
     },
     MaxTokens: {
       Title: "Tek Yanıt Limiti (max_tokens)",
@@ -467,16 +446,13 @@ const tr: PartialLocaleType = {
     },
     FrequencyPenalty: {
       Title: "Frekans Cezası (frequency_penalty)",
-      SubTitle:
-        "Değer arttıkça, tekrar eden kelimelerin azalması olasılığı artar",
+      SubTitle: "Değer arttıkça, tekrar eden kelimelerin azalması olasılığı artar",
     },
   },
   Store: {
     DefaultTopic: "Yeni Sohbet",
     BotHello: "Size nasıl yardımcı olabilirim?",
-    Error: "Bir hata oluştu, lütfen daha sonra tekrar deneyin",
     Prompt: {
-      History: (content: string) => "Bu, geçmiş sohbetin özeti: " + content,
       Topic:
         "Bu cümlenin dört ila beş kelimelik kısa başlığını doğrudan verin, açıklama yapmayın, noktalama işareti, duygu kelimesi veya fazla metin eklemeyin, kalın yapmayın. Başlık yoksa, doğrudan 'Sohbet' yanıtını verin.",
       Summarize:
@@ -495,8 +471,6 @@ const tr: PartialLocaleType = {
     Toast: (x: any) => `${x} tane önceden tanımlı ipucu içeriyor`,
     Edit: "Mevcut sohbet ayarları",
     Add: "Yeni bir sohbet ekle",
-    Clear: "Bağlam temizlendi",
-    Revert: "Bağlamı geri getir",
   },
   Plugin: {
     Name: "Eklenti",
@@ -505,13 +479,9 @@ const tr: PartialLocaleType = {
     Sysmessage: "Sen bir asistansın",
   },
   SearchChat: {
-    Name: "Ara",
     Page: {
       Title: "Sohbet geçmişini ara",
       Search: "Arama anahtar kelimelerini girin",
-      NoResult: "Sonuç bulunamadı",
-      NoData: "Veri yok",
-      Loading: "Yükleniyor",
 
       SubTitle: (count: number) => `${count} sonuç bulundu`,
     },
@@ -523,8 +493,7 @@ const tr: PartialLocaleType = {
     Name: "Maske",
     Page: {
       Title: "Önceden Tanımlı Karakter Maskeleri",
-      SubTitle: (count: number) =>
-        `${count} tane önceden tanımlı karakter tanımı`,
+      SubTitle: (count: number) => `${count} tane önceden tanımlı karakter tanımı`,
       Search: "Karakter maskesi ara",
       Create: "Yeni oluştur",
     },
@@ -553,8 +522,7 @@ const tr: PartialLocaleType = {
       },
       HideContext: {
         Title: "Önceden Tanımlı Sohbetleri Gizle",
-        SubTitle:
-          "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
+        SubTitle: "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
       },
       Share: {
         Title: "Bu Maskeyi Paylaş",
@@ -570,23 +538,19 @@ const tr: PartialLocaleType = {
     ConfirmNoShow:
       "Devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra ayarlardan tekrar etkinleştirebilirsiniz.",
     Title: "Bir Maske Seçin",
-    SubTitle:
-      "Şimdi başlayın ve maskenin arkasındaki zihinle etkileşimde bulunun",
+    SubTitle: "Şimdi başlayın ve maskenin arkasındaki zihinle etkileşimde bulunun",
     More: "Tümünü Gör",
   },
 
   URLCommand: {
     Code: "Bağlantıda erişim kodu bulundu, otomatik olarak doldurulsun mu?",
-    Settings:
-      "Bağlantıda önceden tanımlı ayarlar bulundu, otomatik olarak doldurulsun mu?",
+    Settings: "Bağlantıda önceden tanımlı ayarlar bulundu, otomatik olarak doldurulsun mu?",
   },
 
   UI: {
     Confirm: "Onayla",
     Cancel: "İptal et",
     Close: "Kapat",
-    Create: "Yeni oluştur",
-    Edit: "Düzenle",
     Export: "Dışa Aktar",
     Import: "İçe Aktar",
     Sync: "Senkronize et",

@@ -106,9 +106,7 @@ const ACCESS_CODES = (function getAccessCodes(): Set<string> {
   const code = process.env.CODE;
 
   try {
-    const codes = (code?.split(",") ?? [])
-      .filter((v) => !!v)
-      .map((v) => md5.hash(v.trim()));
+    const codes = (code?.split(",") ?? []).filter((v) => !!v).map((v) => md5.hash(v.trim()));
     return new Set(codes);
   } catch (e) {
     return new Set();
@@ -122,9 +120,7 @@ function getApiKey(keys?: string) {
   const apiKey = apiKeys[randomIndex];
   if (apiKey) {
     console.log(
-      `[Server Config] using ${randomIndex + 1} of ${
-        apiKeys.length
-      } api key - ${apiKey}`,
+      `[Server Config] using ${randomIndex + 1} of ${apiKeys.length} api key - ${apiKey}`,
     );
   }
 
@@ -133,9 +129,7 @@ function getApiKey(keys?: string) {
 
 export const getServerSideConfig = () => {
   if (typeof process === "undefined") {
-    throw Error(
-      "[Server Config] you are importing a nodejs-only module outside of nodejs",
-    );
+    throw Error("[Server Config] you are importing a nodejs-only module outside of nodejs");
   }
 
   const disableGPT4 = !!process.env.DISABLE_GPT4;
@@ -178,9 +172,7 @@ export const getServerSideConfig = () => {
   //   `[Server Config] using ${randomIndex + 1} of ${apiKeys.length} api key`,
   // );
 
-  const allowedWebDavEndpoints = (
-    process.env.WHITE_WEBDAV_ENDPOINTS ?? ""
-  ).split(",");
+  const allowedWebDavEndpoints = (process.env.WHITE_WEBDAV_ENDPOINTS ?? "").split(",");
 
   return {
     baseUrl: process.env.BASE_URL,

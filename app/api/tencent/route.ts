@@ -24,7 +24,7 @@ async function handle(req: NextRequest) {
     return response;
   } catch (e) {
     console.error("[Tencent] ", e);
-    return NextResponse.json(prettyObject(e));
+    return NextResponse.json(prettyObject(e), { status: 500 });
   }
 }
 

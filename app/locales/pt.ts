@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const pt: PartialLocaleType = {
-  WIP: "Em breve...",
   Error: {
     Unauthorized: isApp
       ? `😆 A conversa encontrou alguns problemas, não se preocupe:
@@ -23,7 +22,6 @@ const pt: PartialLocaleType = {
     SubTips: "Ou insira sua Chave API OpenAI",
     Input: "código de acesso",
     Confirm: "Confirmar",
-    Later: "Depois",
     Return: "Voltar",
     SaasTips: "A configuração é muito complicada, quero usá-la imediatamente",
     TopTips:
@@ -43,12 +41,10 @@ const pt: PartialLocaleType = {
     },
     Actions: {
       ChatList: "Ir Para Lista de Chat",
-      CompressedHistory: "Prompt de Memória Histórica Comprimida",
       Export: "Exportar Todas as Mensagens como Markdown",
       Copy: "Copiar",
       Stop: "Parar",
       Retry: "Tentar Novamente",
-      Pin: "Fixar",
       PinToastContent: "Fixada 1 mensagem para prompts contextuais",
       PinToastAction: "Visualizar",
       Delete: "Deletar",
@@ -61,7 +57,6 @@ const pt: PartialLocaleType = {
       newm: "Iniciar um novo chat com máscara",
       next: "Próximo Chat",
       prev: "Chat Anterior",
-      clear: "Limpar Contexto",
       del: "Deletar Chat",
     },
     InputActions: {
@@ -74,10 +69,8 @@ const pt: PartialLocaleType = {
       },
       Prompt: "Prompts",
       Masks: "Máscaras",
-      Clear: "Limpar Contexto",
       Settings: "Configurações",
     },
-    Rename: "Renomear Chat",
     Typing: "Digitando…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} para enviar`;
@@ -88,7 +81,6 @@ const pt: PartialLocaleType = {
     },
     Send: "Enviar",
     Config: {
-      Reset: "Redefinir para Padrão",
       SaveAs: "Salvar como Máscara",
     },
     IsContext: "Prompt Contextual",
@@ -113,8 +105,7 @@ const pt: PartialLocaleType = {
     },
     Image: {
       Toast: "Capturando Imagem...",
-      Modal:
-        "Pressione longamente ou clique com o botão direito para salvar a imagem",
+      Modal: "Pressione longamente ou clique com o botão direito para salvar a imagem",
     },
   },
   Select: {
@@ -124,13 +115,8 @@ const pt: PartialLocaleType = {
     Clear: "Limpar",
   },
   Memory: {
-    Title: "Prompt de Memória",
-    EmptyContent: "Nada ainda.",
-    Send: "Enviar Memória",
-    Copy: "Copiar Memória",
-    Reset: "Resetar Sessão",
-    ResetConfirm:
-      "Resetar irá limpar o histórico de conversa atual e a memória histórica. Você tem certeza que quer resetar?",
+    Title: "Resumos da conversa",
+    Send: "Resumir automaticamente o histórico do chat e incluí-lo no contexto",
   },
   Home: {
     NewChat: "Novo Chat",
@@ -166,8 +152,7 @@ const pt: PartialLocaleType = {
     },
     FontFamily: {
       Title: "Fonte do Chat",
-      SubTitle:
-        "Fonte do conteúdo do chat, deixe vazio para aplicar a fonte padrão global",
+      SubTitle: "Fonte do conteúdo do chat, deixe vazio para aplicar a fonte padrão global",
       Placeholder: "Nome da Fonte",
     },
     InjectSystemPrompts: {
@@ -189,7 +174,6 @@ const pt: PartialLocaleType = {
     },
     SendKey: "Tecla de Envio",
     Theme: "Tema",
-    TightBorder: "Borda Ajustada",
     SendPreviewBubble: {
       Title: "Bolha de Pré-visualização de Envio",
       SubTitle: "Pré-visualizar markdown na bolha",
@@ -244,8 +228,7 @@ const pt: PartialLocaleType = {
     Mask: {
       Splash: {
         Title: "Tela de Início da Máscara",
-        SubTitle:
-          "Mostrar uma tela de início da máscara antes de iniciar novo chat",
+        SubTitle: "Mostrar uma tela de início da máscara antes de iniciar novo chat",
       },
       Builtin: {
         Title: "Esconder Máscaras Embutidas",
@@ -276,8 +259,7 @@ const pt: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "Limite de Compressão de Histórico",
-      SubTitle:
-        "Irá comprimir se o comprimento das mensagens não comprimidas exceder o valor",
+      SubTitle: "Irá comprimir se o comprimento das mensagens não comprimidas exceder o valor",
     },
 
     Usage: {
@@ -320,8 +302,7 @@ const pt: PartialLocaleType = {
 
         Endpoint: {
           Title: "Endpoint OpenAI",
-          SubTitle:
-            "Deve começar com http(s):// ou usar /api/openai como padrão",
+          SubTitle: "Deve começar com http(s):// ou usar /api/openai como padrão",
         },
       },
       Azure: {
@@ -394,23 +375,17 @@ const pt: PartialLocaleType = {
     },
     PresencePenalty: {
       Title: "Penalidade de Presença",
-      SubTitle:
-        "Um valor maior aumenta a probabilidade de falar sobre novos tópicos",
+      SubTitle: "Um valor maior aumenta a probabilidade de falar sobre novos tópicos",
     },
     FrequencyPenalty: {
       Title: "Penalidade de Frequência",
-      SubTitle:
-        "Um valor maior diminui a probabilidade de repetir a mesma linha",
+      SubTitle: "Um valor maior diminui a probabilidade de repetir a mesma linha",
     },
   },
   Store: {
     DefaultTopic: "Nova Conversa",
     BotHello: "Olá! Como posso ajudá-lo hoje?",
-    Error: "Algo deu errado, por favor tente novamente mais tarde.",
     Prompt: {
-      History: (content: string) =>
-        "Este é um resumo do histórico de chat como um recapitulativo: " +
-        content,
       Topic:
         "Por favor, gere um título de quatro a cinco palavras resumindo nossa conversa sem qualquer introdução, pontuação, aspas, períodos, símbolos ou texto adicional. Remova as aspas que o envolvem.",
       Summarize:
@@ -419,8 +394,7 @@ const pt: PartialLocaleType = {
   },
   Copy: {
     Success: "Copiado para a área de transferência",
-    Failed:
-      "Falha na cópia, por favor conceda permissão para acessar a área de transferência",
+    Failed: "Falha na cópia, por favor conceda permissão para acessar a área de transferência",
   },
   Download: {
     Success: "Conteúdo baixado para seu diretório.",
@@ -430,8 +404,6 @@ const pt: PartialLocaleType = {
     Toast: (x: any) => `Com ${x} prompts contextuais`,
     Edit: "Configurações do Chat Atual",
     Add: "Adicionar um Prompt",
-    Clear: "Contexto Limpo",
-    Revert: "Reverter",
   },
   Plugin: {
     Name: "Plugin",
@@ -440,13 +412,9 @@ const pt: PartialLocaleType = {
     Sysmessage: "Você é um assistente que",
   },
   SearchChat: {
-    Name: "Pesquisar",
     Page: {
       Title: "Pesquisar histórico de chat",
       Search: "Digite palavras-chave para pesquisa",
-      NoResult: "Nenhum resultado encontrado",
-      NoData: "Sem dados",
-      Loading: "Carregando",
 
       SubTitle: (count: number) => `Encontrado ${count} resultados`,
     },
@@ -482,8 +450,7 @@ const pt: PartialLocaleType = {
       Sync: {
         Title: "Usar Configuração Global",
         SubTitle: "Usar configuração global neste chat",
-        Confirm:
-          "Confirmar para substituir a configuração personalizada pela configuração global?",
+        Confirm: "Confirmar para substituir a configuração personalizada pela configuração global?",
       },
       HideContext: {
         Title: "Esconder Prompts de Contexto",
@@ -503,16 +470,13 @@ const pt: PartialLocaleType = {
     SubTitle: "Converse com a Alma por trás da Máscara",
     More: "Encontre Mais",
     NotShow: "Nunca Mostrar Novamente",
-    ConfirmNoShow:
-      "Confirmar para desabilitar？Você pode habilitar nas configurações depois.",
+    ConfirmNoShow: "Confirmar para desabilitar？Você pode habilitar nas configurações depois.",
   },
 
   UI: {
     Confirm: "Confirmar",
     Cancel: "Cancelar",
     Close: "Fechar",
-    Create: "Criar",
-    Edit: "Editar",
     Export: "Exportar",
     Import: "Importar",
     Sync: "Sincronizar",
@@ -530,8 +494,7 @@ const pt: PartialLocaleType = {
 
   URLCommand: {
     Code: "Código de acesso detectado a partir da url, confirmar para aplicar? ",
-    Settings:
-      "Configurações detectadas a partir da url, confirmar para aplicar?",
+    Settings: "Configurações detectadas a partir da url, confirmar para aplicar?",
   },
 };
 

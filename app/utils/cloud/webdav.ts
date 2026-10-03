@@ -8,8 +8,7 @@ export function createWebDavClient(store: SyncStore) {
   const folder = STORAGE_KEY;
   const fileName = `${folder}/backup.json`;
   const config = store.webdav;
-  const proxyUrl =
-    store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
+  const proxyUrl = store.useProxy && store.proxyUrl.length > 0 ? store.proxyUrl : undefined;
 
   return {
     async check() {
@@ -18,13 +17,9 @@ export function createWebDavClient(store: SyncStore) {
           method: "GET",
           headers: this.headers(),
         });
-        const success = [201, 200, 404, 405, 301, 302, 307, 308].includes(
-          res.status,
-        );
+        const success = [201, 200, 404, 405, 301, 302, 307, 308].includes(res.status);
         console.log(
-          `[WebDav] check ${success ? "success" : "failed"}, ${res.status} ${
-            res.statusText
-          }`,
+          `[WebDav] check ${success ? "success" : "failed"}, ${res.status} ${res.statusText}`,
         );
         return success;
       } catch (e) {

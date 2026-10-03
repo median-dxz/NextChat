@@ -12,11 +12,7 @@ export const SyncClients = {
 } as const;
 
 type SyncClientConfig = {
-  [K in keyof typeof SyncClients]: (typeof SyncClients)[K] extends (
-    _: infer C,
-  ) => any
-    ? C
-    : never;
+  [K in keyof typeof SyncClients]: (typeof SyncClients)[K] extends (_: infer C) => any ? C : never;
 };
 
 export type SyncClient = {

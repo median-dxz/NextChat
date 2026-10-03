@@ -1,6 +1,6 @@
 import { useDebouncedCallback } from "use-debounce";
 import OpenAPIClientAxios from "openapi-client-axios";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { PLUGINS_REPO_URL } from "../constant";
 import { IconButton } from "./button";
 import { ErrorBoundary } from "./error";
@@ -17,14 +17,7 @@ import ReloadIcon from "../icons/reload.svg";
 import GithubIcon from "../icons/github.svg";
 
 import { Plugin, usePluginStore, FunctionToolService } from "../store/plugin";
-import {
-  PasswordInput,
-  List,
-  ListItem,
-  Modal,
-  showConfirm,
-  showToast,
-} from "./ui-lib";
+import { PasswordInput, List, ListItem, Modal, showConfirm, showToast } from "./ui-lib";
 import Locale from "../locales";
 import { useNavigate } from "react-router";
 import { useState } from "react";
@@ -43,9 +36,7 @@ export function PluginPage() {
   const onSearch = (text: string) => {
     setSearchText(text);
     if (text.length > 0) {
-      const result = allPlugins.filter((m) =>
-        m?.title.toLowerCase().includes(text.toLowerCase()),
-      );
+      const result = allPlugins.filter((m) => m?.title.toLowerCase().includes(text.toLowerCase()));
       setSearchPlugins(result);
     } else {
       setSearchPlugins(allPlugins);
@@ -121,9 +112,7 @@ export function PluginPage() {
       <div className={styles["mask-page"]}>
         <div className="window-header">
           <div className="window-header-title">
-            <div className="window-header-main-title">
-              {Locale.Plugin.Page.Title}
-            </div>
+            <div className="window-header-main-title">{Locale.Plugin.Page.Title}</div>
             <div className="window-header-submai-title">
               {Locale.Plugin.Page.SubTitle(plugins.length)}
             </div>
@@ -131,20 +120,12 @@ export function PluginPage() {
 
           <div className="window-actions">
             <div className="window-action-button">
-              <a
-                href={PLUGINS_REPO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={PLUGINS_REPO_URL} target="_blank" rel="noopener noreferrer">
                 <IconButton icon={<GithubIcon />} bordered />
               </a>
             </div>
             <div className="window-action-button">
-              <IconButton
-                icon={<CloseIcon />}
-                bordered
-                onClick={() => navigate(-1)}
-              />
+              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -201,9 +182,7 @@ export function PluginPage() {
                       {m.title}@<small>{m.version}</small>
                     </div>
                     <div className={clsx(styles["mask-info"], "one-line")}>
-                      {Locale.Plugin.Item.Info(
-                        FunctionToolService.add(m).length,
-                      )}
+                      {Locale.Plugin.Item.Info(FunctionToolService.add(m).length)}
                     </div>
                   </div>
                 </div>
@@ -218,9 +197,7 @@ export function PluginPage() {
                       icon={<DeleteIcon />}
                       text={Locale.Plugin.Item.Delete}
                       onClick={async () => {
-                        if (
-                          await showConfirm(Locale.Plugin.Item.DeleteConfirm)
-                        ) {
+                        if (await showConfirm(Locale.Plugin.Item.DeleteConfirm)) {
                           pluginStore.delete(m.id);
                         }
                       }}
@@ -264,9 +241,7 @@ export function PluginPage() {
                   <option value="custom">{Locale.Plugin.Auth.Custom}</option>
                 </select>
               </ListItem>
-              {["bearer", "basic", "custom"].includes(
-                editingPlugin.authType as string,
-              ) && (
+              {["bearer", "basic", "custom"].includes(editingPlugin.authType as string) && (
                 <ListItem title={Locale.Plugin.Auth.Location}>
                   <select
                     value={editingPlugin?.authLocation}
@@ -276,15 +251,9 @@ export function PluginPage() {
                       });
                     }}
                   >
-                    <option value="header">
-                      {Locale.Plugin.Auth.LocationHeader}
-                    </option>
-                    <option value="query">
-                      {Locale.Plugin.Auth.LocationQuery}
-                    </option>
-                    <option value="body">
-                      {Locale.Plugin.Auth.LocationBody}
-                    </option>
+                    <option value="header">{Locale.Plugin.Auth.LocationHeader}</option>
+                    <option value="query">{Locale.Plugin.Auth.LocationQuery}</option>
+                    <option value="body">{Locale.Plugin.Auth.LocationBody}</option>
                   </select>
                 </ListItem>
               )}
@@ -301,9 +270,7 @@ export function PluginPage() {
                   ></input>
                 </ListItem>
               )}
-              {["bearer", "basic", "custom"].includes(
-                editingPlugin.authType as string,
-              ) && (
+              {["bearer", "basic", "custom"].includes(editingPlugin.authType as string) && (
                 <ListItem title={Locale.Plugin.Auth.Token}>
                   <PasswordInput
                     type="text"
@@ -335,13 +302,7 @@ export function PluginPage() {
               </ListItem>
               <ListItem
                 subTitle={
-                  <div
-                    className={clsx(
-                      "markdown-body",
-                      pluginStyles["plugin-content"],
-                    )}
-                    dir="auto"
-                  >
+                  <div className={clsx("markdown-body", pluginStyles["plugin-content"])} dir="auto">
                     <pre>
                       <code
                         contentEditable={true}

@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const jp: PartialLocaleType = {
-  WIP: "この機能は開発中です",
   Error: {
     Unauthorized: isApp
       ? `😆 会話中に問題が発生しましたが、心配しないでください:
@@ -23,7 +22,6 @@ const jp: PartialLocaleType = {
     SubTips: "または、OpenAIまたはGoogle APIキーを入力してください",
     Input: "ここにアクセスコードを入力",
     Confirm: "確認",
-    Later: "後で",
     Return: "戻る",
     SaasTips: "設定が面倒すぎる、すぐに使いたい",
     TopTips:
@@ -43,12 +41,10 @@ const jp: PartialLocaleType = {
     },
     Actions: {
       ChatList: "メッセージリストを見る",
-      CompressedHistory: "圧縮された履歴プロンプトを見る",
       Export: "チャット履歴をエクスポート",
       Copy: "コピー",
       Stop: "停止",
       Retry: "再試行",
-      Pin: "固定",
       PinToastContent: "1件の会話をプリセットプロンプトに固定しました",
       PinToastAction: "見る",
       Delete: "削除",
@@ -61,7 +57,6 @@ const jp: PartialLocaleType = {
       newm: "マスクから新しいチャット",
       next: "次のチャット",
       prev: "前のチャット",
-      clear: "コンテキストをクリア",
       del: "チャットを削除",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const jp: PartialLocaleType = {
       },
       Prompt: "クイックコマンド",
       Masks: "すべてのマスク",
-      Clear: "チャットをクリア",
       Settings: "チャット設定",
       UploadImage: "画像をアップロード",
     },
-    Rename: "チャットの名前を変更",
     Typing: "入力中…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey}で送信`;
@@ -89,7 +82,6 @@ const jp: PartialLocaleType = {
     },
     Send: "送信",
     Config: {
-      Reset: "メモリをクリア",
       SaveAs: "マスクとして保存",
     },
     IsContext: "プリセットプロンプト",
@@ -125,11 +117,7 @@ const jp: PartialLocaleType = {
   },
   Memory: {
     Title: "履歴の要約",
-    EmptyContent: "対話内容が短いため、要約は不要です",
     Send: "チャット履歴を自動的に圧縮し、コンテキストとして送信",
-    Copy: "要約をコピー",
-    Reset: "[unused]",
-    ResetConfirm: "履歴の要約をリセットしてもよろしいですか？",
   },
   Home: {
     NewChat: "新しいチャット",
@@ -190,7 +178,6 @@ const jp: PartialLocaleType = {
     },
     SendKey: "送信キー",
     Theme: "テーマ",
-    TightBorder: "ボーダーレスモード",
     SendPreviewBubble: {
       Title: "プレビューバブル",
       SubTitle: "プレビューバブルでMarkdownコンテンツをプレビュー",
@@ -321,8 +308,7 @@ const jp: PartialLocaleType = {
 
         Endpoint: {
           Title: "エンドポイント",
-          SubTitle:
-            "デフォルト以外のアドレスにはhttp(s)://を含める必要があります",
+          SubTitle: "デフォルト以外のアドレスにはhttp(s)://を含める必要があります",
         },
       },
       Azure: {
@@ -345,8 +331,7 @@ const jp: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "APIキー",
-          SubTitle:
-            "カスタムAnthropicキーを使用してパスワードアクセス制限を回避",
+          SubTitle: "カスタムAnthropicキーを使用してパスワードアクセス制限を回避",
           Placeholder: "Anthropic APIキー",
         },
 
@@ -447,8 +432,7 @@ const jp: PartialLocaleType = {
     },
     TopP: {
       Title: "トップP (top_p)",
-      SubTitle:
-        "ランダム性に似ていますが、ランダム性と一緒に変更しないでください",
+      SubTitle: "ランダム性に似ていますが、ランダム性と一緒に変更しないでください",
     },
     MaxTokens: {
       Title: "1回の応答制限 (max_tokens)",
@@ -466,10 +450,7 @@ const jp: PartialLocaleType = {
   Store: {
     DefaultTopic: "新しいチャット",
     BotHello: "何かお手伝いできますか？",
-    Error: "エラーが発生しました。後でもう一度試してください",
     Prompt: {
-      History: (content: string) =>
-        "これは前提としての履歴チャットの要約です：" + content,
       Topic:
         "この文の簡潔なテーマを四から五文字で返してください。説明、句読点、感嘆詞、余計なテキストは不要です。太字も不要です。テーマがない場合は「雑談」と返してください",
       Summarize:
@@ -488,8 +469,6 @@ const jp: PartialLocaleType = {
     Toast: (x: any) => `${x} 件のプリセットプロンプトが含まれています`,
     Edit: "現在の対話設定",
     Add: "対話を追加",
-    Clear: "コンテキストがクリアされました",
-    Revert: "コンテキストを元に戻す",
   },
   Plugin: {
     Name: "プラグイン",
@@ -501,13 +480,9 @@ const jp: PartialLocaleType = {
     Sysmessage: "あなたはアシスタントです",
   },
   SearchChat: {
-    Name: "検索",
     Page: {
       Title: "チャット履歴を検索",
       Search: "検索キーワードを入力",
-      NoResult: "結果が見つかりませんでした",
-      NoData: "データがありません",
-      Loading: "読み込み中",
 
       SubTitle: (count: number) => `${count} 件の結果が見つかりました`,
     },
@@ -532,8 +507,7 @@ const jp: PartialLocaleType = {
       DeleteConfirm: "削除してもよろしいですか？",
     },
     EditModal: {
-      Title: (readonly: boolean) =>
-        `プリセットマスクの編集 ${readonly ? "（読み取り専用）" : ""}`,
+      Title: (readonly: boolean) => `プリセットマスクの編集 ${readonly ? "（読み取り専用）" : ""}`,
       Download: "プリセットをダウンロード",
       Clone: "プリセットをクローン",
     },
@@ -548,8 +522,7 @@ const jp: PartialLocaleType = {
       },
       HideContext: {
         Title: "プリセット対話を非表示",
-        SubTitle:
-          "非表示にすると、プリセット対話はチャット画面に表示されません",
+        SubTitle: "非表示にすると、プリセット対話はチャット画面に表示されません",
       },
       Share: {
         Title: "このマスクを共有",
@@ -562,8 +535,7 @@ const jp: PartialLocaleType = {
     Return: "戻る",
     Skip: "直接開始",
     NotShow: "今後表示しない",
-    ConfirmNoShow:
-      "無効にしてもよろしいですか？無効にした後、設定でいつでも再度有効にできます。",
+    ConfirmNoShow: "無効にしてもよろしいですか？無効にした後、設定でいつでも再度有効にできます。",
     Title: "マスクを選択",
     SubTitle: "今すぐ始めよう、マスクの背後にある魂と思考の衝突",
     More: "すべて表示",
@@ -578,8 +550,6 @@ const jp: PartialLocaleType = {
     Confirm: "確認",
     Cancel: "キャンセル",
     Close: "閉じる",
-    Create: "新規作成",
-    Edit: "編集",
     Export: "エクスポート",
     Import: "インポート",
     Sync: "同期",

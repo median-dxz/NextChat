@@ -44,15 +44,9 @@ export function SearchChatPage() {
           let pos = lowerCaseContent.indexOf(lowerCaseText);
           while (pos !== -1) {
             const start = Math.max(0, pos - 35);
-            const end = Math.min(
-              content.length,
-              pos + lowerCaseText.length + 35,
-            );
+            const end = Math.min(content.length, pos + lowerCaseText.length + 35);
             fullTextContents.push(content.substring(start, end));
-            pos = lowerCaseContent.indexOf(
-              lowerCaseText,
-              pos + lowerCaseText.length,
-            );
+            pos = lowerCaseContent.indexOf(lowerCaseText, pos + lowerCaseText.length);
           }
         });
 
@@ -97,9 +91,7 @@ export function SearchChatPage() {
         {/* header */}
         <div className="window-header">
           <div className="window-header-title">
-            <div className="window-header-main-title">
-              {Locale.SearchChat.Page.Title}
-            </div>
+            <div className="window-header-main-title">{Locale.SearchChat.Page.Title}</div>
             <div className="window-header-submai-title">
               {Locale.SearchChat.Page.SubTitle(searchResults.length)}
             </div>
@@ -107,11 +99,7 @@ export function SearchChatPage() {
 
           <div className="window-actions">
             <div className="window-action-button">
-              <IconButton
-                icon={<CloseIcon />}
-                bordered
-                onClick={() => navigate(-1)}
-              />
+              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -158,10 +146,7 @@ export function SearchChatPage() {
                 </div>
                 {/** 操作按钮 */}
                 <div className={styles["mask-actions"]}>
-                  <IconButton
-                    icon={<EyeIcon />}
-                    text={Locale.SearchChat.Item.View}
-                  />
+                  <IconButton icon={<EyeIcon />} text={Locale.SearchChat.Item.View} />
                 </div>
               </div>
             ))}

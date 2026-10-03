@@ -1,32 +1,26 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
+
+import { getClientConfig } from "@/app/config/client";
 import {
   ApiPath,
   MOONSHOT_BASE_URL,
   Moonshot,
   REQUEST_TIMEOUT_MS,
+  ServiceProvider,
 } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
+import { useAccessStore } from "@/app/store";
+import { getMessageText } from "@/app/utils";
 import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
-import { getClientConfig } from "@/app/config/client";
-import { getMessageTextContent } from "@/app/utils";
-import { RequestPayload } from "./openai";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
 
-export class MoonshotApi implements LLMApi {
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
+import { RequestPayload } from "./openai";
+
+export class MoonshotApi extends LLMApi {
+  readonly providerName = ServiceProvider.Moonshot;
   private disableListModels = true;
 
   path(path: string): string {
@@ -65,20 +59,14 @@ export class MoonshotApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
-      const content = getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+      const content = getMessageText(v.content);
+      const role = v.role;
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -104,36 +92,30 @@ export class MoonshotApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
               };
             }>;
             const tool_calls = choices[0]?.delta?.tool_calls;
@@ -158,11 +140,7 @@ export class MoonshotApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

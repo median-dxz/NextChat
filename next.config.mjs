@@ -8,6 +8,15 @@ const tauriConfig = JSON.parse(
 const mode = process.env.BUILD_MODE ?? "standalone";
 console.log("[Next] build mode", mode);
 
+const resolveOutput = (phase) => {
+  // The Vercel adapter owns its deployment output. Combining it with
+  // standalone output makes Next.js 16.3 expect whole-app NFT files that the
+  // Turbopack adapter build does not emit.
+  if (mode === "standalone" && process.env.VERCEL) return undefined;
+  if (mode === "export" && phase !== PHASE_PRODUCTION_BUILD) return undefined;
+  return mode;
+};
+
 /** @param {string} phase */
 const createNextConfig = (phase) => ({
   reactCompiler: true,
@@ -29,8 +38,7 @@ const createNextConfig = (phase) => ({
       },
     },
   },
-  output:
-    mode === "export" && phase !== PHASE_PRODUCTION_BUILD ? undefined : mode,
+  output: resolveOutput(phase),
   images: {
     unoptimized: mode === "export",
   },

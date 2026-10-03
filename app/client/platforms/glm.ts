@@ -1,36 +1,23 @@
 "use client";
-import { ApiPath, CHATGLM_BASE_URL, ChatGLM } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
-import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
-import { RequestPayload } from "./openai";
+import { ApiPath, CHATGLM_BASE_URL, ChatGLM, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
+import { preProcessImageContent, stream } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
-import { preProcessImageContent } from "@/app/utils/chat";
+
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+import { RequestPayload } from "./openai";
 
 interface BasePayload {
   model: string;
 }
 
 interface ChatPayload extends BasePayload {
-  messages: ChatOptions["messages"];
+  messages: RequestPayload["messages"];
   stream?: boolean;
   temperature?: number;
   presence_penalty?: number;
@@ -53,7 +40,8 @@ interface VideoGenerationPayload extends BasePayload {
 
 type ModelType = "chat" | "image" | "video";
 
-export class ChatGLMApi implements LLMApi {
+export class ChatGLMApi extends LLMApi {
+  readonly providerName = ServiceProvider.ChatGLM;
   private disableListModels = true;
 
   private getModelType(model: string): ModelType {
@@ -74,7 +62,7 @@ export class ChatGLMApi implements LLMApi {
   }
 
   private createPayload(
-    messages: ChatOptions["messages"],
+    messages: RequestPayload["messages"],
     modelConfig: any,
     options: ChatOptions,
   ): BasePayload {
@@ -83,7 +71,10 @@ export class ChatGLMApi implements LLMApi {
     const prompt =
       typeof lastMessage.content === "string"
         ? lastMessage.content
-        : lastMessage.content.map((c) => c.text).join("\n");
+        : lastMessage.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n");
 
     switch (modelType) {
       case "image":
@@ -155,22 +146,16 @@ export class ChatGLMApi implements LLMApi {
 
   async chat(options: ChatOptions) {
     const visionModel = isVisionModel(options.config.model);
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
       const content = visionModel
         ? await preProcessImageContent(v.content)
-        : getMessageTextContent(v);
-      messages.push({ role: v.role, content });
+        : getMessageText(v.content);
+      const role = v.role;
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
     const modelType = this.getModelType(modelConfig.model);
     const requestPayload = this.createPayload(messages, modelConfig, options);
     const path = this.path(this.getModelPath(modelType));
@@ -185,7 +170,7 @@ export class ChatGLMApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       const requestTimeoutId = setTimeout(
@@ -206,25 +191,22 @@ export class ChatGLMApi implements LLMApi {
 
       const shouldStream = !!options.config.stream;
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           path,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
               };
             }>;
             const tool_calls = choices[0]?.delta?.tool_calls;
@@ -249,11 +231,7 @@ export class ChatGLMApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

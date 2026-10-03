@@ -116,12 +116,7 @@ export function VoicePrint({ frequencies, isActive }: VoicePrintProps) {
           // 使用贝塞尔曲线使波形更平滑
           const prevPoint = points[i - 1];
           const midX = (prevPoint[0] + x) / 2;
-          ctx.quadraticCurveTo(
-            prevPoint[0],
-            prevPoint[1],
-            midX,
-            (prevPoint[1] + y) / 2,
-          );
+          ctx.quadraticCurveTo(prevPoint[0], prevPoint[1], midX, (prevPoint[1] + y) / 2);
         }
       }
 

@@ -50,14 +50,10 @@ export function McpMarketPage() {
   const [viewingServerId, setViewingServerId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [config, setConfig] = useState<McpConfigData>();
-  const [clientStatuses, setClientStatuses] = useState<
-    Record<string, ServerStatusResponse>
-  >({});
+  const [clientStatuses, setClientStatuses] = useState<Record<string, ServerStatusResponse>>({});
   const [loadingPresets, setLoadingPresets] = useState(true);
   const [presetServers, setPresetServers] = useState<PresetServer[]>([]);
-  const [loadingStates, setLoadingStates] = useState<Record<string, string>>(
-    {},
-  );
+  const [loadingStates, setLoadingStates] = useState<Record<string, string>>({});
 
   // 检查 MCP 是否启用
   useEffect(() => {
@@ -149,11 +145,7 @@ export function McpMarketPage() {
           } else if (mapping.type === "single") {
             // For single types, get a single value
             userConfig[key] = currentConfig.args[mapping.position ?? 0];
-          } else if (
-            mapping.type === "env" &&
-            mapping.key &&
-            currentConfig.env
-          ) {
+          } else if (mapping.type === "env" && mapping.key && currentConfig.env) {
             // For env types, get values from environment variables
             userConfig[key] = currentConfig.env[mapping.key];
           }
@@ -195,16 +187,9 @@ export function McpMarketPage() {
         if (mapping.type === "spread" && Array.isArray(value)) {
           const pos = mapping.position ?? 0;
           args.splice(pos, 0, ...value);
-        } else if (
-          mapping.type === "single" &&
-          mapping.position !== undefined
-        ) {
+        } else if (mapping.type === "single" && mapping.position !== undefined) {
           args[mapping.position] = value;
-        } else if (
-          mapping.type === "env" &&
-          mapping.key &&
-          typeof value === "string"
-        ) {
+        } else if (mapping.type === "env" && mapping.key && typeof value === "string") {
           env[mapping.key] = value;
         }
       });
@@ -219,9 +204,7 @@ export function McpMarketPage() {
       setConfig(newConfig);
       showToast("Server configuration updated successfully");
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : "Failed to save configuration",
-      );
+      showToast(error instanceof Error ? error.message : "Failed to save configuration");
     } finally {
       updateLoadingState(savingServerId, null);
     }
@@ -303,9 +286,7 @@ export function McpMarketPage() {
       await resumeMcpServer(id);
     } catch (error) {
       showToast(
-        error instanceof Error
-          ? error.message
-          : "Failed to start server, please check logs",
+        error instanceof Error ? error.message : "Failed to start server, please check logs",
       );
       console.error(error);
     } finally {
@@ -338,42 +319,34 @@ export function McpMarketPage() {
         if (prop.type === "array") {
           const currentValue = userConfig[key as keyof typeof userConfig] || [];
           const itemLabel = (prop as any).itemLabel || key;
-          const addButtonText =
-            (prop as any).addButtonText || `Add ${itemLabel}`;
+          const addButtonText = (prop as any).addButtonText || `Add ${itemLabel}`;
 
           return (
-            <ListItem
-              key={key}
-              title={key}
-              subTitle={prop.description}
-              vertical
-            >
+            <ListItem key={key} title={key} subTitle={prop.description} vertical>
               <div className={styles["path-list"]}>
-                {(currentValue as string[]).map(
-                  (value: string, index: number) => (
-                    <div key={index} className={styles["path-item"]}>
-                      <input
-                        type="text"
-                        value={value}
-                        placeholder={`${itemLabel} ${index + 1}`}
-                        onChange={(e) => {
-                          const newValue = [...currentValue] as string[];
-                          newValue[index] = e.target.value;
-                          setUserConfig({ ...userConfig, [key]: newValue });
-                        }}
-                      />
-                      <IconButton
-                        icon={<DeleteIcon />}
-                        className={styles["delete-button"]}
-                        onClick={() => {
-                          const newValue = [...currentValue] as string[];
-                          newValue.splice(index, 1);
-                          setUserConfig({ ...userConfig, [key]: newValue });
-                        }}
-                      />
-                    </div>
-                  ),
-                )}
+                {(currentValue as string[]).map((value: string, index: number) => (
+                  <div key={index} className={styles["path-item"]}>
+                    <input
+                      type="text"
+                      value={value}
+                      placeholder={`${itemLabel} ${index + 1}`}
+                      onChange={(e) => {
+                        const newValue = [...currentValue] as string[];
+                        newValue[index] = e.target.value;
+                        setUserConfig({ ...userConfig, [key]: newValue });
+                      }}
+                    />
+                    <IconButton
+                      icon={<DeleteIcon />}
+                      className={styles["delete-button"]}
+                      onClick={() => {
+                        const newValue = [...currentValue] as string[];
+                        newValue.splice(index, 1);
+                        setUserConfig({ ...userConfig, [key]: newValue });
+                      }}
+                    />
+                  </div>
+                ))}
                 <IconButton
                   icon={<AddIcon />}
                   text={addButtonText}
@@ -419,15 +392,9 @@ export function McpMarketPage() {
       undefined: null, // 未配置/未找到不显示
       // 添加初始化状态
       initializing: (
-        <span className={clsx(styles["server-status"], styles["initializing"])}>
-          Initializing
-        </span>
+        <span className={clsx(styles["server-status"], styles["initializing"])}>Initializing</span>
       ),
-      paused: (
-        <span className={clsx(styles["server-status"], styles["stopped"])}>
-          Stopped
-        </span>
-      ),
+      paused: <span className={clsx(styles["server-status"], styles["stopped"])}>Stopped</span>,
       active: <span className={styles["server-status"]}>Running</span>,
       error: (
         <span className={clsx(styles["server-status"], styles["error"])}>
@@ -453,9 +420,7 @@ export function McpMarketPage() {
     if (loadingPresets) {
       return (
         <div className={styles["loading-container"]}>
-          <div className={styles["loading-text"]}>
-            Loading preset server list...
-          </div>
+          <div className={styles["loading-text"]}>Loading preset server list...</div>
         </div>
       );
     }
@@ -514,10 +479,7 @@ export function McpMarketPage() {
 
         // 首先按状态排序
         if (aEffectiveStatus !== bEffectiveStatus) {
-          return (
-            (statusPriority[aEffectiveStatus] ?? 6) -
-            (statusPriority[bEffectiveStatus] ?? 6)
-          );
+          return (statusPriority[aEffectiveStatus] ?? 6) - (statusPriority[bEffectiveStatus] ?? 6);
         }
 
         // Sort by name when statuses are the same
@@ -537,9 +499,7 @@ export function McpMarketPage() {
                 {loadingStates[server.id] && (
                   <span
                     className={styles["operation-status"]}
-                    data-status={getOperationStatusType(
-                      loadingStates[server.id],
-                    )}
+                    data-status={getOperationStatusType(loadingStates[server.id])}
                   >
                     {loadingStates[server.id]}
                   </span>
@@ -606,10 +566,7 @@ export function McpMarketPage() {
                           setViewingServerId(server.id);
                           await loadTools(server.id);
                         }}
-                        disabled={
-                          isLoading ||
-                          checkServerStatus(server.id).status === "error"
-                        }
+                        disabled={isLoading || checkServerStatus(server.id).status === "error"}
                       />
                       <IconButton
                         icon={<StopIcon />}
@@ -642,9 +599,7 @@ export function McpMarketPage() {
             <div className="window-header-main-title">
               MCP Market
               {loadingStates["all"] && (
-                <span className={styles["loading-indicator"]}>
-                  {loadingStates["all"]}
-                </span>
+                <span className={styles["loading-indicator"]}>{loadingStates["all"]}</span>
               )}
             </div>
             <div className="window-header-sub-title">
@@ -734,16 +689,12 @@ export function McpMarketPage() {
                 {isLoading ? (
                   <div>Loading...</div>
                 ) : tools?.tools ? (
-                  tools.tools.map(
-                    (tool: ListToolsResponse["tools"], index: number) => (
-                      <div key={index} className={styles["tool-item"]}>
-                        <div className={styles["tool-name"]}>{tool.name}</div>
-                        <div className={styles["tool-description"]}>
-                          {tool.description}
-                        </div>
-                      </div>
-                    ),
-                  )
+                  tools.tools.map((tool: ListToolsResponse["tools"], index: number) => (
+                    <div key={index} className={styles["tool-item"]}>
+                      <div className={styles["tool-name"]}>{tool.name}</div>
+                      <div className={styles["tool-description"]}>{tool.description}</div>
+                    </div>
+                  ))
                 ) : (
                   <div>No tools available</div>
                 )}

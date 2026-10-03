@@ -21,8 +21,8 @@ import sk from "./sk";
 import { merge } from "../utils/merge";
 import { safeLocalStorage } from "@/app/utils";
 
-import type { LocaleType } from "./cn";
-export type { LocaleType, PartialLocaleType } from "./cn";
+import type { LocaleType } from "./en";
+export type { LocaleType, PartialLocaleType } from "./en";
 
 const localStorage = safeLocalStorage();
 

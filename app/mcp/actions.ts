@@ -1,10 +1,5 @@
 "use server";
-import {
-  createClient,
-  executeRequest,
-  listTools,
-  removeClient,
-} from "./client";
+import { createClient, executeRequest, listTools, removeClient } from "./client";
 import { MCPClientLogger } from "./logger";
 import {
   DEFAULT_MCP_CONFIG,
@@ -24,9 +19,7 @@ const CONFIG_PATH = path.join(process.cwd(), "app/mcp/mcp_config.json");
 const clientsMap = new Map<string, McpClientData>();
 
 // 获取客户端状态
-export async function getClientsStatus(): Promise<
-  Record<string, ServerStatusResponse>
-> {
+export async function getClientsStatus(): Promise<Record<string, ServerStatusResponse>> {
   const config = await getMcpConfigFromFile();
   const result: Record<string, ServerStatusResponse> = {};
 
@@ -49,11 +42,7 @@ export async function getClientsStatus(): Promise<
       continue;
     }
 
-    if (
-      status.client === null &&
-      status.tools === null &&
-      status.errorMsg === null
-    ) {
+    if (status.client === null && status.tools === null && status.errorMsg === null) {
       result[clientId] = { status: "initializing", errorMsg: null };
       continue;
     }
@@ -99,10 +88,7 @@ export async function getAllTools() {
 }
 
 // 初始化单个客户端
-async function initializeSingleClient(
-  clientId: string,
-  serverConfig: ServerConfig,
-) {
+async function initializeSingleClient(clientId: string, serverConfig: ServerConfig) {
   // 如果服务器状态是暂停，则不初始化
   if (serverConfig.status === "paused") {
     logger.info(`Skipping initialization for paused client [${clientId}]`);
@@ -122,9 +108,7 @@ async function initializeSingleClient(
   createClient(clientId, serverConfig)
     .then(async (client) => {
       const tools = await listTools(client);
-      logger.info(
-        `Supported tools for [${clientId}]: ${JSON.stringify(tools, null, 2)}`,
-      );
+      logger.info(`Supported tools for [${clientId}]: ${JSON.stringify(tools, null, 2)}`);
       clientsMap.set(clientId, { client, tools, errorMsg: null });
       logger.success(`Client [${clientId}] initialized successfully`);
     })
@@ -334,10 +318,7 @@ export async function restartAllClients() {
 }
 
 // 执行 MCP 请求
-export async function executeMcpAction(
-  clientId: string,
-  request: McpRequestMessage,
-) {
+export async function executeMcpAction(clientId: string, request: McpRequestMessage) {
   try {
     const client = clientsMap.get(clientId);
     if (!client?.client) {

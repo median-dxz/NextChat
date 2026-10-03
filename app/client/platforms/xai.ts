@@ -1,28 +1,20 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
-import { ApiPath, XAI_BASE_URL, XAI } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
-import { stream } from "@/app/utils/chat";
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  SpeechOptions,
-} from "../api";
+
 import { getClientConfig } from "@/app/config/client";
+import { ApiPath, ServiceProvider, XAI, XAI_BASE_URL } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
 import { getTimeoutMSByModel } from "@/app/utils";
-import { preProcessImageContent } from "@/app/utils/chat";
-import { RequestPayload } from "./openai";
+import { preProcessImageContent, stream } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
 
-export class XAIApi implements LLMApi {
+import type { ChatOptions, LLMModel, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
+// Azure and OpenAI use the same models, so they share the request payload.
+import { RequestPayload } from "./openai";
+
+export class XAIApi extends LLMApi {
+  readonly providerName = ServiceProvider.XAI;
   private disableListModels = true;
 
   path(path: string): string {
@@ -61,20 +53,14 @@ export class XAIApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayload["messages"] = [];
     for (const v of options.messages) {
       const content = await preProcessImageContent(v.content);
-      messages.push({ role: v.role, content });
+      const role = v.role;
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = {
       messages,
@@ -98,7 +84,7 @@ export class XAIApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -108,26 +94,23 @@ export class XAIApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return stream(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
               };
             }>;
             const tool_calls = choices[0]?.delta?.tool_calls;
@@ -152,11 +135,7 @@ export class XAIApi implements LLMApi {
             return choices[0]?.delta?.content;
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // @ts-ignore
             requestPayload?.messages?.splice(
               // @ts-ignore

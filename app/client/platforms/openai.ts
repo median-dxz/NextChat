@@ -1,49 +1,37 @@
 "use client";
-// azure and openai, using same models. so using same LLMApi.
+
+import { getClientConfig } from "@/app/config/client";
 import {
   ApiPath,
-  OPENAI_BASE_URL,
-  DEFAULT_MODELS,
-  OpenaiPath,
   Azure,
+  DEFAULT_MODELS,
+  OPENAI_BASE_URL,
+  OpenaiPath,
   REQUEST_TIMEOUT_MS,
   ServiceProvider,
 } from "@/app/constant";
+import { useAccessStore, useAppConfig } from "@/app/store";
+import { DalleQuality, DalleStyle, ModelSize } from "@/app/typing";
 import {
-  ChatMessageTool,
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  usePluginStore,
-} from "@/app/store";
-import { collectModelsWithDefaultModel } from "@/app/utils/model";
+  getMessageText,
+  getTimeoutMSByModel,
+  isDalle3 as _isDalle3,
+  isVisionModel,
+} from "@/app/utils";
 import {
-  preProcessImageContent,
-  uploadImage,
   base64Image2Blob,
+  preProcessImageContent,
   streamWithThink,
+  uploadImage,
 } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
-import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
-
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  LLMUsage,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
-import Locale from "../../locales";
-import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  isDalle3 as _isDalle3,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import type { Conversation } from "@/app/utils/conversation";
+import { collectModelsWithDefaultModel } from "@/app/utils/model";
 import { fetch } from "@/app/utils/stream";
+
+import Locale from "../../locales";
+import type { ChatOptions, LLMModel, LLMUsage, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -79,7 +67,11 @@ export interface DalleRequestPayload {
   style: DalleStyle;
 }
 
-export class ChatGPTApi implements LLMApi {
+export class ChatGPTApi extends LLMApi {
+  constructor(readonly providerName: "OpenAI" | "Azure" = ServiceProvider.OpenAI) {
+    super();
+  }
+
   private disableListModels = true;
 
   path(path: string): string {
@@ -90,9 +82,7 @@ export class ChatGPTApi implements LLMApi {
     const isAzure = path.includes("deployments");
     if (accessStore.useCustomConfig) {
       if (isAzure && !accessStore.isValidAzure()) {
-        throw Error(
-          "incomplete azure config, please check it in your settings page",
-        );
+        throw Error("incomplete azure config, please check it in your settings page");
       }
 
       baseUrl = isAzure ? accessStore.azureUrl : accessStore.openaiUrl;
@@ -107,11 +97,7 @@ export class ChatGPTApi implements LLMApi {
     if (baseUrl.endsWith("/")) {
       baseUrl = baseUrl.slice(0, baseUrl.length - 1);
     }
-    if (
-      !baseUrl.startsWith("http") &&
-      !isAzure &&
-      !baseUrl.startsWith(ApiPath.OpenAI)
-    ) {
+    if (!baseUrl.startsWith("http") && !isAzure && !baseUrl.startsWith(ApiPath.OpenAI)) {
       baseUrl = "https://" + baseUrl;
     }
 
@@ -165,14 +151,11 @@ export class ChatGPTApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
-      const requestTimeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS,
-      );
+      const requestTimeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       const res = await fetch(speechPath, speechPayload);
       clearTimeout(requestTimeoutId);
@@ -184,14 +167,7 @@ export class ChatGPTApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-        providerName: options.config.providerName,
-      },
-    };
+    const modelConfig = options.config;
 
     let requestPayload: RequestPayload | DalleRequestPayload;
 
@@ -200,11 +176,10 @@ export class ChatGPTApi implements LLMApi {
       options.config.model.startsWith("o1") ||
       options.config.model.startsWith("o3") ||
       options.config.model.startsWith("o4-mini");
-    const isGpt5 =  options.config.model.startsWith("gpt-5");
+    const isGpt5 = options.config.model.startsWith("gpt-5");
     if (isDalle3) {
-      const prompt = getMessageTextContent(
-        options.messages.slice(-1)?.pop() as any,
-      );
+      const lastMessage = options.messages.at(-1);
+      const prompt = lastMessage ? getMessageText(lastMessage.content) : "";
       requestPayload = {
         model: options.config.model,
         prompt,
@@ -217,21 +192,21 @@ export class ChatGPTApi implements LLMApi {
       };
     } else {
       const visionModel = isVisionModel(options.config.model);
-      const messages: ChatOptions["messages"] = [];
+      const messages: RequestPayload["messages"] = [];
       for (const v of options.messages) {
         const content = visionModel
           ? await preProcessImageContent(v.content)
-          : getMessageTextContent(v);
-        if (!(isO1OrO3 && v.role === "system"))
-          messages.push({ role: v.role, content });
+          : getMessageText(v.content);
+        const role = v.role;
+        if (!(isO1OrO3 && role === "system")) messages.push({ role, content });
       }
 
       // O1 not support image, tools (plugin in ChatGPTNextWeb) and system, stream, logprobs, temperature, top_p, n, presence_penalty, frequency_penalty yet.
-      requestPayload = {
+      const chatRequestPayload: RequestPayload = {
         messages,
         stream: options.config.stream,
         model: modelConfig.model,
-        temperature: (!isO1OrO3 && !isGpt5) ? modelConfig.temperature : 1,
+        temperature: !isO1OrO3 && !isGpt5 ? modelConfig.temperature : 1,
         presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
         frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
         top_p: !isO1OrO3 ? modelConfig.top_p : 1,
@@ -240,29 +215,28 @@ export class ChatGPTApi implements LLMApi {
       };
 
       if (isGpt5) {
-  	// Remove max_tokens if present
-  	delete requestPayload.max_tokens;
-  	// Add max_completion_tokens (or max_completion_tokens if that's what you meant)
-  	requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-
+        // Remove max_tokens if present
+        delete chatRequestPayload.max_tokens;
+        // Add max_completion_tokens (or max_completion_tokens if that's what you meant)
+        chatRequestPayload.max_completion_tokens = modelConfig.max_tokens;
       } else if (isO1OrO3) {
         // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
         // (https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/reasoning?tabs=python-secure#markdown-output)
-        requestPayload["messages"].unshift({
+        chatRequestPayload.messages.unshift({
           role: "developer",
           content: "Formatting re-enabled",
         });
 
         // o1/o3 uses max_completion_tokens to control the number of tokens (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
+        chatRequestPayload.max_completion_tokens = modelConfig.max_tokens;
       }
-
 
       // add max_tokens to vision model
-      if (visionModel && !isO1OrO3 && ! isGpt5) {
-        requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
+      if (visionModel && !isO1OrO3 && !isGpt5) {
+        chatRequestPayload.max_tokens = modelConfig.max_tokens;
       }
+      requestPayload = chatRequestPayload;
     }
 
     console.log("[Request] openai payload: ", requestPayload);
@@ -273,10 +247,9 @@ export class ChatGPTApi implements LLMApi {
 
     try {
       let chatPath = "";
-      if (modelConfig.providerName === ServiceProvider.Azure) {
+      if (this.providerName === ServiceProvider.Azure) {
         // find model, and get displayName as deployName
-        const { models: configModels, customModels: configCustomModels } =
-          useAppConfig.getState();
+        const { models: configModels, customModels: configCustomModels } = useAppConfig.getState();
         const {
           defaultModel,
           customModels: accessCustomModels,
@@ -299,33 +272,27 @@ export class ChatGPTApi implements LLMApi {
           ),
         );
       } else {
-        chatPath = this.path(
-          isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
-        );
+        chatPath = this.path(isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath);
       }
       if (shouldStream) {
         let index = -1;
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
-        // console.log("getAsTools", tools, funcs);
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -356,10 +323,7 @@ export class ChatGPTApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",
@@ -384,11 +348,7 @@ export class ChatGPTApi implements LLMApi {
             };
           },
           // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
+          (requestPayload: RequestPayload, toolCallMessage: any, toolCallResult: any[]) => {
             // reset index value
             index = -1;
             // @ts-ignore
@@ -407,7 +367,7 @@ export class ChatGPTApi implements LLMApi {
           method: "POST",
           body: JSON.stringify(requestPayload),
           signal: controller.signal,
-          headers: getHeaders(),
+          headers: this.getHeaders(),
         };
 
         // make a fetch request
@@ -430,10 +390,7 @@ export class ChatGPTApi implements LLMApi {
   }
   async usage() {
     const formatDate = (d: Date) =>
-      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d
-        .getDate()
-        .toString()
-        .padStart(2, "0")}`;
+      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
     const ONE_DAY = 1 * 24 * 60 * 60 * 1000;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -441,18 +398,13 @@ export class ChatGPTApi implements LLMApi {
     const endDate = formatDate(new Date(Date.now() + ONE_DAY));
 
     const [used, subs] = await Promise.all([
-      fetch(
-        this.path(
-          `${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`,
-        ),
-        {
-          method: "GET",
-          headers: getHeaders(),
-        },
-      ),
+      fetch(this.path(`${OpenaiPath.UsagePath}?start_date=${startDate}&end_date=${endDate}`), {
+        method: "GET",
+        headers: this.getHeaders(),
+      }),
       fetch(this.path(OpenaiPath.SubsPath), {
         method: "GET",
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       }),
     ]);
 
@@ -502,7 +454,7 @@ export class ChatGPTApi implements LLMApi {
     const res = await fetch(this.path(OpenaiPath.ListModelPath), {
       method: "GET",
       headers: {
-        ...getHeaders(),
+        ...this.getHeaders(),
       },
     });
 

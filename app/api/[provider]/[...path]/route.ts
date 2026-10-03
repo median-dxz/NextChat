@@ -17,10 +17,7 @@ import { handle as chatglmHandler } from "../../glm";
 import { handle as proxyHandler } from "../../proxy";
 import { handle as ai302Handler } from "../../302ai";
 
-async function handle(
-  req: NextRequest,
-  context: RouteContext<"/api/[provider]/[...path]">,
-) {
+async function handle(req: NextRequest, context: RouteContext<"/api/[provider]/[...path]">) {
   const params = await context.params;
   const apiPath = `/api/${params.provider}`;
   console.log(`[${params.provider} Route] params `, params);

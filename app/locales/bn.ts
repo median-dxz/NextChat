@@ -5,7 +5,6 @@ import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const bn: PartialLocaleType = {
-  WIP: "শীঘ্রই আসছে...",
   Error: {
     Unauthorized: isApp
       ? `😆 কথোপকথনে কিছু সমস্যা হয়েছে, চিন্তার কিছু নেই:
@@ -23,7 +22,6 @@ const bn: PartialLocaleType = {
     SubTips: "অথবা আপনার OpenAI অথবা Google API কী প্রবেশ করান",
     Input: "এখানে অ্যাক্সেস কোড লিখুন",
     Confirm: "নিশ্চিত করুন",
-    Later: "পরে বলুন",
     Return: "ফিরে আসা",
     SaasTips: "কনফিগারেশন খুব কঠিন, আমি অবিলম্বে ব্যবহার করতে চাই",
     TopTips:
@@ -43,12 +41,10 @@ const bn: PartialLocaleType = {
     },
     Actions: {
       ChatList: "বার্তা তালিকা দেখুন",
-      CompressedHistory: "সংকুচিত ইতিহাস দেখুন",
       Export: "চ্যাট ইতিহাস রপ্তানী করুন",
       Copy: "অনুলিপি করুন",
       Stop: "থামান",
       Retry: "পুনরায় চেষ্টা করুন",
-      Pin: "পিন করুন",
       PinToastContent: "1 টি চ্যাট পূর্বনির্ধারিত প্রম্পটে পিন করা হয়েছে",
       PinToastAction: "দেখুন",
       Delete: "মুছে ফেলুন",
@@ -61,7 +57,6 @@ const bn: PartialLocaleType = {
       newm: "মাস্ক থেকে নতুন চ্যাট",
       next: "পরবর্তী চ্যাট",
       prev: "পূর্ববর্তী চ্যাট",
-      clear: "প্রসঙ্গ পরিষ্কার করুন",
       del: "চ্যাট মুছে ফেলুন",
     },
     InputActions: {
@@ -74,11 +69,9 @@ const bn: PartialLocaleType = {
       },
       Prompt: "সংক্ষিপ্ত নির্দেশনা",
       Masks: "সমস্ত মাস্ক",
-      Clear: "চ্যাট পরিষ্কার করুন",
       Settings: "চ্যাট সেটিংস",
       UploadImage: "চিত্র আপলোড করুন",
     },
-    Rename: "চ্যাট নাম পরিবর্তন করুন",
     Typing: "লিখছে…",
     Input: (submitKey: string) => {
       var inputHints = `${submitKey} পাঠান`;
@@ -89,7 +82,6 @@ const bn: PartialLocaleType = {
     },
     Send: "পাঠান",
     Config: {
-      Reset: "মেমরি মুছে ফেলুন",
       SaveAs: "মাস্ক হিসাবে সংরক্ষণ করুন",
     },
     IsContext: "পূর্বনির্ধারিত প্রম্পট",
@@ -125,11 +117,7 @@ const bn: PartialLocaleType = {
   },
   Memory: {
     Title: "ইতিহাস সারাংশ",
-    EmptyContent: "চ্যাটের বিষয়বস্তু খুব সংক্ষিপ্ত, সারাংশ প্রয়োজন নেই",
     Send: "অটোমেটিক চ্যাট ইতিহাস সংকুচিত করুন এবং প্রসঙ্গ হিসেবে পাঠান",
-    Copy: "সারাংশ কপি করুন",
-    Reset: "[unused]",
-    ResetConfirm: "ইতিহাস সারাংশ মুছে ফেলার নিশ্চিত করুন?",
   },
   Home: {
     NewChat: "নতুন চ্যাট",
@@ -166,14 +154,12 @@ const bn: PartialLocaleType = {
     },
     FontFamily: {
       Title: "চ্যাট ফন্ট",
-      SubTitle:
-        "চ্যাট সামগ্রীর ফন্ট, বিশ্বব্যাপী ডিফল্ট ফন্ট প্রয়োগ করতে খালি রাখুন",
+      SubTitle: "চ্যাট সামগ্রীর ফন্ট, বিশ্বব্যাপী ডিফল্ট ফন্ট প্রয়োগ করতে খালি রাখুন",
       Placeholder: "ফন্টের নাম",
     },
     InjectSystemPrompts: {
       Title: "সিস্টেম-লেভেল প্রম্পট যোগ করুন",
-      SubTitle:
-        "প্রত্যেক বার্তায় একটি সিস্টেম প্রম্পট যোগ করুন যা ChatGPT এর অনুকরণ করবে",
+      SubTitle: "প্রত্যেক বার্তায় একটি সিস্টেম প্রম্পট যোগ করুন যা ChatGPT এর অনুকরণ করবে",
     },
     InputTemplate: {
       Title: "ব্যবহারকারীর ইনপুট প্রিপ্রসেসিং",
@@ -190,7 +176,6 @@ const bn: PartialLocaleType = {
     },
     SendKey: "পাঠানোর কী",
     Theme: "থিম",
-    TightBorder: "বর্ডার-বিহীন মোড",
     SendPreviewBubble: {
       Title: "প্রিভিউ বুদবুদ",
       SubTitle: "প্রিভিউ বুদবুদে Markdown কনটেন্ট প্রিভিউ করুন",
@@ -221,8 +206,7 @@ const bn: PartialLocaleType = {
         },
         ProxyUrl: {
           Title: "প্রক্সি ঠিকানা",
-          SubTitle:
-            "এটি শুধুমাত্র প্রকল্পের সাথে সরবরাহিত ক্রস-অরিজিন প্রক্সির জন্য প্রযোজ্য",
+          SubTitle: "এটি শুধুমাত্র প্রকল্পের সাথে সরবরাহিত ক্রস-অরিজিন প্রক্সির জন্য প্রযোজ্য",
         },
 
         WebDav: {
@@ -278,8 +262,7 @@ const bn: PartialLocaleType = {
     },
     CompressThreshold: {
       Title: "ইতিহাস বার্তা দৈর্ঘ্য সংকুচিত থ্রেশহোল্ড",
-      SubTitle:
-        "যখন সংকুচিত ইতিহাস বার্তা এই মান ছাড়িয়ে যায়, তখন সংকুচিত করা হবে",
+      SubTitle: "যখন সংকুচিত ইতিহাস বার্তা এই মান ছাড়িয়ে যায়, তখন সংকুচিত করা হবে",
     },
 
     Usage: {
@@ -317,8 +300,7 @@ const bn: PartialLocaleType = {
       OpenAI: {
         ApiKey: {
           Title: "API কী",
-          SubTitle:
-            "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত OpenAI কী ব্যবহার করুন",
+          SubTitle: "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত OpenAI কী ব্যবহার করুন",
           Placeholder: "OpenAI API কী",
         },
 
@@ -330,8 +312,7 @@ const bn: PartialLocaleType = {
       Azure: {
         ApiKey: {
           Title: "ইন্টারফেস কী",
-          SubTitle:
-            "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত Azure কী ব্যবহার করুন",
+          SubTitle: "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত Azure কী ব্যবহার করুন",
           Placeholder: "Azure API কী",
         },
 
@@ -348,8 +329,7 @@ const bn: PartialLocaleType = {
       Anthropic: {
         ApiKey: {
           Title: "ইন্টারফেস কী",
-          SubTitle:
-            "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত Anthropic কী ব্যবহার করুন",
+          SubTitle: "পাসওয়ার্ড অ্যাক্সেস সীমাবদ্ধতা এড়াতে স্বনির্ধারিত Anthropic কী ব্যবহার করুন",
           Placeholder: "Anthropic API কী",
         },
 
@@ -435,8 +415,7 @@ const bn: PartialLocaleType = {
       },
       CustomModel: {
         Title: "স্বনির্ধারিত মডেল নাম",
-        SubTitle:
-          "স্বনির্ধারিত মডেল বিকল্পগুলি যুক্ত করুন, ইংরেজি কমা দ্বারা আলাদা করুন",
+        SubTitle: "স্বনির্ধারিত মডেল বিকল্পগুলি যুক্ত করুন, ইংরেজি কমা দ্বারা আলাদা করুন",
       },
     },
 
@@ -469,10 +448,7 @@ const bn: PartialLocaleType = {
   Store: {
     DefaultTopic: "নতুন চ্যাট",
     BotHello: "আপনার জন্য কিছু করতে পারি?",
-    Error: "একটি ত্রুটি ঘটেছে, পরে আবার চেষ্টা করুন",
     Prompt: {
-      History: (content: string) =>
-        "এটি পূর্বের চ্যাটের সারাংশ হিসেবে ব্যবহৃত হবে: " + content,
       Topic:
         "চার থেকে পাঁচটি শব্দ ব্যবহার করে এই বাক্যের সংক্ষিপ্ত থিম দিন, ব্যাখ্যা, বিরাম চিহ্ন, ভাষা, অতিরিক্ত টেক্সট বা বোল্ড না ব্যবহার করুন। যদি কোনো থিম না থাকে তবে সরাসরি 'বেকার' বলুন",
       Summarize:
@@ -491,8 +467,6 @@ const bn: PartialLocaleType = {
     Toast: (x: any) => `${x}টি পূর্বনির্ধারিত প্রম্পট অন্তর্ভুক্ত`,
     Edit: "বর্তমান চ্যাট সেটিংস",
     Add: "একটি নতুন চ্যাট যোগ করুন",
-    Clear: "কনটেক্সট পরিষ্কার করা হয়েছে",
-    Revert: "কনটেক্সট পুনরুদ্ধার করুন",
   },
   Plugin: {
     Name: "প্লাগইন",
@@ -501,13 +475,9 @@ const bn: PartialLocaleType = {
     Sysmessage: "আপনি একজন সহকারী",
   },
   SearchChat: {
-    Name: "অনুসন্ধান",
     Page: {
       Title: "চ্যাট রেকর্ড অনুসন্ধান করুন",
       Search: "অনুসন্ধান কীওয়ার্ড লিখুন",
-      NoResult: "কোন ফলাফল পাওয়া যায়নি",
-      NoData: "কোন তথ্য নেই",
-      Loading: "লোড হচ্ছে",
 
       SubTitle: (count: number) => `${count} টি ফলাফল পাওয়া গেছে`,
     },
@@ -548,8 +518,7 @@ const bn: PartialLocaleType = {
       },
       HideContext: {
         Title: "পূর্বনির্ধারিত চ্যাট লুকান",
-        SubTitle:
-          "লুকানোর পরে পূর্বনির্ধারিত চ্যাট চ্যাট ইন্টারফেসে প্রদর্শিত হবে না",
+        SubTitle: "লুকানোর পরে পূর্বনির্ধারিত চ্যাট চ্যাট ইন্টারফেসে প্রদর্শিত হবে না",
       },
       Share: {
         Title: "এই মাস্ক শেয়ার করুন",
@@ -571,16 +540,13 @@ const bn: PartialLocaleType = {
 
   URLCommand: {
     Code: "লিঙ্কে অ্যাক্সেস কোড ইতিমধ্যে অন্তর্ভুক্ত রয়েছে, অটো পূরণ করতে চান?",
-    Settings:
-      "লিঙ্কে প্রাক-নির্ধারিত সেটিংস অন্তর্ভুক্ত রয়েছে, অটো পূরণ করতে চান?",
+    Settings: "লিঙ্কে প্রাক-নির্ধারিত সেটিংস অন্তর্ভুক্ত রয়েছে, অটো পূরণ করতে চান?",
   },
 
   UI: {
     Confirm: "নিশ্চিত করুন",
     Cancel: "বাতিল করুন",
     Close: "বন্ধ করুন",
-    Create: "নতুন তৈরি করুন",
-    Edit: "সম্পাদনা করুন",
     Export: "রপ্তানি করুন",
     Import: "আমদানি করুন",
     Sync: "সিঙ্ক",

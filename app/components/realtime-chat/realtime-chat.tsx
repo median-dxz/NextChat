@@ -1,26 +1,18 @@
-import VoiceIcon from "@/app/icons/voice.svg";
-import VoiceOffIcon from "@/app/icons/voice-off.svg";
-import PowerIcon from "@/app/icons/power.svg";
-
-import styles from "./realtime-chat.module.scss";
 import clsx from "clsx";
-
-import { useState, useRef, useEffect } from "react";
-
-import { useChatStore, createMessage, useAppConfig } from "@/app/store";
+import { useEffect, useRef, useState } from "react";
+import { Modality, RTClient, RTInputAudioItem, RTResponse, TurnDetection } from "rt-client";
 
 import { IconButton } from "@/app/components/button";
-
-import {
-  Modality,
-  RTClient,
-  RTInputAudioItem,
-  RTResponse,
-  TurnDetection,
-} from "rt-client";
-import { AudioHandler } from "@/app/lib/audio";
-import { uploadImage } from "@/app/utils/chat";
 import { VoicePrint } from "@/app/components/voice-print";
+import PowerIcon from "@/app/icons/power.svg";
+import VoiceIcon from "@/app/icons/voice.svg";
+import VoiceOffIcon from "@/app/icons/voice-off.svg";
+import { AudioHandler } from "@/app/lib/audio";
+import { useAppConfig, useChatStore } from "@/app/store";
+import { uploadImage } from "@/app/utils/chat";
+import { Conversation } from "@/app/utils/conversation";
+
+import styles from "./realtime-chat.module.scss";
 
 interface RealtimeChatProps {
   onClose?: () => void;
@@ -28,11 +20,7 @@ interface RealtimeChatProps {
   onPausedVoice?: () => void;
 }
 
-export function RealtimeChat({
-  onClose,
-  onStartVoice,
-  onPausedVoice,
-}: RealtimeChatProps) {
+export function RealtimeChat({ onClose, onStartVoice, onPausedVoice }: RealtimeChatProps) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const config = useAppConfig();
@@ -62,17 +50,10 @@ export function RealtimeChat({
       try {
         setIsConnecting(true);
         clientRef.current = azure
-          ? new RTClient(
-              new URL(azureEndpoint),
-              { key: apiKey },
-              { deployment: azureDeployment },
-            )
+          ? new RTClient(new URL(azureEndpoint), { key: apiKey }, { deployment: azureDeployment })
           : new RTClient({ key: apiKey }, { model });
-        const modalities: Modality[] =
-          modality === "audio" ? ["text", "audio"] : ["text"];
-        const turnDetection: TurnDetection = useVAD
-          ? { type: "server_vad" }
-          : null;
+        const modalities: Modality[] = modality === "audio" ? ["text", "audio"] : ["text"];
+        const turnDetection: TurnDetection = useVAD ? { type: "server_vad" } : null;
         await clientRef.current.configure({
           instructions: "",
           voice,
@@ -87,7 +68,6 @@ export function RealtimeChat({
         setIsConnected(true);
         // TODO
         // try {
-        //   const recentMessages = chatStore.getMessagesWithMemory();
         //   for (const message of recentMessages) {
         //     const { role, content } = message;
         //     if (typeof content === "string") {
@@ -151,48 +131,61 @@ export function RealtimeChat({
   const handleResponse = async (response: RTResponse) => {
     for await (const item of response) {
       if (item.type === "message" && item.role === "assistant") {
-        const botMessage = createMessage({
-          role: item.role,
-          content: "",
+        const botMessage = await chatStore.withConversationStructure(session.id, () => {
+          const message = Conversation.createNode({
+            role: item.role,
+            content: "",
+            streaming: true,
+          });
+          chatStore.updateSession(session.id, (draft) => {
+            draft.conversation = draft.conversation.insert(message);
+          });
+          return message;
         });
-        // add bot message first
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat([botMessage]);
-        });
+        let messageContent = "";
         let hasAudio = false;
-        for await (const content of item) {
-          if (content.type === "text") {
-            for await (const text of content.textChunks()) {
-              botMessage.content += text;
+        try {
+          for await (const content of item) {
+            if (content.type === "text") {
+              for await (const text of content.textChunks()) {
+                messageContent += text;
+              }
+            } else if (content.type === "audio") {
+              const textTask = async () => {
+                for await (const text of content.transcriptChunks()) {
+                  messageContent += text;
+                }
+              };
+              const audioTask = async () => {
+                audioHandlerRef.current?.startStreamingPlayback();
+                for await (const audio of content.audioChunks()) {
+                  hasAudio = true;
+                  audioHandlerRef.current?.playChunk(audio);
+                }
+              };
+              await Promise.all([textTask(), audioTask()]);
             }
-          } else if (content.type === "audio") {
-            const textTask = async () => {
-              for await (const text of content.transcriptChunks()) {
-                botMessage.content += text;
-              }
-            };
-            const audioTask = async () => {
-              audioHandlerRef.current?.startStreamingPlayback();
-              for await (const audio of content.audioChunks()) {
-                hasAudio = true;
-                audioHandlerRef.current?.playChunk(audio);
-              }
-            };
-            await Promise.all([textTask(), audioTask()]);
+            chatStore.updateSession(session.id, (draft) => {
+              draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
+                message.content = messageContent;
+              });
+            });
           }
-          // update message.content
-          chatStore.updateTargetSession(session, (session) => {
-            session.messages = session.messages.concat();
+        } finally {
+          chatStore.updateSession(session.id, (draft) => {
+            draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
+              message.streaming = false;
+            });
           });
         }
         if (hasAudio) {
           // upload audio get audio_url
           const blob = audioHandlerRef.current?.savePlayFile();
           uploadImage(blob!).then((audio_url) => {
-            botMessage.audio_url = audio_url;
-            // update text and audio_url
-            chatStore.updateTargetSession(session, (session) => {
-              session.messages = session.messages.concat();
+            chatStore.updateSession(session.id, (draft) => {
+              draft.conversation = draft.conversation.updateNodeData(botMessage.id, (message) => {
+                message.audio_url = audio_url;
+              });
             });
           });
         }
@@ -203,24 +196,22 @@ export function RealtimeChat({
   const handleInputAudio = async (item: RTInputAudioItem) => {
     await item.waitForCompletion();
     if (item.transcription) {
-      const userMessage = createMessage({
-        role: "user",
-        content: item.transcription,
-      });
-      chatStore.updateTargetSession(session, (session) => {
-        session.messages = session.messages.concat([userMessage]);
+      const userMessage = await chatStore.withConversationStructure(session.id, () => {
+        const message = Conversation.createNode({ role: "user", content: item.transcription });
+        chatStore.updateSession(session.id, (draft) => {
+          draft.conversation = draft.conversation.insert(message);
+        });
+        return message;
       });
       // save input audio_url, and update session
       const { audioStartMillis, audioEndMillis } = item;
       // upload audio get audio_url
-      const blob = audioHandlerRef.current?.saveRecordFile(
-        audioStartMillis,
-        audioEndMillis,
-      );
+      const blob = audioHandlerRef.current?.saveRecordFile(audioStartMillis, audioEndMillis);
       uploadImage(blob!).then((audio_url) => {
-        userMessage.audio_url = audio_url;
-        chatStore.updateTargetSession(session, (session) => {
-          session.messages = session.messages.concat();
+        chatStore.updateSession(session.id, (draft) => {
+          draft.conversation = draft.conversation.updateNodeData(userMessage.id, (message) => {
+            message.audio_url = audio_url;
+          });
         });
       });
     }
@@ -350,12 +341,7 @@ export function RealtimeChat({
         </div>
         <div className={styles["icon-center"]}>{status}</div>
         <div>
-          <IconButton
-            icon={<PowerIcon />}
-            onClick={handleClose}
-            shadow
-            bordered
-          />
+          <IconButton icon={<PowerIcon />} onClick={handleClose} shadow bordered />
         </div>
       </div>
     </div>

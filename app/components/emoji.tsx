@@ -1,8 +1,4 @@
-import EmojiPicker, {
-  Emoji,
-  EmojiStyle,
-  Theme as EmojiTheme,
-} from "emoji-picker-react";
+import EmojiPicker, { Emoji, EmojiStyle, Theme as EmojiTheme } from "emoji-picker-react";
 
 import { ModelType } from "../store";
 
@@ -29,9 +25,7 @@ export function getEmojiUrl(unified: string, style: EmojiStyle) {
   return `https://fastly.jsdelivr.net/npm/emoji-datasource-apple/img/${style}/64/${unified}.png`;
 }
 
-export function AvatarPicker(props: {
-  onEmojiClick: (emojiId: string) => void;
-}) {
+export function AvatarPicker(props: { onEmojiClick: (emojiId: string) => void }) {
   return (
     <EmojiPicker
       width={"100%"}
@@ -99,19 +93,9 @@ export function Avatar(props: { model?: ModelType; avatar?: string }) {
     );
   }
 
-  return (
-    <div className="user-avatar">
-      {props.avatar && <EmojiAvatar avatar={props.avatar} />}
-    </div>
-  );
+  return <div className="user-avatar">{props.avatar && <EmojiAvatar avatar={props.avatar} />}</div>;
 }
 
 export function EmojiAvatar(props: { avatar: string; size?: number }) {
-  return (
-    <Emoji
-      unified={props.avatar}
-      size={props.size ?? 18}
-      getEmojiUrl={getEmojiUrl}
-    />
-  );
+  return <Emoji unified={props.avatar} size={props.size ?? 18} getEmojiUrl={getEmojiUrl} />;
 }

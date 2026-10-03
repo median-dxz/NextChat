@@ -1,32 +1,20 @@
 "use client";
-import { ApiPath, TENCENT_BASE_URL } from "@/app/constant";
-import { useAccessStore, useAppConfig, useChatStore } from "@/app/store";
+import { ApiPath, ServiceProvider, TENCENT_BASE_URL } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
+import type { ChatOptions, LLMModel, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 import Locale from "../../locales";
-import {
-  EventStreamContentType,
-  fetchEventSource,
-} from "@fortaine/fetch-event-source";
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
 import { prettyObject } from "@/app/utils/format";
 import { getClientConfig } from "@/app/config/client";
-import {
-  getMessageTextContent,
-  isVisionModel,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { getMessageText, isVisionModel, getTimeoutMSByModel } from "@/app/utils";
 import mapKeys from "lodash-es/mapKeys";
 import mapValues from "lodash-es/mapValues";
 import isArray from "lodash-es/isArray";
 import isObject from "lodash-es/isObject";
 import { fetch } from "@/app/utils/stream";
+import { toTencentRole } from "./roles";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -63,7 +51,8 @@ function capitalizeKeys(obj: any): any {
   }
 }
 
-export class HunyuanApi implements LLMApi {
+export class HunyuanApi extends LLMApi {
+  readonly providerName = ServiceProvider.Tencent;
   path(): string {
     const accessStore = useAccessStore.getState();
 
@@ -101,17 +90,11 @@ export class HunyuanApi implements LLMApi {
     const visionModel = isVisionModel(options.config.model);
     const messages = options.messages.map((v, index) => ({
       // "Messages 中 system 角色必须位于列表的最开始"
-      role: index !== 0 && v.role === "system" ? "user" : v.role,
-      content: visionModel ? v.content : getMessageTextContent(v),
+      role: toTencentRole(v.role, index),
+      content: visionModel ? v.content : getMessageText(v.content),
     }));
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
-    };
+    const modelConfig = options.config;
 
     const requestPayload: RequestPayload = capitalizeKeys({
       model: modelConfig.model,
@@ -133,7 +116,7 @@ export class HunyuanApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -188,10 +171,7 @@ export class HunyuanApi implements LLMApi {
           async onopen(res) {
             clearTimeout(requestTimeoutId);
             const contentType = res.headers.get("content-type");
-            console.log(
-              "[Tencent] request response content type: ",
-              contentType,
-            );
+            console.log("[Tencent] request response content type: ", contentType);
             responseRes = res;
             if (contentType?.startsWith("text/plain")) {
               responseText = await res.clone().text();
@@ -200,9 +180,7 @@ export class HunyuanApi implements LLMApi {
 
             if (
               !res.ok ||
-              !res.headers
-                .get("content-type")
-                ?.startsWith(EventStreamContentType) ||
+              !res.headers.get("content-type")?.startsWith(EventStreamContentType) ||
               res.status !== 200
             ) {
               const responseTexts = [responseText];

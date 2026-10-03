@@ -49,10 +49,7 @@ export class AudioHandler {
 
       await this.context.resume();
       this.source = this.context.createMediaStreamSource(this.stream);
-      this.workletNode = new AudioWorkletNode(
-        this.context,
-        "audio-recorder-processor",
-      );
+      this.workletNode = new AudioWorkletNode(this.context, "audio-recorder-processor");
 
       this.workletNode.port.onmessage = (event) => {
         if (event.data.eventType === "audio") {
@@ -118,11 +115,7 @@ export class AudioHandler {
       float32Data[i] = int16Data[i] / (int16Data[i] < 0 ? 0x8000 : 0x7fff);
     }
 
-    const audioBuffer = this.context.createBuffer(
-      1,
-      float32Data.length,
-      this.sampleRate,
-    );
+    const audioBuffer = this.context.createBuffer(1, float32Data.length, this.sampleRate);
     audioBuffer.getChannelData(0).set(float32Data);
 
     const source = this.context.createBufferSource();
@@ -177,10 +170,7 @@ export class AudioHandler {
     // @ts-ignore
     return this._saveData(new Int16Array(this.playBuffer));
   }
-  saveRecordFile(
-    audioStartMillis: number | undefined,
-    audioEndMillis: number | undefined,
-  ) {
+  saveRecordFile(audioStartMillis: number | undefined, audioEndMillis: number | undefined) {
     const startIndex = audioStartMillis
       ? Math.floor((audioStartMillis * this.sampleRate) / 1000)
       : 0;

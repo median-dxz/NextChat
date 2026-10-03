@@ -21,10 +21,7 @@ type SetStoreState<T> = (
 
 export function createPersistStore<T extends object, M>(
   state: T,
-  methods: (
-    set: SetStoreState<T & MakeUpdater<T>>,
-    get: () => T & MakeUpdater<T>,
-  ) => M,
+  methods: (set: SetStoreState<T & MakeUpdater<T>>, get: () => T & MakeUpdater<T>) => M,
   persistOptions: PersistOptions<T & M & MakeUpdater<T>>,
 ) {
   type Store = T & M & MakeUpdater<T>;

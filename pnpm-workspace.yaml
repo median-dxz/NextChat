@@ -10,5 +10,3 @@ peerDependencyRules:
     typescript: '7'
 overrides:
   'next@16>postcss': 8.5.16
-minimumReleaseAgeExclude:
-  - eslint@10.7.0

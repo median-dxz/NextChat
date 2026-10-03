@@ -1,30 +1,15 @@
 "use client";
-import { ApiPath, ByteDance, BYTEDANCE_BASE_URL } from "@/app/constant";
-import {
-  useAccessStore,
-  useAppConfig,
-  useChatStore,
-  ChatMessageTool,
-  usePluginStore,
-} from "@/app/store";
 
-import {
-  ChatOptions,
-  getHeaders,
-  LLMApi,
-  LLMModel,
-  MultimodalContent,
-  SpeechOptions,
-} from "../api";
-
-import { streamWithThink } from "@/app/utils/chat";
 import { getClientConfig } from "@/app/config/client";
-import { preProcessImageContent } from "@/app/utils/chat";
-import {
-  getMessageTextContentWithoutThinking,
-  getTimeoutMSByModel,
-} from "@/app/utils";
+import { ApiPath, BYTEDANCE_BASE_URL, ByteDance, ServiceProvider } from "@/app/constant";
+import { useAccessStore } from "@/app/store";
+import { getMessageText, getTimeoutMSByModel } from "@/app/utils";
+import { preProcessImageContent, streamWithThink } from "@/app/utils/chat";
+import type { Conversation } from "@/app/utils/conversation";
 import { fetch } from "@/app/utils/stream";
+
+import type { ChatOptions, LLMModel, MultimodalContent, SpeechOptions } from "../api";
+import { LLMApi } from "../llm-api";
 
 export interface OpenAIListModelResponse {
   object: string;
@@ -49,7 +34,8 @@ interface RequestPayloadForByteDance {
   max_tokens?: number;
 }
 
-export class DoubaoApi implements LLMApi {
+export class DoubaoApi extends LLMApi {
+  readonly providerName = ServiceProvider.ByteDance;
   path(path: string): string {
     const accessStore = useAccessStore.getState();
 
@@ -85,22 +71,17 @@ export class DoubaoApi implements LLMApi {
   }
 
   async chat(options: ChatOptions) {
-    const messages: ChatOptions["messages"] = [];
+    const messages: RequestPayloadForByteDance["messages"] = [];
     for (const v of options.messages) {
       const content =
         v.role === "assistant"
-          ? getMessageTextContentWithoutThinking(v)
+          ? getMessageText(v.content)
           : await preProcessImageContent(v.content);
-      messages.push({ role: v.role, content });
+      const role = v.role;
+      messages.push({ role, content });
     }
 
-    const modelConfig = {
-      ...useAppConfig.getState().modelConfig,
-      ...useChatStore.getState().currentSession().mask.modelConfig,
-      ...{
-        model: options.config.model,
-      },
-    };
+    const modelConfig = options.config;
 
     const shouldStream = !!options.config.stream;
     const requestPayload: RequestPayloadForByteDance = {
@@ -122,7 +103,7 @@ export class DoubaoApi implements LLMApi {
         method: "POST",
         body: JSON.stringify(requestPayload),
         signal: controller.signal,
-        headers: getHeaders(),
+        headers: this.getHeaders(),
       };
 
       // make a fetch request
@@ -132,26 +113,23 @@ export class DoubaoApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const [tools, funcs] = usePluginStore
-          .getState()
-          .getAsTools(
-            useChatStore.getState().currentSession().mask?.plugin || [],
-          );
+        const tools = options.tools?.definitions ?? [];
+        const funcs = options.tools?.handlers ?? {};
         return streamWithThink(
           chatPath,
           requestPayload,
-          getHeaders(),
+          this.getHeaders(),
           tools as any,
           funcs,
           controller,
           // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
+          (text: string, runTools: Conversation.MessageTool[]) => {
             // console.log("parseSSE", text, runTools);
             const json = JSON.parse(text);
             const choices = json.choices as Array<{
               delta: {
                 content: string | null;
-                tool_calls: ChatMessageTool[];
+                tool_calls: Conversation.MessageTool[];
                 reasoning_content: string | null;
               };
             }>;
@@ -181,10 +159,7 @@ export class DoubaoApi implements LLMApi {
             const content = choices[0]?.delta?.content;
 
             // Skip if both content and reasoning_content are empty or null
-            if (
-              (!reasoning || reasoning.length === 0) &&
-              (!content || content.length === 0)
-            ) {
+            if ((!reasoning || reasoning.length === 0) && (!content || content.length === 0)) {
               return {
                 isThinking: false,
                 content: "",

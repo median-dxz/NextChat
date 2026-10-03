@@ -1,10 +1,14 @@
-import { BUILTIN_MASKS } from "../masks";
-import { getLang, Lang } from "../locales";
-import { DEFAULT_TOPIC, ChatMessage } from "./chat";
-import { ModelConfig, useAppConfig } from "./config";
-import { StoreKey } from "../constant";
 import { nanoid } from "nanoid";
+
+import type { Conversation } from "@/app/utils/conversation";
+
+import { StoreKey } from "../constant";
+import { getLang, Lang } from "../locales";
+import { BUILTIN_MASKS } from "../masks";
 import { createPersistStore } from "../utils/store";
+import { normalizePersistedModelConfig } from "../utils/model";
+import { DEFAULT_TOPIC } from "./chat";
+import { ModelConfig, useAppConfig } from "./config";
 
 export type Mask = {
   id: string;
@@ -12,7 +16,7 @@ export type Mask = {
   avatar: string;
   name: string;
   hideContext?: boolean;
-  context: ChatMessage[];
+  context: Conversation.Message[];
   syncGlobalConfig?: boolean;
   modelConfig: ModelConfig;
   lang: Lang;
@@ -86,9 +90,7 @@ export const useMaskStore = createPersistStore(
       return get().masks[id ?? 1145141919810];
     },
     getAll() {
-      const userMasks = Object.values(get().masks).sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      const userMasks = Object.values(get().masks).sort((a, b) => b.createdAt - a.createdAt);
       const config = useAppConfig.getState();
       if (config.hideBuiltinMasks) return userMasks;
       const buildinMasks = BUILTIN_MASKS.map(
@@ -114,7 +116,7 @@ export const useMaskStore = createPersistStore(
   }),
   {
     name: StoreKey.Mask,
-    version: 3.1,
+    version: 3.2,
 
     migrate(state, version) {
       const newState = JSON.parse(JSON.stringify(state)) as MaskState;
@@ -130,6 +132,12 @@ export const useMaskStore = createPersistStore(
           updatedMasks[m.id] = m;
         });
         newState.masks = updatedMasks;
+      }
+
+      if (version < 3.2) {
+        Object.values(newState.masks).forEach((m) => {
+          m.modelConfig = normalizePersistedModelConfig(m.modelConfig);
+        });
       }
 
       return newState as any;

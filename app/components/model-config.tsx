@@ -19,7 +19,22 @@ export function ModelConfigList(props: {
     "provider.providerName",
   );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
-  const compressModelValue = `${props.modelConfig.compressModel}@${props.modelConfig?.compressProviderName}`;
+
+  const getModelValue = (model?: string, providerName?: string) =>
+    model ? `${model}@${providerName ?? ""}` : "@";
+
+  const compressModelValue = getModelValue(
+    props.modelConfig.compressModel,
+    props.modelConfig.compressProviderName,
+  );
+  const titleModelValue = getModelValue(
+    props.modelConfig.titleModel,
+    props.modelConfig.titleProviderName,
+  );
+  const memoryModelValue = getModelValue(
+    props.modelConfig.memoryModel,
+    props.modelConfig.memoryProviderName,
+  );
 
   return (
     <>
@@ -29,9 +44,7 @@ export function ModelConfigList(props: {
           value={value}
           align="left"
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.model = ModalConfigValidator.model(model);
               config.providerName = providerName as ServiceProvider;
@@ -69,10 +82,7 @@ export function ModelConfigList(props: {
           }}
         ></InputRange>
       </ListItem>
-      <ListItem
-        title={Locale.Settings.TopP.Title}
-        subTitle={Locale.Settings.TopP.SubTitle}
-      >
+      <ListItem title={Locale.Settings.TopP.Title} subTitle={Locale.Settings.TopP.SubTitle}>
         <InputRange
           aria={Locale.Settings.TopP.Title}
           value={(props.modelConfig.top_p ?? 1).toFixed(1)}
@@ -82,9 +92,7 @@ export function ModelConfigList(props: {
           onChange={(e) => {
             props.updateConfig(
               (config) =>
-                (config.top_p = ModalConfigValidator.top_p(
-                  e.currentTarget.valueAsNumber,
-                )),
+                (config.top_p = ModalConfigValidator.top_p(e.currentTarget.valueAsNumber)),
             );
           }}
         ></InputRange>
@@ -109,6 +117,26 @@ export function ModelConfigList(props: {
           }
         ></input>
       </ListItem>
+      <ListItem
+        title={Locale.Settings.ContextWindow.Title}
+        subTitle={Locale.Settings.ContextWindow.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.ContextWindow.Title}
+          type="number"
+          min={1024}
+          max={2_000_000}
+          value={props.modelConfig.contextWindowTokens}
+          onChange={(e) =>
+            props.updateConfig(
+              (config) =>
+                (config.contextWindowTokens = ModalConfigValidator.contextWindowTokens(
+                  e.currentTarget.valueAsNumber,
+                )),
+            )
+          }
+        ></input>
+      </ListItem>
 
       {props.modelConfig?.providerName == ServiceProvider.Google ? null : (
         <>
@@ -125,10 +153,9 @@ export function ModelConfigList(props: {
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
-                    (config.presence_penalty =
-                      ModalConfigValidator.presence_penalty(
-                        e.currentTarget.valueAsNumber,
-                      )),
+                    (config.presence_penalty = ModalConfigValidator.presence_penalty(
+                      e.currentTarget.valueAsNumber,
+                    )),
                 );
               }}
             ></InputRange>
@@ -147,10 +174,9 @@ export function ModelConfigList(props: {
               onChange={(e) => {
                 props.updateConfig(
                   (config) =>
-                    (config.frequency_penalty =
-                      ModalConfigValidator.frequency_penalty(
-                        e.currentTarget.valueAsNumber,
-                      )),
+                    (config.frequency_penalty = ModalConfigValidator.frequency_penalty(
+                      e.currentTarget.valueAsNumber,
+                    )),
                 );
               }}
             ></InputRange>
@@ -166,9 +192,7 @@ export function ModelConfigList(props: {
               checked={props.modelConfig.enableInjectSystemPrompts}
               onChange={(e) =>
                 props.updateConfig(
-                  (config) =>
-                    (config.enableInjectSystemPrompts =
-                      e.currentTarget.checked),
+                  (config) => (config.enableInjectSystemPrompts = e.currentTarget.checked),
                 )
               }
             ></input>
@@ -183,9 +207,7 @@ export function ModelConfigList(props: {
               type="text"
               value={props.modelConfig.template}
               onChange={(e) =>
-                props.updateConfig(
-                  (config) => (config.template = e.currentTarget.value),
-                )
+                props.updateConfig((config) => (config.template = e.currentTarget.value))
               }
             ></input>
           </ListItem>
@@ -197,15 +219,13 @@ export function ModelConfigList(props: {
       >
         <InputRange
           aria={Locale.Settings.HistoryCount.Title}
-          title={props.modelConfig.historyMessageCount.toString()}
-          value={props.modelConfig.historyMessageCount}
+          title={props.modelConfig.recentRawNodeCount.toString()}
+          value={props.modelConfig.recentRawNodeCount}
           min="0"
           max="64"
           step="1"
           onChange={(e) =>
-            props.updateConfig(
-              (config) => (config.historyMessageCount = e.target.valueAsNumber),
-            )
+            props.updateConfig((config) => (config.recentRawNodeCount = e.target.valueAsNumber))
           }
         ></InputRange>
       </ListItem>
@@ -219,12 +239,10 @@ export function ModelConfigList(props: {
           type="number"
           min={500}
           max={4000}
-          value={props.modelConfig.compressMessageLengthThreshold}
+          value={props.modelConfig.segmentTargetSourceTokens}
           onChange={(e) =>
             props.updateConfig(
-              (config) =>
-                (config.compressMessageLengthThreshold =
-                  e.currentTarget.valueAsNumber),
+              (config) => (config.segmentTargetSourceTokens = e.currentTarget.valueAsNumber),
             )
           }
         ></input>
@@ -233,10 +251,10 @@ export function ModelConfigList(props: {
         <input
           aria-label={Locale.Memory.Title}
           type="checkbox"
-          checked={props.modelConfig.sendMemory}
+          checked={props.modelConfig.enableConversationSummaries}
           onChange={(e) =>
             props.updateConfig(
-              (config) => (config.sendMemory = e.currentTarget.checked),
+              (config) => (config.enableConversationSummaries = e.currentTarget.checked),
             )
           }
         ></input>
@@ -250,15 +268,66 @@ export function ModelConfigList(props: {
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
           onChange={(e) => {
-            const [model, providerName] = getModelProvider(
-              e.currentTarget.value,
-            );
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
             props.updateConfig((config) => {
               config.compressModel = ModalConfigValidator.model(model);
               config.compressProviderName = providerName as ServiceProvider;
             });
           }}
         >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
+          {allModels
+            .filter((v) => v.available)
+            .map((v, i) => (
+              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
+                {v.displayName}({v.provider?.providerName})
+              </option>
+            ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.MemoryModel.Title}
+        subTitle={Locale.Settings.MemoryModel.SubTitle}
+      >
+        <Select
+          className={styles["select-compress-model"]}
+          aria-label={Locale.Settings.MemoryModel.Title}
+          value={memoryModelValue}
+          onChange={(e) => {
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
+            props.updateConfig((config) => {
+              config.memoryModel = ModalConfigValidator.model(model);
+              config.memoryProviderName = providerName as ServiceProvider;
+            });
+          }}
+        >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
+          {allModels
+            .filter((v) => v.available)
+            .map((v, i) => (
+              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
+                {v.displayName}({v.provider?.providerName})
+              </option>
+            ))}
+        </Select>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.TitleModel.Title}
+        subTitle={Locale.Settings.TitleModel.SubTitle}
+      >
+        <Select
+          className={styles["select-compress-model"]}
+          aria-label={Locale.Settings.TitleModel.Title}
+          value={titleModelValue}
+          onChange={(e) => {
+            const [model, providerName] = getModelProvider(e.currentTarget.value);
+            props.updateConfig((config) => {
+              config.titleModel = ModalConfigValidator.model(model);
+              config.titleProviderName = providerName as ServiceProvider;
+            });
+          }}
+        >
+          <option value="@">{Locale.Settings.AutomaticModel}</option>
           {allModels
             .filter((v) => v.available)
             .map((v, i) => (

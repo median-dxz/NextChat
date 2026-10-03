@@ -36,15 +36,14 @@ export function IconButton(props: {
       onClick={props.onClick}
       title={props.title}
       disabled={props.disabled}
-      role="button"
       tabIndex={props.tabIndex}
       autoFocus={props.autoFocus}
       style={props.style}
-      aria-label={props.aria}
+      aria-label={props.aria || (!props.text ? props.title : undefined)}
     >
       {props.icon && (
         <div
-          aria-label={props.text || props.title}
+          aria-hidden="true"
           className={clsx(styles["icon-button-icon"], {
             "no-dark": props.type === "primary",
           })}
@@ -53,14 +52,7 @@ export function IconButton(props: {
         </div>
       )}
 
-      {props.text && (
-        <div
-          aria-label={props.text || props.title}
-          className={styles["icon-button-text"]}
-        >
-          {props.text}
-        </div>
-      )}
+      {props.text && <div className={styles["icon-button-text"]}>{props.text}</div>}
     </button>
   );
 }
