@@ -737,10 +737,16 @@ export function NodeViewerModal(props: {
     Boolean(node?.nodeSummaries?.checkpoint),
   );
   const [editingProperty, setEditingProperty] = useState<"outline-level" | "role">();
+  const hasSegment = Boolean(draftNode?.nodeSummaries?.segment?.content.trim());
+  const hasCheckpoint = Boolean(draftNode?.nodeSummaries?.checkpoint?.content.trim());
+
   useEffect(() => {
-    if (draftNode?.nodeSummaries?.segment) setSegmentOpen(true);
-    if (draftNode?.nodeSummaries?.checkpoint) setCheckpointOpen(true);
-  }, [draftNode?.nodeSummaries?.segment, draftNode?.nodeSummaries?.checkpoint]);
+    if (hasSegment) setSegmentOpen(true);
+  }, [hasSegment]);
+
+  useEffect(() => {
+    if (hasCheckpoint) setCheckpointOpen(true);
+  }, [hasCheckpoint]);
 
   if (!session || !draft || !node || !draftNode) return null;
   const generating = generatingKinds.length > 0;
