@@ -401,6 +401,7 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: nextIndex,
           sessions,
         }));
+        edits.get(deletedSession.id)?.release();
 
         showToast(
           Locale.Home.DeleteToast,
