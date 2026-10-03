@@ -6,6 +6,7 @@ import { StoreKey } from "../constant";
 import { getLang, Lang } from "../locales";
 import { BUILTIN_MASKS } from "../masks";
 import { createPersistStore } from "../utils/store";
+import { normalizePersistedModelConfig } from "../utils/model";
 import { DEFAULT_TOPIC } from "./chat";
 import { ModelConfig, useAppConfig } from "./config";
 
@@ -115,7 +116,7 @@ export const useMaskStore = createPersistStore(
   }),
   {
     name: StoreKey.Mask,
-    version: 3.1,
+    version: 3.2,
 
     migrate(state, version) {
       const newState = JSON.parse(JSON.stringify(state)) as MaskState;
@@ -131,6 +132,12 @@ export const useMaskStore = createPersistStore(
           updatedMasks[m.id] = m;
         });
         newState.masks = updatedMasks;
+      }
+
+      if (version < 3.2) {
+        Object.values(newState.masks).forEach((m) => {
+          m.modelConfig = normalizePersistedModelConfig(m.modelConfig);
+        });
       }
 
       return newState as any;

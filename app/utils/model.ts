@@ -1,5 +1,21 @@
-import { DEFAULT_MODELS, ServiceProvider } from "../constant";
+import { DEFAULT_MODELS, isServiceProviderName, ServiceProvider } from "../constant";
 import { LLMModel } from "../client/api";
+import type { ModelConfig } from "../store/config";
+
+/** Preserve the old OpenAI routing for persisted custom provider names. */
+export function normalizePersistedModelConfig(config: ModelConfig): ModelConfig {
+  const normalized = { ...config };
+  if (!isServiceProviderName(normalized.providerName)) {
+    normalized.providerName = ServiceProvider.OpenAI;
+  }
+  for (const key of ["compressProviderName", "memoryProviderName", "titleProviderName"] as const) {
+    const provider = normalized[key];
+    if (provider && !isServiceProviderName(provider)) {
+      normalized[key] = ServiceProvider.OpenAI;
+    }
+  }
+  return normalized;
+}
 
 const CustomSeq = {
   val: -1000, //To ensure the custom model located at front, start from -1000, refer to constant.ts
@@ -107,7 +123,7 @@ export function collectModelTable(models: readonly LLMModel[], customModels: str
         // 2. if model not exists, create new model with available value
         if (count === 0) {
           let [customModelName, customProviderName] = getModelProvider(name);
-          const provider = customProvider(customProviderName || customModelName);
+          const provider = customProvider(customProviderName || ServiceProvider.OpenAI);
           // swap name and displayName for bytedance
           if (displayName && provider.providerName == "ByteDance") {
             [customModelName, displayName] = [displayName, customModelName];

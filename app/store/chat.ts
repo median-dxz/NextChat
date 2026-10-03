@@ -25,7 +25,7 @@ import { deepClone } from "../utils/clone";
 import { Conversation } from "../utils/conversation";
 import { ChatSessionEditor } from "./chat-session-editor";
 import { prettyObject } from "../utils/format";
-import { collectModelsWithDefaultModel } from "../utils/model";
+import { collectModelsWithDefaultModel, normalizePersistedModelConfig } from "../utils/model";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import { useAccessStore } from "./access";
@@ -997,6 +997,7 @@ export const useChatStore = createPersistStore(
       if (version < 4) {
         newState.sessions.forEach((session: any) => {
           migrateSessionToConversation(session);
+          session.mask.modelConfig = normalizePersistedModelConfig(session.mask.modelConfig);
         });
       }
 

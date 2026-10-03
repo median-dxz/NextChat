@@ -17,6 +17,7 @@ import {
 } from "../constant";
 import { createPersistStore } from "../utils/store";
 import { getModelKey, mergeModelLists } from "../utils/model-list";
+import { normalizePersistedModelConfig } from "../utils/model";
 import type { Voice } from "rt-client";
 
 export type BuiltInModelType = (typeof DEFAULT_MODELS)[number]["name"];
@@ -211,7 +212,11 @@ export const useAppConfig = createPersistStore(
       const state = persistedState as ChatConfig | undefined;
       if (!state) return { ...currentState };
       const models = mergeModelLists(currentState.models, state.models);
-      return { ...currentState, ...state, models: models };
+      return {
+        ...currentState,
+        ...state,
+        models,
+      };
     },
 
     migrate(persistedState, version) {
@@ -280,6 +285,7 @@ export const useAppConfig = createPersistStore(
         delete legacyModelConfig.historyMessageCount;
         delete legacyModelConfig.compressMessageLengthThreshold;
         delete legacyModelConfig.sendMemory;
+        state.modelConfig = normalizePersistedModelConfig(state.modelConfig);
       }
 
       return state as any;
