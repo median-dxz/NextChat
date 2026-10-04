@@ -345,6 +345,8 @@ export function ChatAction(props: {
 }) {
   const iconRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | undefined>(undefined);
+  const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState({
     full: 16,
     icon: 16,
@@ -352,7 +354,7 @@ export function ChatAction(props: {
 
   function updateWidth() {
     if (!iconRef.current || !textRef.current) return;
-    const getWidth = (dom: HTMLDivElement) => dom.getBoundingClientRect().width;
+    const getWidth = (dom: HTMLDivElement) => dom.scrollWidth;
     const textWidth = getWidth(textRef.current);
     const iconWidth = getWidth(iconRef.current);
     setWidth({
@@ -366,13 +368,51 @@ export function ChatAction(props: {
       type="button"
       className={clsx(styles["chat-input-action"], "clickable", {
         [styles["chat-input-action-active"]]: props.active,
+        [styles["chat-input-action-expanded"]]: expanded,
       })}
-      onClick={() => {
+      onClick={(event) => {
+        if ((event.nativeEvent as PointerEvent).pointerType === "touch") return;
         props.onClick();
         setTimeout(updateWidth, 1);
       }}
-      onMouseEnter={updateWidth}
-      onTouchStart={updateWidth}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "touch") {
+          updateWidth();
+          setExpanded(true);
+        }
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "touch") setExpanded(false);
+      }}
+      onPointerDown={(event) => {
+        updateWidth();
+        if (event.pointerType === "touch" && event.isPrimary) {
+          // Compatibility mousedown after touch release can steal focus from
+          // the input or dialog opened by this action.
+          event.preventDefault();
+          event.currentTarget.focus({ preventScroll: true });
+          touchStartRef.current = { x: event.clientX, y: event.clientY };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setExpanded(true);
+        }
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== "touch" || !event.isPrimary) return;
+        const start = touchStartRef.current;
+        touchStartRef.current = undefined;
+        // Label expansion can wrap this button away from the original touch
+        // point. Activate the captured button, while a drag remains a gesture.
+        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 10) {
+          event.currentTarget.click();
+        }
+      }}
+      onPointerCancel={(event) => {
+        touchStartRef.current = undefined;
+        setExpanded(false);
+        if (event.pointerType === "touch") event.currentTarget.blur();
+      }}
+      onFocus={updateWidth}
+      onBlur={() => setExpanded(false)}
       aria-label={props.text}
       aria-pressed={props.active}
       disabled={props.disabled}
@@ -1857,7 +1897,12 @@ function ChatView() {
             setShowModal={setShowPromptModal}
           />
         </div>
-        <div className={styles["chat-main"]}>
+        <div
+          className={styles["chat-main"]}
+          onPointerDownCapture={(event) => {
+            if (event.pointerType === "touch") setActionMessageId(undefined);
+          }}
+        >
           <div className={styles["chat-body-container"]}>
             <div
               className={styles["chat-body"]}
@@ -1891,7 +1936,7 @@ function ChatView() {
                     const showActions =
                       isActionCandidate && (!isActiveTurn || Boolean(message.streaming));
                     const showTyping = message.preview || message.streaming;
-                    const renderActions = showActions && actionMessageId === message.id;
+                    const isCursorNode = storedNode?.id === session.activeCursorId;
                     const editMessage = async () => {
                       if (storedNode) {
                         setViewingNodeId(storedNode.id);
@@ -1915,37 +1960,29 @@ function ChatView() {
                           id={`chat-message-${message.id}`}
                           className={clsx(
                             isUser ? styles["chat-message-user"] : styles["chat-message"],
+                            actionMessageId === message.id &&
+                              styles["chat-message-actions-visible"],
                           )}
-                          onPointerEnter={() => setActionMessageId(message.id)}
-                          onPointerLeave={() =>
-                            setActionMessageId((current) =>
-                              current === message.id ? undefined : current,
-                            )
-                          }
-                          onFocusCapture={() => setActionMessageId(message.id)}
-                          onBlurCapture={(event) => {
-                            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          onPointerEnter={(event) => {
+                            if (event.pointerType !== "touch") setActionMessageId(message.id);
+                          }}
+                          onPointerLeave={(event) => {
+                            if (event.pointerType !== "touch") {
                               setActionMessageId((current) =>
                                 current === message.id ? undefined : current,
                               );
                             }
                           }}
-                          onClick={() => {
-                            if (isMobileScreen) setActionMessageId(message.id);
+                          onPointerDown={(event) => {
+                            if (event.pointerType === "touch") setActionMessageId(message.id);
+                          }}
+                          onPointerCancel={(event) => {
+                            if (event.pointerType === "touch") setActionMessageId(undefined);
                           }}
                         >
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
                               <div className={styles["chat-message-avatar"]}>
-                                {!message.streaming && (
-                                  <div className={styles["chat-message-edit"]}>
-                                    <IconButton
-                                      icon={<EditIcon />}
-                                      aria={Locale.Chat.Actions.Edit}
-                                      onClick={editMessage}
-                                    />
-                                  </div>
-                                )}
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (
@@ -1965,7 +2002,7 @@ function ChatView() {
                                 <div className={styles["chat-model-name"]}>{message.model}</div>
                               )}
 
-                              {renderActions && (
+                              {showActions && (
                                 <div className={styles["chat-message-actions"]}>
                                   <div className={styles["chat-input-actions"]}>
                                     {message.streaming ? (
@@ -1976,6 +2013,11 @@ function ChatView() {
                                       />
                                     ) : (
                                       <>
+                                        <ChatAction
+                                          text={Locale.Chat.Actions.Edit}
+                                          icon={<EditIcon />}
+                                          onClick={editMessage}
+                                        />
                                         <ChatAction
                                           text={Locale.Chat.Actions.Retry}
                                           icon={<ResetIcon />}
@@ -1994,6 +2036,26 @@ function ChatView() {
                                           icon={<CopyIcon />}
                                           onClick={() => copyToClipboard(messageText)}
                                         />
+                                        {storedNode && !isCursorNode && (
+                                          <>
+                                            <ChatAction
+                                              text={Locale.Chat.Graph.Branch}
+                                              icon={<BranchIcon />}
+                                              onClick={() => setBranchParentId(storedNode.id)}
+                                            />
+                                            <ChatAction
+                                              text={Locale.Chat.Graph.Continue}
+                                              icon={<ContinueIcon />}
+                                              onClick={() => {
+                                                chatStore.continueFromNode(
+                                                  session.id,
+                                                  storedNode.id,
+                                                );
+                                                inputRef.current?.focus();
+                                              }}
+                                            />
+                                          </>
+                                        )}
                                         {config.ttsConfig.enable && (
                                           <ChatAction
                                             text={
@@ -2105,12 +2167,11 @@ function ChatView() {
                             )}
 
                             <div className={styles["chat-message-meta"]}>
-                              {!isActiveTurn && showActions && storedNode && (
+                              {!isActiveTurn && showActions && storedNode && isCursorNode && (
                                 <div
                                   className={clsx(
                                     styles["chat-message-node-actions"],
                                     styles["chat-input-actions"],
-                                    renderActions && styles["chat-message-node-actions-active"],
                                   )}
                                 >
                                   <ChatAction
@@ -2121,7 +2182,7 @@ function ChatView() {
                                   <ChatAction
                                     text={Locale.Chat.Graph.Continue}
                                     icon={<ContinueIcon />}
-                                    active={session.activeCursorId === storedNode.id}
+                                    active
                                     onClick={() => {
                                       chatStore.continueFromNode(session.id, storedNode.id);
                                       inputRef.current?.focus();
