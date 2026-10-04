@@ -345,7 +345,8 @@ export function ChatAction(props: {
 }) {
   const iconRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | undefined>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const isLongPressRef = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState({
     full: 16,
@@ -363,6 +364,12 @@ export function ChatAction(props: {
     });
   }
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   return (
     <button
       type="button"
@@ -370,46 +377,57 @@ export function ChatAction(props: {
         [styles["chat-input-action-active"]]: props.active,
         [styles["chat-input-action-expanded"]]: expanded,
       })}
-      onClick={(event) => {
-        if ((event.nativeEvent as PointerEvent).pointerType === "touch") return;
+      onClick={() => {
         props.onClick();
         setTimeout(updateWidth, 1);
       }}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") {
           updateWidth();
-          setExpanded(true);
         }
       }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== "touch") setExpanded(false);
-      }}
-      onPointerDown={(event) => {
+      onTouchStart={() => {
         updateWidth();
-        if (event.pointerType === "touch" && event.isPrimary) {
-          // Compatibility mousedown after touch release can steal focus from
-          // the input or dialog opened by this action.
-          event.preventDefault();
-          event.currentTarget.focus({ preventScroll: true });
-          touchStartRef.current = { x: event.clientX, y: event.clientY };
-          event.currentTarget.setPointerCapture(event.pointerId);
+        isLongPressRef.current = false;
+        if (timerRef.current) clearTimeout(timerRef.current);
+
+        timerRef.current = setTimeout(() => {
+          isLongPressRef.current = true;
           setExpanded(true);
+        }, 350);
+      }}
+      onTouchMove={(event) => {
+        const touch = event.touches[0];
+        if (!touch) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        // Cancel only if finger genuinely leaves the button bounding box
+        const isOutOfBounds =
+          touch.clientX < rect.left ||
+          touch.clientX > rect.right ||
+          touch.clientY < rect.top ||
+          touch.clientY > rect.bottom;
+
+        if (isOutOfBounds) {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          if (isLongPressRef.current) {
+            setExpanded(false);
+          }
         }
       }}
-      onPointerUp={(event) => {
-        if (event.pointerType !== "touch" || !event.isPrimary) return;
-        const start = touchStartRef.current;
-        touchStartRef.current = undefined;
-        // Label expansion can wrap this button away from the original touch
-        // point. Activate the captured button, while a drag remains a gesture.
-        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 10) {
-          event.currentTarget.click();
+      onTouchEnd={(event) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+
+        if (isLongPressRef.current) {
+          event.preventDefault();
+          isLongPressRef.current = false;
+          setExpanded(false);
         }
+        // Fast taps rely on native onClick to avoid premature modal mounting and ghost-click bleed
       }}
-      onPointerCancel={(event) => {
-        touchStartRef.current = undefined;
+      onTouchCancel={() => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        isLongPressRef.current = false;
         setExpanded(false);
-        if (event.pointerType === "touch") event.currentTarget.blur();
       }}
       onFocus={updateWidth}
       onBlur={() => setExpanded(false)}
@@ -734,15 +752,15 @@ export function ChatActions(props: {
         )}
         {!isMobileScreen && <MCPAction />}
       </>
-      <div className={styles["chat-input-actions-end"]}>
-        {config.realtimeConfig.enable && (
+      {config.realtimeConfig.enable && (
+        <div className={styles["chat-input-actions-end"]}>
           <ChatAction
             onClick={() => props.setShowChatSidePanel(true)}
             text={"Realtime Chat"}
             icon={<HeadphoneIcon />}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -75,6 +75,9 @@
     cursor: pointer;
     font-family: inherit;
 
+    touch-action: none;
+    user-select: none;
+
     &:focus-visible {
       outline: 2px solid var(--primary);
       outline-offset: 2px;
@@ -94,16 +97,30 @@
       pointer-events: none;
     }
 
-    &.chat-input-action-expanded,
-    &:focus-visible {
-      --delay: 0.5s;
+    &.chat-input-action-expanded {
+      --delay: 0s;
       width: var(--full-width);
-      transition-delay: var(--delay);
+      transition-delay: 0s;
 
       .text {
-        transition-delay: var(--delay);
+        transition-delay: 0s;
         opacity: 1;
         transform: translate(0);
+      }
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover,
+      &:focus-visible {
+        --delay: 0.75s;
+        width: var(--full-width);
+        transition-delay: var(--delay);
+
+        .text {
+          transition-delay: var(--delay);
+          opacity: 1;
+          transform: translate(0);
+        }
       }
     }
 
