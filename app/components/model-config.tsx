@@ -1,4 +1,6 @@
 import { ServiceProvider } from "@/app/constant";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { ModalConfigValidator, ModelConfig } from "../store";
 
 import Locale from "../locales";
@@ -9,15 +11,83 @@ import { groupBy } from "lodash-es";
 import styles from "./model-config.module.scss";
 import { getModelProvider } from "../utils/model";
 
+function DeferredModelSelect({
+  models,
+  value,
+  automatic = false,
+  grouped = false,
+  ...props
+}: Omit<ComponentProps<typeof Select>, "children" | "value" | "className"> & {
+  models: ReturnType<typeof useAllModels>;
+  value: string;
+  automatic?: boolean;
+  grouped?: boolean;
+}) {
+  const [ready, setReady] = useState(false);
+  const currentModel = models.find(
+    (model) => `${model.name}@${model.provider.providerName}` === value,
+  );
+
+  function prepareOptions() {
+    if (ready) return;
+    // Native pickers must see the complete list before the event's default action.
+    flushSync(() => setReady(true));
+  }
+
+  function modelLabel(model: (typeof models)[number]) {
+    const name = model.displayName ?? model.name;
+    return grouped ? name : `${name}(${model.provider.providerName})`;
+  }
+
+  function renderOption(model: (typeof models)[number]) {
+    const modelValue = `${model.name}@${model.provider.providerName}`;
+    return (
+      <option value={modelValue} key={modelValue}>
+        {modelLabel(model)}
+      </option>
+    );
+  }
+
+  let options: ReactNode = null;
+  if (ready) {
+    const availableModels = models.filter((model) => model.available);
+    if (grouped) {
+      const groups = groupBy(availableModels, "provider.providerName");
+      options = Object.entries(groups).map(([providerName, providerModels]) => (
+        <optgroup label={providerName} key={providerName}>
+          {providerModels.map(renderOption)}
+        </optgroup>
+      ));
+    } else {
+      options = availableModels.map(renderOption);
+    }
+  }
+
+  return (
+    <Select
+      {...props}
+      className={styles["select-model"]}
+      value={value}
+      onPointerDown={prepareOptions}
+      onFocus={() => setReady(true)}
+      onKeyDown={prepareOptions}
+    >
+      {automatic && <option value="@">{Locale.Settings.AutomaticModel}</option>}
+      {value !== "@" && (!ready || !currentModel?.available) && (
+        <option value={value} disabled={!currentModel?.available}>
+          {currentModel ? modelLabel(currentModel) : value}
+        </option>
+      )}
+      {options}
+    </Select>
+  );
+}
+
 export function ModelConfigList(props: {
   modelConfig: ModelConfig;
   updateConfig: (updater: (config: ModelConfig) => void) => void;
 }) {
   const allModels = useAllModels();
-  const groupModels = groupBy(
-    allModels.filter((v) => v.available),
-    "provider.providerName",
-  );
   const value = `${props.modelConfig.model}@${props.modelConfig?.providerName}`;
 
   const getModelValue = (model?: string, providerName?: string) =>
@@ -39,7 +109,9 @@ export function ModelConfigList(props: {
   return (
     <>
       <ListItem title={Locale.Settings.Model}>
-        <Select
+        <DeferredModelSelect
+          models={allModels}
+          grouped
           aria-label={Locale.Settings.Model}
           value={value}
           align="left"
@@ -50,17 +122,7 @@ export function ModelConfigList(props: {
               config.providerName = providerName as ServiceProvider;
             });
           }}
-        >
-          {Object.keys(groupModels).map((providerName, index) => (
-            <optgroup label={providerName} key={index}>
-              {groupModels[providerName].map((v, i) => (
-                <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                  {v.displayName}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </Select>
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.Temperature.Title}
@@ -263,8 +325,9 @@ export function ModelConfigList(props: {
         title={Locale.Settings.CompressModel.Title}
         subTitle={Locale.Settings.CompressModel.SubTitle}
       >
-        <Select
-          className={styles["select-compress-model"]}
+        <DeferredModelSelect
+          models={allModels}
+          automatic
           aria-label={Locale.Settings.CompressModel.Title}
           value={compressModelValue}
           onChange={(e) => {
@@ -274,23 +337,15 @@ export function ModelConfigList(props: {
               config.compressProviderName = providerName as ServiceProvider;
             });
           }}
-        >
-          <option value="@">{Locale.Settings.AutomaticModel}</option>
-          {allModels
-            .filter((v) => v.available)
-            .map((v, i) => (
-              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                {v.displayName}({v.provider?.providerName})
-              </option>
-            ))}
-        </Select>
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.MemoryModel.Title}
         subTitle={Locale.Settings.MemoryModel.SubTitle}
       >
-        <Select
-          className={styles["select-compress-model"]}
+        <DeferredModelSelect
+          models={allModels}
+          automatic
           aria-label={Locale.Settings.MemoryModel.Title}
           value={memoryModelValue}
           onChange={(e) => {
@@ -300,23 +355,15 @@ export function ModelConfigList(props: {
               config.memoryProviderName = providerName as ServiceProvider;
             });
           }}
-        >
-          <option value="@">{Locale.Settings.AutomaticModel}</option>
-          {allModels
-            .filter((v) => v.available)
-            .map((v, i) => (
-              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                {v.displayName}({v.provider?.providerName})
-              </option>
-            ))}
-        </Select>
+        />
       </ListItem>
       <ListItem
         title={Locale.Settings.TitleModel.Title}
         subTitle={Locale.Settings.TitleModel.SubTitle}
       >
-        <Select
-          className={styles["select-compress-model"]}
+        <DeferredModelSelect
+          models={allModels}
+          automatic
           aria-label={Locale.Settings.TitleModel.Title}
           value={titleModelValue}
           onChange={(e) => {
@@ -326,16 +373,7 @@ export function ModelConfigList(props: {
               config.titleProviderName = providerName as ServiceProvider;
             });
           }}
-        >
-          <option value="@">{Locale.Settings.AutomaticModel}</option>
-          {allModels
-            .filter((v) => v.available)
-            .map((v, i) => (
-              <option value={`${v.name}@${v.provider?.providerName}`} key={i}>
-                {v.displayName}({v.provider?.providerName})
-              </option>
-            ))}
-        </Select>
+        />
       </ListItem>
     </>
   );
