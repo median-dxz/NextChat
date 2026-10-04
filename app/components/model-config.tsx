@@ -68,7 +68,13 @@ function DeferredModelSelect({
       {...props}
       className={styles["select-model"]}
       value={value}
-      onPointerDown={prepareOptions}
+      onPointerDown={(event) => {
+        if (CSS.supports("selector(:open)") && event.currentTarget.matches(":open")) {
+          event.preventDefault();
+          return;
+        }
+        prepareOptions();
+      }}
       onFocus={() => setReady(true)}
       onKeyDown={prepareOptions}
     >

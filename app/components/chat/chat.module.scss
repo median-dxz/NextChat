@@ -788,25 +788,27 @@
   margin-top: 20px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  width: 100%;
+  position: relative;
 
   .chat-message-actions {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: calc(100% + 10px);
     display: flex;
-    flex-basis: 100%;
-    min-width: 0;
-    height: 0;
+    flex-direction: row;
     box-sizing: border-box;
     font-size: 12px;
-    align-items: flex-start;
-    transition: opacity ease 0.2s;
-    margin-top: 0;
+    align-items: flex-end;
+    justify-content: space-between;
+    transition: all ease 0.3s;
+    transform: scale(0.9) translateY(5px);
+    margin: 0;
     opacity: 0;
     pointer-events: none;
 
     .chat-input-actions {
       display: flex;
-      width: 100%;
+      flex-wrap: nowrap;
     }
   }
 
@@ -822,22 +824,29 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-}
 
-.chat-message-actions-visible,
-.chat-message:focus-within,
-.chat-message-user:focus-within {
-  .chat-message-actions {
-    height: auto;
-    margin-top: 5px;
-    opacity: 1;
-    pointer-events: auto;
+  &:hover {
+    .chat-message-edit {
+      opacity: 0.9;
+    }
+
+    .chat-message-actions {
+      opacity: 1;
+      pointer-events: all;
+      transform: scale(1) translateY(0);
+    }
   }
 }
 
-@media (hover: none) {
-  .chat-message-header .chat-message-actions {
-    transition: none;
+.chat-message-actions-visible {
+  .chat-message-edit {
+    opacity: 0.9;
+  }
+
+  .chat-message-actions {
+    opacity: 1;
+    pointer-events: all;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -853,6 +862,31 @@
 
 .chat-message-avatar {
   position: relative;
+
+  .chat-message-edit {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all ease 0.3s;
+
+    button {
+      padding: 7px;
+    }
+  }
+
+  /* Specific styles for iOS devices */
+  @media screen and (max-device-width: 812px) and (-webkit-min-device-pixel-ratio: 2) {
+    @supports (-webkit-touch-callout: none) {
+      .chat-message-edit {
+        top: -8%;
+      }
+    }
+  }
 }
 
 .chat-message-status {
@@ -1016,15 +1050,34 @@
   display: flex;
   flex: none;
   gap: 5px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transform-origin: left center;
+  transition:
+    opacity ease 0.2s,
+    transform ease 0.2s;
+
+  &.chat-message-node-actions-active,
+  &:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
 }
 
 .chat-message-user {
-  .chat-message-header {
-    justify-content: flex-end;
+  .chat-message-header .chat-message-actions {
+    inset-inline-start: auto;
+    inset-inline-end: calc(100% + 10px);
   }
 
   .chat-message-action-date {
     order: initial;
+  }
+
+  .chat-message-node-actions {
+    transform-origin: right center;
   }
 }
 
