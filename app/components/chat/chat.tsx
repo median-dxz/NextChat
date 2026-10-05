@@ -88,6 +88,7 @@ import {
   UNFINISHED_INPUT,
 } from "../../constant";
 import { useMaskStore } from "../../store/mask";
+import { useChatControllerStore } from "../../store/chat-controller";
 import { createTTSPlayer } from "../../utils/audio";
 import { prettyObject } from "../../utils/format";
 import { useAllModels } from "../../utils/hooks";
@@ -484,8 +485,8 @@ export function ChatActions(props: {
   const cursorNode = session.messages.find((message) => message.id === session.activeCursorId);
 
   // stop all responses
-  const couldStop = chatStore.hasActiveChatRuns();
-  const stopAll = () => chatStore.cancelAllChatRuns();
+  const couldStop = useChatControllerStore((state) => state.runs.size > 0);
+  const stopAll = useChatControllerStore((state) => state.cancelAll);
 
   // switch model
   const currentModel = session.mask.modelConfig.model;
@@ -1453,7 +1454,7 @@ function ChatView() {
 
   // stop response
   const onUserStop = (messageId: string) => {
-    chatStore.cancelChatRun(session.id, messageId);
+    useChatControllerStore.getState().cancel(messageId);
   };
 
   useSyncGlobalModelConfig(chatStore, session, config.modelConfig);
@@ -1988,7 +1989,7 @@ function ChatView() {
                               );
                             }
                           }}
-                          onPointerUp={(event) => {
+                          onPointerDown={(event) => {
                             if (event.pointerType === "touch") setActionMessageId(message.id);
                           }}
                           onPointerCancel={(event) => {

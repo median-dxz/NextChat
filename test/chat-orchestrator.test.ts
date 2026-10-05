@@ -15,6 +15,8 @@ import { chatSession, conversationNode, linearConversation } from "./fixtures/co
 import { createDeferredClientApi } from "./helpers/deferred-client-api";
 import { createInMemorySessionStore } from "./helpers/session-repository";
 import { ModelType } from "@/app/store";
+import type { ChatOptions } from "../app/client/api";
+import { useChatControllerStore } from "../app/store/chat-controller";
 
 function createHarness(session: ChatOrchestratorSession) {
   const repository = createInMemorySessionStore([session]);
@@ -40,11 +42,71 @@ function createHarness(session: ChatOrchestratorSession) {
   return { orchestrator, provider, repository, dispatch };
 }
 
-afterEach(() => {
+afterEach(async () => {
+  useChatControllerStore.getState().cancelAll();
+  await Promise.resolve();
   vi.useRealTimers();
 });
 
 describe("chat orchestrator", () => {
+  test("cancels before the Provider supplies a controller and rejects a late finish", async () => {
+    const session = chatSession(undefined, { id: "delayed-controller" });
+    const { orchestrator, provider, repository, dispatch } = createHarness(session);
+    let request!: ChatOptions;
+    provider.api.llm.chat = async (options) => {
+      request = options;
+    };
+
+    const handle = await orchestrator.start({
+      kind: "input",
+      sessionId: session.id,
+      content: "question",
+    });
+    useChatControllerStore.getState().cancel(handle.assistantNodeId);
+    await expect(handle.completion).resolves.toMatchObject({ status: "cancelled" });
+
+    const controller = new AbortController();
+    request.onController?.(controller);
+    request.onFinish("late answer", new Response());
+    expect(controller.signal.aborted).toBe(true);
+    expect(repository.getSession(session.id)!.messages.at(-1)).toMatchObject({
+      content: "",
+      streaming: false,
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  test("single-message cancellation leaves another session running, then global stop cancels it", async () => {
+    const firstSession = chatSession(undefined, { id: "first" });
+    const secondSession = chatSession(undefined, { id: "second" });
+    const first = createHarness(firstSession);
+    const second = createHarness(secondSession);
+    const a = await first.orchestrator.start({
+      kind: "input",
+      sessionId: firstSession.id,
+      content: "a",
+    });
+    const b = await second.orchestrator.start({
+      kind: "input",
+      sessionId: secondSession.id,
+      content: "b",
+    });
+
+    useChatControllerStore.getState().cancel(a.assistantNodeId);
+    await expect(a.completion).resolves.toMatchObject({ status: "cancelled" });
+    expect(second.provider.controllers[0].signal.aborted).toBe(false);
+    second.provider.update(0, "still answering");
+    useChatControllerStore.getState().cancelAll();
+    await expect(b.completion).resolves.toMatchObject({ status: "cancelled" });
+    expect(second.provider.controllers[0].signal.aborted).toBe(true);
+    expect(second.repository.getSession(secondSession.id)!.messages.at(-1)).toMatchObject({
+      content: "still answering",
+      streaming: false,
+    });
+    expect(first.dispatch).not.toHaveBeenCalled();
+    expect(second.dispatch).not.toHaveBeenCalled();
+  });
+
   test("separates start from completion and records reasoning duration", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-16T12:00:00Z"));

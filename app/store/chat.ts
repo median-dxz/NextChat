@@ -439,18 +439,6 @@ export const useChatStore = createPersistStore(
         });
       },
 
-      hasActiveChatRuns() {
-        return chatOrchestrator.activeRuns().length > 0;
-      },
-
-      cancelChatRun(sessionId: string, assistantNodeId: string) {
-        chatOrchestrator.cancel(sessionId, assistantNodeId);
-      },
-
-      cancelAllChatRuns() {
-        chatOrchestrator.cancelAll();
-      },
-
       async requestSessionTitle(
         targetSession: ChatSession,
         refreshTitle: boolean = false,

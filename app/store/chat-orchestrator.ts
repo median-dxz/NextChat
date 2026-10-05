@@ -1,4 +1,3 @@
-import { nanoid } from "nanoid";
 import type { ChatOptions, ChatTools, ClientApi, MultimodalContent } from "../client/api";
 import {
   DEFAULT_INPUT_TEMPLATE,
@@ -16,6 +15,7 @@ import { prettyObject } from "../utils/format";
 import { Conversation } from "../utils/conversation";
 import type { ModelConfig } from "./config";
 import { Mask } from "./mask";
+import { useChatControllerStore } from "./chat-controller";
 
 export interface ChatOrchestratorSession extends Conversation.State {
   id: string;
@@ -61,7 +61,6 @@ export type ChatRunResult =
     };
 
 export interface ChatRunHandle {
-  readonly runId: string;
   readonly sessionId: string;
   readonly userNodeId: string;
   readonly assistantNodeId: string;
@@ -100,9 +99,6 @@ type NodeUpdater = Parameters<Conversation.Api["updateNodeData"]>[1];
 export interface ChatOrchestrator {
   /** Starts a new chat run based on the provided command. */
   start(command: ChatRunCommand): Promise<ChatRunHandle>;
-  activeRuns(): readonly ChatRunHandle[];
-  cancel(sessionId: string, assistantNodeId: string): void;
-  cancelAll(): void;
 }
 
 type ProviderRunResult =
@@ -254,8 +250,6 @@ function prepareInput(
 export function createChatOrchestrator(
   dependencies: ChatOrchestratorDependencies,
 ): ChatOrchestrator {
-  const active = new Map<string, ChatRunHandle>();
-
   const updateNode = (sessionId: string, nodeId: string, updater: NodeUpdater) => {
     dependencies.updateSession(sessionId, (session) => {
       session.conversation = session.conversation.updateNodeData(nodeId, updater);
@@ -364,7 +358,6 @@ export function createChatOrchestrator(
           return { session, assembly, committedUser, committedAssistant };
         });
 
-      const runId = nanoid();
       let reasoningStartedAt: number | undefined;
       const finishReasoningTiming = () => {
         if (reasoningStartedAt === undefined) return;
@@ -418,7 +411,7 @@ export function createChatOrchestrator(
       });
 
       const completion = providerRun.completion.then((providerResult) => {
-        active.delete(runId);
+        useChatControllerStore.getState().remove(committedAssistant.id);
         finishReasoningTiming();
         if (providerResult.status === "completed") {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
@@ -477,31 +470,14 @@ export function createChatOrchestrator(
       });
 
       const handle: ChatRunHandle = {
-        runId,
         sessionId: command.sessionId,
         userNodeId: committedUser.id,
         assistantNodeId: committedAssistant.id,
         cancel: () => providerRun.cancel(),
         completion,
       };
-      active.set(runId, handle);
+      useChatControllerStore.getState().register(committedAssistant.id, handle.cancel);
       return handle;
-    },
-
-    activeRuns() {
-      return Array.from(active.values());
-    },
-
-    cancel(sessionId, assistantNodeId) {
-      active.forEach((run) => {
-        if (run.sessionId === sessionId && run.assistantNodeId === assistantNodeId) {
-          run.cancel();
-        }
-      });
-    },
-
-    cancelAll() {
-      active.forEach((run) => run.cancel());
     },
   };
 }
