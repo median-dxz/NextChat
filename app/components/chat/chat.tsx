@@ -1560,7 +1560,9 @@ function ChatView() {
     }
   }
 
-  const context: RenderMessage[] = session.mask.hideContext ? [] : session.mask.context.slice();
+  const context: RenderMessage[] = session.mask.hideContext
+    ? []
+    : session.mask.context.map(Conversation.createMessage);
 
   if (context.length === 0 && session.messages.at(0)?.content !== BOT_HELLO.content) {
     const copiedHello = Object.assign({}, BOT_HELLO);
@@ -1944,11 +1946,13 @@ function ChatView() {
                     const messageImages = getMessageImages(message.content);
                     const isActiveTurn = isMessageInStreamingTurn(renderMessages, absoluteIndex);
                     const hasMessageOutput =
-                      message.content.length > 0 || Boolean(message.reasoning);
+                      message.content.length > 0 || message.reasoning.length > 0;
                     const isActionCandidate =
-                      absoluteIndex > 0 && !message.preview && !isContext && hasMessageOutput;
-                    const showActions =
-                      isActionCandidate && (!isActiveTurn || Boolean(message.streaming));
+                      absoluteIndex > 0 &&
+                      !message.preview &&
+                      !isContext &&
+                      (hasMessageOutput || message.streaming);
+                    const showActions = isActionCandidate && (!isActiveTurn || message.streaming);
                     const renderActions = showActions && actionMessageId === message.id;
                     const showTyping = message.preview || message.streaming;
                     const isCursorNode = storedNode?.id === session.activeCursorId;
@@ -2034,7 +2038,7 @@ function ChatView() {
                                       <ChatAction
                                         text={Locale.Chat.Actions.Stop}
                                         icon={<StopIcon />}
-                                        onClick={() => onUserStop(message.id ?? i)}
+                                        onClick={() => onUserStop(message.id)}
                                       />
                                     ) : (
                                       <>
@@ -2048,7 +2052,7 @@ function ChatView() {
                                         <ChatAction
                                           text={Locale.Chat.Actions.Delete}
                                           icon={<DeleteIcon />}
-                                          onClick={() => onDelete(message.id ?? i)}
+                                          onClick={() => onDelete(message.id)}
                                         />
 
                                         <ChatAction
@@ -2073,18 +2077,17 @@ function ChatView() {
                                 </div>
                               )}
                             </div>
-                            {message?.tools?.length == 0 && showTyping && (
+                            {message.tools.length === 0 && showTyping && (
                               <div className={styles["chat-message-status"]}>
                                 {Locale.Chat.Typing}
                               </div>
                             )}
-                            {/*@ts-ignore*/}
-                            {message?.tools?.length > 0 && (
+                            {message.tools.length > 0 && (
                               <div className={styles["chat-message-tools"]}>
-                                {message?.tools?.map((tool) => (
+                                {message.tools.map((tool) => (
                                   <div
                                     key={tool.id}
-                                    title={tool?.errorMsg}
+                                    title={tool.errorMsg}
                                     className={styles["chat-message-tool"]}
                                   >
                                     {tool.isError === false ? (
@@ -2094,7 +2097,7 @@ function ChatView() {
                                     ) : (
                                       <LoadingButtonIcon />
                                     )}
-                                    <span>{tool?.function?.name}</span>
+                                    <span>{tool.function?.name}</span>
                                   </div>
                                 ))}
                               </div>
@@ -2102,7 +2105,7 @@ function ChatView() {
                             <div className={styles["chat-message-item"]}>
                               {!isUser && (
                                 <ReasoningDisclosure
-                                  reasoning={message.reasoning ?? ""}
+                                  reasoning={message.reasoning}
                                   streaming={message.streaming}
                                   reasoningDurationMs={message.reasoningDurationMs}
                                   content={messageText}

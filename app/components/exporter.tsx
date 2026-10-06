@@ -35,7 +35,10 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-export function getExportMessageContent(message: Conversation.Message, includeReasoning: boolean) {
+export function getExportMessageContent(
+  message: Conversation.MessageData,
+  includeReasoning: boolean,
+) {
   const content = getMessageText(message.content);
   if (!includeReasoning || message.role !== "assistant" || !message.reasoning) {
     return content;
@@ -165,7 +168,7 @@ export function MessageExporter() {
   const session = chatStore.currentSession();
   const { selection, updateSelection } = useMessageSelector();
   const selectedMessages = useMemo(() => {
-    const ret: Conversation.Message[] = [];
+    const ret: Conversation.MessageData[] = [];
     if (exportConfig.includeContext) {
       ret.push(...session.mask.context);
     }
@@ -285,7 +288,7 @@ export function PreviewActions(props: {
 }
 
 export function ImagePreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.MessageData[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -472,7 +475,7 @@ export function ImagePreviewer(props: {
 }
 
 export function MarkdownPreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.MessageData[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -503,7 +506,7 @@ export function MarkdownPreviewer(props: {
 }
 
 export function JsonPreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.MessageData[];
   topic: string;
   includeReasoning: boolean;
 }) {

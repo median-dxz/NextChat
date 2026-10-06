@@ -26,17 +26,24 @@ export interface MessageTool {
   errorMsg?: string;
 }
 
-export interface Message extends MessageInput {
+export interface MessageData extends MessageInput {
   date: string;
   reasoning?: string;
   reasoningDurationMs?: number;
-  streaming?: boolean;
   isError?: boolean;
   id: string;
   model?: ModelType;
   tools?: MessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
+}
+
+export interface Message extends MessageData {
+  streaming: boolean;
+  isError: boolean;
+  reasoning: string;
+  tools: MessageTool[];
+  isMcpResponse: boolean;
 }
 
 export type SummaryKind = "segment" | "checkpoint";
@@ -73,13 +80,24 @@ export type NodeDraft = Pick<
   | "isMcpResponse"
 >;
 
-export function createMessage(override: Partial<Message>): Message {
+export function createMessageData(override: Partial<MessageData>): MessageData {
   return {
-    id: nanoid(),
     date: new Date().toLocaleString(),
     role: "user",
     content: "",
     ...override,
+    id: override.id ?? nanoid(),
+  };
+}
+
+export function createMessage(override: Partial<Message>): Message {
+  return {
+    ...createMessageData(override),
+    streaming: override.streaming ?? false,
+    isError: override.isError ?? false,
+    reasoning: override.reasoning ?? "",
+    tools: override.tools ?? [],
+    isMcpResponse: override.isMcpResponse ?? false,
   };
 }
 

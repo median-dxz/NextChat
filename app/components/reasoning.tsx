@@ -4,19 +4,19 @@ import { Markdown } from "./markdown";
 import styles from "./chat/chat.module.scss";
 
 export interface ReasoningDisclosureProps {
-  reasoning?: string;
+  reasoning: string;
   content: string;
-  streaming?: boolean;
+  streaming: boolean;
   reasoningDurationMs?: number;
 }
 
 export function ReasoningDisclosure({
   content,
-  reasoning = "",
+  reasoning,
   streaming,
   reasoningDurationMs,
 }: ReasoningDisclosureProps) {
-  const isThinking = reasoning.length > 0 && Boolean(streaming) && content.trim().length === 0;
+  const isThinking = reasoning.length > 0 && streaming && content.trim().length === 0;
   const [open, setOpen] = useState(reasoning.length > 0 && content.trim().length === 0);
   const [liveDurationMs, setLiveDurationMs] = useState(0);
   const timerStartedAt = useRef<number | null>(null);

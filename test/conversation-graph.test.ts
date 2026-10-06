@@ -3,14 +3,14 @@ import { Conversation } from "../app/utils/conversation";
 import { createCoverageDigest } from "../app/utils/conversation/node";
 
 function node(id: string, outlineLevel: number, parentId?: string): Conversation.Node {
-  return {
+  return Conversation.createNode({
     id,
     date: "",
     role: "user",
     content: id,
     outlineLevel,
     parentId,
-  };
+  });
 }
 
 describe("conversation graph storage", () => {

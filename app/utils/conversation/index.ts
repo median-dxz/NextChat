@@ -4,6 +4,7 @@ import { Graph, type Api as GraphApi } from "./graph";
 import type * as GraphTypes from "./graph";
 import {
   createMessage as makeMessage,
+  createMessageData as makeMessageData,
   createNode as makeNode,
   replaceText as replaceNodeText,
   roles as conversationRoles,
@@ -45,6 +46,7 @@ export namespace Conversation {
   export type Content = NodeTypes.Content;
   export type MessageInput = NodeTypes.MessageInput;
   export type Message = NodeTypes.Message;
+  export type MessageData = NodeTypes.MessageData;
   export type MessageTool = NodeTypes.MessageTool;
   export type Node = NodeTypes.Node;
   export type NodeDraft = NodeTypes.NodeDraft;
@@ -64,6 +66,7 @@ export namespace Conversation {
 
   export const roles = conversationRoles;
   export const createMessage = makeMessage;
+  export const createMessageData = makeMessageData;
   export const createNode = makeNode;
   export const replaceText = replaceNodeText;
   export const createMemory = Graph.createMemory;

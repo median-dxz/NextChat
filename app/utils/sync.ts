@@ -1,4 +1,5 @@
 import { useAccessStore, useAppConfig, useChatStore } from "../store";
+import { restoreChatSession } from "../store/chat";
 import { useMaskStore } from "../store/mask";
 import { usePromptStore } from "../store/prompt";
 import { StoreKey } from "../constant";
@@ -71,7 +72,8 @@ const MergeStates: StateMerger = {
       }
     };
 
-    remoteState.sessions.forEach((remoteSession) => {
+    remoteState.sessions.forEach((session) => {
+      const remoteSession = restoreChatSession(session);
       if (remoteSession.messages.length === 0) return;
 
       const position = positions.get(remoteSession.id);

@@ -47,7 +47,7 @@ function message(
   content: string,
   reasoning?: string,
 ): Conversation.Message {
-  return { id: `${role}-${content}`, date: "", role, content, reasoning };
+  return Conversation.createMessage({ id: `${role}-${content}`, date: "", role, content, reasoning });
 }
 
 function linearNodes(messages: Conversation.Message[]) {
@@ -209,7 +209,14 @@ describe("chat store persistence and owned lifecycles", () => {
     });
 
     await useChatStore.getState().retryMessage(session.id, assistant.id);
-    await vi.waitFor(() => expect(useChatStore.getState().hasActiveChatRuns()).toBe(false));
+    await vi.waitFor(() =>
+      expect(
+        useChatStore
+          .getState()
+          .currentSession()
+          .messages.some((node) => node.streaming),
+      ).toBe(false),
+    );
 
     const retried = useChatStore.getState().currentSession();
     const replacement = retried.messages.find(

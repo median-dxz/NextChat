@@ -397,13 +397,13 @@ export function createChatOrchestrator(
         },
         onBeforeTool(tool: Conversation.MessageTool) {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
-            (node.tools ??= []).push(tool);
+            node.tools.push(tool);
           });
         },
         onAfterTool(tool: Conversation.MessageTool) {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
-            const index = node.tools?.findIndex((item) => item.id === tool.id);
-            if (index !== undefined && index >= 0 && node.tools) {
+            const index = node.tools.findIndex((item) => item.id === tool.id);
+            if (index >= 0) {
               node.tools[index] = { ...tool };
             }
           });

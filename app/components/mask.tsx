@@ -232,8 +232,8 @@ export function MaskConfig(props: {
 
 function ContextPromptItem(props: {
   index: number;
-  prompt: Conversation.Message;
-  update: (prompt: Conversation.Message) => void;
+  prompt: Conversation.MessageData;
+  update: (prompt: Conversation.MessageData) => void;
   remove: () => void;
 }) {
   const [focusingInput, setFocusingInput] = useState(false);
@@ -295,12 +295,12 @@ function ContextPromptItem(props: {
 }
 
 export function ContextPrompts(props: {
-  context: Conversation.Message[];
-  updateContext: (updater: (context: Conversation.Message[]) => void) => void;
+  context: Conversation.MessageData[];
+  updateContext: (updater: (context: Conversation.MessageData[]) => void) => void;
 }) {
   const context = props.context;
 
-  const addContextPrompt = (prompt: Conversation.Message, i: number) => {
+  const addContextPrompt = (prompt: Conversation.MessageData, i: number) => {
     props.updateContext((context) => context.splice(i, 0, prompt));
   };
 
@@ -308,7 +308,7 @@ export function ContextPrompts(props: {
     props.updateContext((context) => context.splice(i, 1));
   };
 
-  const updateContextPrompt = (i: number, prompt: Conversation.Message) => {
+  const updateContextPrompt = (i: number, prompt: Conversation.MessageData) => {
     props.updateContext((context) => {
       const images = getMessageImages(context[i].content);
       context[i] = prompt;
@@ -358,7 +358,7 @@ export function ContextPrompts(props: {
                           className={chatStyle["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
-                              Conversation.createMessage({
+                              Conversation.createMessageData({
                                 role: "user",
                                 content: "",
                                 date: new Date().toLocaleString(),
@@ -388,7 +388,7 @@ export function ContextPrompts(props: {
               className={chatStyle["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
-                  Conversation.createMessage({
+                  Conversation.createMessageData({
                     role: "user",
                     content: "",
                     date: "",

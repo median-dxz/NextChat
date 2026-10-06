@@ -88,15 +88,38 @@ function createEmptySession(): ChatSession {
   };
 }
 
-function migrateMessagesToConversationNodes(messages: Conversation.Message[]): Conversation.Node[] {
+export function restoreChatSession(session: ChatSession): ChatSession {
+  const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
+  return {
+    ...session,
+    messages: session.messages.map((message) => {
+      const restored = Conversation.createNode({ ...message, streaming: false });
+      const isStale = new Date(message.date).getTime() < stopTiming;
+      if (
+        message.content.length === 0 &&
+        !message.reasoning &&
+        (message.streaming || message.isError || isStale)
+      ) {
+        restored.isError = true;
+        restored.content = prettyObject({ error: true, message: "empty response" });
+      }
+      return restored;
+    }),
+    pinnedInputs: session.pinnedInputs.map(Conversation.createMessage),
+  };
+}
+
+function migrateMessagesToConversationNodes(
+  messages: Conversation.MessageData[],
+): Conversation.Node[] {
   let parentId: string | undefined;
   return messages.map((message) => {
-    const node: Conversation.Node = {
+    const node = Conversation.createNode({
       ...message,
       parentId,
       outlineLevel: 1,
       activeBranchRootId: undefined,
-    };
+    });
     parentId = node.id;
     return node;
   });
@@ -110,7 +133,7 @@ function applyMaskContext(session: ChatSession) {
   );
   const nodes = migrateMessagesToConversationNodes(startingMessages);
   session.pinnedInputs = pinnedInputs.map((message) => ({
-    ...message,
+    ...Conversation.createMessage(message),
     outlineLevel: 0,
   }));
   session.messages = nodes;
@@ -123,15 +146,18 @@ function migrateSessionToConversation(session: any) {
   const oldMessages = Array.isArray(session.messages) ? session.messages : [];
   const maskContext = Array.isArray(session.mask?.context) ? session.mask.context : [];
   const presetNodes = maskContext.filter(
-    (message: Conversation.Message) => message.role === "user" || message.role === "assistant",
+    (message: Conversation.MessageData) => message.role === "user" || message.role === "assistant",
   );
   const nodes = migrateMessagesToConversationNodes([...presetNodes, ...oldMessages]);
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
   session.pinnedInputs = maskContext
-    .filter((message: Conversation.Message) => message.role === "system")
-    .map((message: Conversation.Message) => ({ ...message, outlineLevel: 0 }));
+    .filter((message: Conversation.MessageData) => message.role === "system")
+    .map((message: Conversation.MessageData) => ({
+      ...Conversation.createMessage(message),
+      outlineLevel: 0,
+    }));
   const oldMemory = String(session.memoryPrompt ?? "").trim();
 
   session.globalMemory = Conversation.createMemory();
@@ -898,29 +924,9 @@ export const useChatStore = createPersistStore(
 
     merge(persistedState, currentState) {
       const restoredState = persistedState as Partial<typeof DEFAULT_CHAT_STATE> | undefined;
-      const sessions = restoredState?.sessions ?? currentState.sessions;
-      const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
-
-      sessions.forEach((session) => {
-        session.messages.forEach((message) => {
-          const wasStreaming = message.streaming === true;
-          if (wasStreaming) message.streaming = false;
-
-          const isStale = new Date(message.date).getTime() < stopTiming;
-          if (
-            message.content.length === 0 &&
-            !message.reasoning &&
-            (wasStreaming || message.isError || isStale)
-          ) {
-            message.streaming = false;
-            message.isError = true;
-            message.content = prettyObject({
-              error: true,
-              message: "empty response",
-            });
-          }
-        });
-      });
+      const sessions = restoredState?.sessions
+        ? restoredState.sessions.map(restoreChatSession)
+        : currentState.sessions;
 
       return {
         ...currentState,
