@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
 interface ChatControllerState {
-  runs: Map<string, () => void>;
-  register(messageId: string, cancel: () => void): void;
+  runs: Map<string, () => void | Promise<void>>;
+  register(messageId: string, cancel: () => void | Promise<void>): void;
   remove(messageId: string): void;
-  cancel(messageId: string): void;
+  cancel(messageId: string): void | Promise<void>;
   cancelAll(): void;
 }
 
@@ -22,7 +22,7 @@ export const useChatControllerStore = create<ChatControllerState>((set, get) => 
     });
   },
   cancel(messageId) {
-    get().runs.get(messageId)?.();
+    return get().runs.get(messageId)?.();
   },
   cancelAll() {
     get().runs.forEach((cancel) => cancel());

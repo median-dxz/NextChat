@@ -1591,10 +1591,9 @@ function ChatView() {
   const retryableMessageIds = new Set<string>();
   for (const node of visibleSessionMessages) {
     if (node.role !== "user") continue;
-    const response = conversation.node(node.id).sameLevelSuccessor;
-    if (response?.role !== "assistant") continue;
     retryableMessageIds.add(node.id);
-    retryableMessageIds.add(response.id);
+    const response = conversation.node(node.id).sameLevelSuccessor;
+    if (response?.role === "assistant") retryableMessageIds.add(response.id);
   }
 
   const renderMessages = context

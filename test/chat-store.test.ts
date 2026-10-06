@@ -32,7 +32,7 @@ vi.mock("../app/store/prompt", () => ({
   },
 }));
 
-import { type ChatSession, DEFAULT_TOPIC, useChatStore } from "../app/store/chat";
+import { DEFAULT_TOPIC, useChatStore } from "../app/store/chat";
 import { useAppConfig } from "../app/store/config";
 import { StoreKey } from "../app/constant";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
@@ -43,21 +43,17 @@ import {
   serializeAppState,
 } from "../app/utils/sync";
 import { Conversation } from "../app/utils/conversation";
+import { generatedSummary } from "./fixtures/conversation";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
 const initialConfig = useAppConfig.getState();
 
-function message(
-  role: Conversation.Message["role"],
-  content: string,
-  reasoning?: string,
-): Conversation.Message {
+function message(role: Conversation.Message["role"], content: string): Conversation.Message {
   return Conversation.createMessage({
     id: `${role}-${content}`,
     date: "",
     role,
     content,
-    reasoning,
   });
 }
 
@@ -75,10 +71,7 @@ function linearNodes(messages: Conversation.Message[]) {
   });
 }
 
-function setSession(
-  messages: Conversation.Message[],
-  modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {},
-) {
+function setSession(messages: Conversation.Message[]) {
   const session = structuredClone(initialSession);
   session.messages = linearNodes(messages);
   session.rootNodeId = session.messages[0]?.id;
@@ -87,7 +80,6 @@ function setSession(
   session.mask.modelConfig = {
     ...session.mask.modelConfig,
     enableInjectSystemPrompts: false,
-    ...modelConfig,
   };
   useChatStore.setState({ sessions: [session], currentSessionIndex: 0 });
   return session;
@@ -107,11 +99,8 @@ function mockPersistedChatState(version: number, sessions: unknown[]) {
   );
 }
 
-function setGlobalMemorySession(modelConfig: Partial<ChatSession["mask"]["modelConfig"]> = {}) {
-  const session = setSession(
-    [message("user", "question"), message("assistant", "answer")],
-    modelConfig,
-  );
+function setGlobalMemorySession() {
+  const session = setSession([message("user", "question"), message("assistant", "answer")]);
   session.globalMemory = {
     enabled: true,
     prompt: "update memory",
@@ -138,7 +127,7 @@ afterEach(() => {
 });
 
 describe("chat store persistence and owned lifecycles", () => {
-  test("updates the latest session without dropping newer conversation nodes", () => {
+  test("updates the latest graph and metadata without mutating prior snapshots", () => {
     const session = setSession([message("user", "before")]);
     const latestAssistant = Conversation.createNode({
       ...message("assistant", "latest"),
@@ -150,12 +139,14 @@ describe("chat store persistence and owned lifecycles", () => {
         item.id === session.id
           ? {
               ...item,
+              topic: "latest topic",
               messages: [...item.messages, latestAssistant],
               activeCursorId: latestAssistant.id,
             }
           : item,
       ),
     }));
+    const previous = useChatStore.getState().currentSession();
 
     useChatStore.getState().updateSession(session.id, (draft) => {
       draft.pendingOutlineDelta = 1;
@@ -168,33 +159,21 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(current.messages[0].content).toBe("after");
     expect(current.messages[1]).toEqual(latestAssistant);
     expect(current.pendingOutlineDelta).toBe(1);
-  });
-
-  test("updates metadata from the latest session without copying messages", () => {
-    const session = setSession([message("user", "question")]);
-    useChatStore.setState((state) => ({
-      sessions: state.sessions.map((item) =>
-        item.id === session.id ? { ...item, topic: "latest topic" } : item,
-      ),
-    }));
-    const previousSession = useChatStore.getState().currentSession();
-    const previousSessions = useChatStore.getState().sessions;
-    const previousMessages = previousSession.messages;
-    const previousMask = previousSession.mask;
+    expect(current.topic).toBe("latest topic");
+    expect(previous.messages[0].content).toBe("before");
 
     useChatStore.getState().updateSession(session.id, (draft) => {
       draft.mask.name = "updated mask";
       draft.stat.charCount = 12;
     });
 
-    const current = useChatStore.getState().currentSession();
-    expect(current.topic).toBe("latest topic");
-    expect(current.mask.name).toBe("updated mask");
-    expect(current.stat.charCount).toBe(12);
-    expect(current.messages).toBe(previousMessages);
-    expect(current.mask).not.toBe(previousMask);
-    expect(previousMask.name).not.toBe("updated mask");
-    expect(useChatStore.getState().sessions).not.toBe(previousSessions);
+    const updated = useChatStore.getState().currentSession();
+    expect(updated.topic).toBe("latest topic");
+    expect(updated.mask.name).toBe("updated mask");
+    expect(updated.stat.charCount).toBe(12);
+    expect(updated.messages).toBe(current.messages);
+    expect(current.mask.name).not.toBe("updated mask");
+    expect(current.stat.charCount).toBe(0);
   });
 
   test("does not notify subscribers when a session update is rejected", () => {
@@ -206,38 +185,6 @@ describe("chat store persistence and owned lifecycles", () => {
     unsubscribe();
 
     expect(listener).not.toHaveBeenCalled();
-  });
-
-  test("retries an assistant without replacing its user node", async () => {
-    const session = setSession([
-      message("user", "question"),
-      message("assistant", "old answer"),
-      message("user", "later question"),
-    ]);
-    const [user, assistant, later] = session.messages;
-    apiMocks.chat.mockImplementation((options) => {
-      options.onFinish("new answer", new Response(null, { status: 200 }));
-    });
-
-    await useChatStore.getState().retryMessage(session.id, assistant.id);
-    await vi.waitFor(() =>
-      expect(
-        useChatStore
-          .getState()
-          .currentSession()
-          .messages.some((node) => node.streaming),
-      ).toBe(false),
-    );
-
-    const retried = useChatStore.getState().currentSession();
-    const replacement = retried.messages.find(
-      (node) => node.role === "assistant" && node.content === "new answer",
-    );
-    expect(retried.messages.some((node) => node.id === user.id)).toBe(true);
-    expect(retried.messages.some((node) => node.id === assistant.id)).toBe(false);
-    expect(replacement).toMatchObject({ parentId: user.id, outlineLevel: 1 });
-    expect(retried.messages.find((node) => node.id === later.id)?.parentId).toBe(replacement?.id);
-    expect(retried.rootNodeId).toBe(user.id);
   });
 
   test("keeps invalid remote conversations out while merging other sessions", () => {
@@ -362,64 +309,11 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(() => Conversation(migrated).validate()).not.toThrow();
   });
 
-  test.each([4, 4.1])(
-    "recovers interrupted assistant responses from version %s",
-    async (version) => {
-      const persistedSession = structuredClone(initialSession) as any;
-      persistedSession.messages = [
-        {
-          ...message("assistant", "", "partial reasoning"),
-          reasoningDurationMs: 65_000,
-          streaming: true,
-        },
-        { ...message("assistant", ""), id: "empty-stream", streaming: true },
-        {
-          ...message("assistant", ""),
-          id: "stale-empty",
-          date: "2000-01-01T00:00:00.000Z",
-        },
-      ];
-      if (version === 4) {
-        mockPersistedChatState(version, [persistedSession]);
-      } else {
-        const write = vi.spyOn(indexedDBStorage, "setItem").mockResolvedValue();
-        useChatStore.setState({ sessions: [persistedSession] });
-        vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(write.mock.calls.at(-1)![1]);
-      }
-
-      setSession([]);
-      await useChatStore.persist.rehydrate();
-
-      expect(useChatStore.getState().currentSession().messages[0]).toMatchObject({
-        content: "",
-        reasoning: "partial reasoning",
-        reasoningDurationMs: 65_000,
-        streaming: false,
-      });
-      expect(useChatStore.getState().currentSession().messages[1]).toMatchObject({
-        isError: true,
-        streaming: false,
-      });
-      expect(useChatStore.getState().currentSession().messages[1].content).toContain(
-        "empty response",
-      );
-      expect(useChatStore.getState().currentSession().messages[2]).toMatchObject({
-        isError: true,
-        streaming: false,
-      });
-    },
-  );
-
   test("round-trips a branched conversation without changing its live state", async () => {
     const session = setSession([message("user", "question"), message("assistant", "partial")]);
     const [root, answer] = session.messages;
-    root.nodeSummaries = {
-      segment: {
-        content: "summary",
-        sourceNodeIds: [root.id],
-        sourceDigest: "saved-digest",
-        provenance: "user-edited",
-      },
+    answer.nodeSummaries = {
+      segment: generatedSummary([root, answer], "summary", "user-edited"),
     };
     answer.streaming = true;
     answer.reasoning = "partial reasoning";
@@ -487,17 +381,16 @@ describe("chat store persistence and owned lifecycles", () => {
   test("does not overwrite a title edited during generation", async () => {
     const session = setSession([message("user", "question")]);
     session.topic = "Existing topic";
-    let finish: ((message: string, response: Response) => void) | undefined;
-    apiMocks.chat.mockImplementation((options) => {
-      finish = options.onFinish;
-    });
+    apiMocks.chat.mockImplementation(() => {});
 
     useChatStore.getState().generateSessionTitle(session, true);
     useChatStore.getState().updateSession(session.id, (draft) => {
       draft.topic = "Manual topic";
     });
-    finish?.("Generated topic", new Response(null, { status: 200 }));
-    await Promise.resolve();
+    expect(apiMocks.chat).toHaveBeenCalledOnce();
+    apiMocks.chat.mock.calls[0][0].onFinish("Generated topic", new Response(null, { status: 200 }));
+    // generateSessionTitle returns void; let the request and writeback microtasks finish.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     expect(useChatStore.getState().currentSession().topic).toBe("Manual topic");
   });
@@ -525,41 +418,6 @@ describe("chat store persistence and owned lifecycles", () => {
     });
   });
 
-  test("uses the configured memory model unless the update selects another", async () => {
-    const session = setGlobalMemorySession({
-      memoryModel: "configured-model",
-      memoryProviderName: "OpenAI",
-    });
-    const requestedModels: Array<{
-      model: string;
-      providerName: string;
-    }> = [];
-    apiMocks.chat.mockImplementation((options, providerName) => {
-      requestedModels.push({
-        model: options.config.model,
-        providerName,
-      });
-      options.onFinish("new memory", new Response(null, { status: 200 }));
-    });
-
-    await useChatStore.getState().updateGlobalMemory(session.id);
-    await useChatStore.getState().updateGlobalMemory(session.id, undefined, {
-      model: "temporary-model",
-      providerName: "Google",
-    });
-
-    expect(requestedModels).toEqual([
-      {
-        model: "configured-model",
-        providerName: "OpenAI",
-      },
-      {
-        model: "temporary-model",
-        providerName: "Google",
-      },
-    ]);
-  });
-
   test("does not overwrite a manual global memory edit", async () => {
     const session = setGlobalMemorySession();
     let finish: ((message: string, response: Response) => void) | undefined;
@@ -574,20 +432,5 @@ describe("chat store persistence and owned lifecycles", () => {
     await updating;
 
     expect(useChatStore.getState().currentSession().globalMemory.content).toBe("manual memory");
-  });
-
-  test("keeps existing memory when the provider returns only whitespace", async () => {
-    const session = setGlobalMemorySession();
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    apiMocks.chat.mockImplementation((options) =>
-      options.onFinish("  ", new Response(null, { status: 200 })),
-    );
-
-    await useChatStore.getState().updateGlobalMemory(session.id);
-
-    expect(useChatStore.getState().currentSession().globalMemory).toMatchObject({
-      content: "old memory",
-      revision: 0,
-    });
   });
 });

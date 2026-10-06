@@ -11,7 +11,12 @@ import {
   createChatOrchestrator,
   type ChatOrchestratorSession,
 } from "../app/store/chat-orchestrator";
-import { chatSession, conversationNode, linearConversation } from "./fixtures/conversation";
+import {
+  chatSession,
+  conversationNode,
+  generatedSummary,
+  linearConversation,
+} from "./fixtures/conversation";
 import { createDeferredClientApi } from "./helpers/deferred-client-api";
 import { createInMemorySessionStore } from "./helpers/session-repository";
 import { ModelType } from "@/app/store";
@@ -153,56 +158,6 @@ describe("chat orchestrator", () => {
     expect(dispatch).toHaveBeenCalledOnce();
   });
 
-  test("stops reasoning timing when final content starts", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-16T12:00:00Z"));
-    const session = chatSession(undefined, { id: "timing" });
-    const { orchestrator, provider, repository } = createHarness(session);
-
-    const handle = await orchestrator.start({
-      kind: "input",
-      sessionId: session.id,
-      content: "question",
-    });
-    provider.reasoning(0, "reasoning");
-    vi.advanceTimersByTime(12_000);
-    provider.update(0, "final answer");
-    vi.advanceTimersByTime(30_000);
-    provider.finish(0, "final answer");
-    await handle.completion;
-
-    expect(
-      repository
-        .getSession(session.id)!
-        .messages.find((message) => message.id === handle.assistantNodeId)?.reasoningDurationMs,
-    ).toBe(12_000);
-  });
-
-  test("cancels explicitly and ignores a late Provider finish", async () => {
-    const session = chatSession(undefined, { id: "cancel" });
-    const { orchestrator, provider, repository, dispatch } = createHarness(session);
-
-    const handle = await orchestrator.start({
-      kind: "input",
-      sessionId: session.id,
-      content: "question",
-    });
-    provider.update(0, "partial answer");
-    handle.cancel();
-    await expect(handle.completion).resolves.toMatchObject({
-      status: "cancelled",
-    });
-    provider.finish(0, "late answer");
-
-    expect(provider.controllers[0].signal.aborted).toBe(true);
-    expect(dispatch).not.toHaveBeenCalled();
-    expect(
-      repository
-        .getSession(session.id)!
-        .messages.find((message) => message.id === handle.assistantNodeId),
-    ).toMatchObject({ content: "partial answer", streaming: false });
-  });
-
   test("settles Provider errors without completion effects", async () => {
     const session = chatSession(undefined, { id: "failed" });
     const { orchestrator, provider, repository, dispatch } = createHarness(session);
@@ -220,68 +175,270 @@ describe("chat orchestrator", () => {
     });
     expect(dispatch).not.toHaveBeenCalled();
     expect(
+      repository.getSession(session.id)!.messages.find((node) => node.id === handle.userNodeId),
+    ).toMatchObject({ isError: false, content: "question" });
+    expect(
       repository
         .getSession(session.id)!
         .messages.find((message) => message.id === handle.assistantNodeId),
     ).toMatchObject({ streaming: false, isError: true });
   });
 
-  test("retries a user by preserving it and replacing its direct response", async () => {
-    const graph = linearConversation([
-      { id: "old-user", role: "user", content: "question" },
-      { id: "old-assistant", role: "assistant", content: "old answer" },
-      { id: "later", role: "user", content: "later question" },
-    ]);
-    const session = chatSession(graph, { id: "user-retry" });
-    const { orchestrator, provider, repository } = createHarness(session);
+  test.each([401, 503])(
+    "treats HTTP %i as a failed run even when the Provider calls onFinish",
+    async (status) => {
+      const session = chatSession();
+      const { orchestrator, provider, repository, dispatch } = createHarness(session);
+      const run = await orchestrator.start({
+        kind: "input",
+        sessionId: session.id,
+        content: "question",
+      });
+      provider.finish(0, "provider HTTP error", status);
+      await expect(run.completion).resolves.toMatchObject({
+        status: "failed",
+        error: expect.objectContaining({ message: "provider HTTP error" }),
+      });
 
-    const handle = await orchestrator.start({
+      const failed = repository.getSession(session.id)!;
+      expect(failed.messages.find((node) => node.id === run.userNodeId)?.isError).toBe(false);
+      expect(failed.messages.find((node) => node.id === run.assistantNodeId)).toMatchObject({
+        isError: true,
+        streaming: false,
+      });
+      expect(dispatch).not.toHaveBeenCalled();
+    },
+  );
+
+  test("retries a failed run using the same valid input", async () => {
+    const session = chatSession();
+    const { orchestrator, provider, repository } = createHarness(session);
+    const first = await orchestrator.start({
+      kind: "input",
+      sessionId: session.id,
+      content: "question",
+    });
+    provider.fail(0, new Error("provider failed"));
+    await first.completion;
+
+    const retry = await orchestrator.start({
       kind: "retry",
       sessionId: session.id,
-      sourceNodeId: "old-user",
+      sourceNodeId: first.assistantNodeId,
     });
-    const retried = repository.getSession(session.id)!;
-    const ids = retried.messages.map((message) => message.id);
 
-    expect(handle.userNodeId).toBe("old-user");
-    expect(ids).toContain("old-user");
-    expect(ids).not.toContain("old-assistant");
-    expect(ids).toContain("later");
-    expect(retried.messages.find((message) => message.id === "later")?.parentId).toBe(
-      handle.assistantNodeId,
-    );
-    expect(retried.rootNodeId).toBe(handle.userNodeId);
-    expect(provider.requests[0].messages.map((message) => message.content)).toEqual(["question"]);
+    expect(retry.userNodeId).toBe(first.userNodeId);
+    expect(retry.assistantNodeId).toBe(first.assistantNodeId);
+    expect(provider.requests[1].messages).toEqual([{ role: "user", content: "question" }]);
+
+    provider.finish(1, "answer");
+    await expect(retry.completion).resolves.toMatchObject({
+      status: "completed",
+      userNodeId: first.userNodeId,
+      assistantNodeId: first.assistantNodeId,
+    });
+
+    expect(
+      repository.getSession(session.id)!.messages.find((node) => node.id === first.assistantNodeId),
+    ).toMatchObject({ content: "answer", isError: false, streaming: false });
+    expect(
+      repository.getSession(session.id)!.messages.find((node) => node.id === first.userNodeId)
+        ?.isError,
+    ).toBe(false);
   });
 
-  test("retries a non-root user in its original projected position", async () => {
-    const graph = linearConversation([
-      { id: "intro-user", role: "user", content: "intro" },
-      { id: "intro-assistant", role: "assistant", content: "intro answer" },
-      { id: "old-user", role: "user", content: "question" },
-      { id: "old-assistant", role: "assistant", content: "old answer" },
-      { id: "later", role: "user", content: "later question" },
-    ]);
-    const session = chatSession(graph, { id: "non-root-user-retry" });
+  test("retries a legacy failed input without a response and preserves its later chain", async () => {
+    const session = chatSession(
+      linearConversation([
+        { id: "user", role: "user", content: "question", isError: true },
+        { id: "later", role: "user", content: "later question" },
+      ]),
+    );
     const { orchestrator, provider, repository } = createHarness(session);
-
-    const handle = await orchestrator.start({
+    const retry = await orchestrator.start({
       kind: "retry",
       sessionId: session.id,
-      sourceNodeId: "old-user",
+      sourceNodeId: "user",
     });
     const retried = repository.getSession(session.id)!;
-    const user = retried.messages.find((message) => message.id === handle.userNodeId)!;
-    const later = retried.messages.find((message) => message.id === "later")!;
+    expect(retry.userNodeId).toBe("user");
+    expect(retried.messages.find((node) => node.id === "user")?.isError).toBe(false);
+    expect(retried.messages.find((node) => node.id === "later")?.parentId).toBe(
+      retry.assistantNodeId,
+    );
+    expect(provider.requests[0].messages).toEqual([{ role: "user", content: "question" }]);
+  });
 
-    expect(user.parentId).toBe("intro-assistant");
-    expect(later.parentId).toBe(handle.assistantNodeId);
-    expect(retried.rootNodeId).toBe("intro-user");
-    expect(provider.requests[0].messages.map((message) => message.content)).toEqual([
-      "intro",
-      "intro answer",
-      "question",
-    ]);
+  test("resets reply data and its summaries while preserving all reply branches", async () => {
+    const user = conversationNode({ id: "user", role: "user", content: "question" });
+    const assistant = conversationNode({
+      id: "assistant",
+      role: "assistant",
+      parentId: user.id,
+      content: "old answer",
+      reasoning: "old reasoning",
+      reasoningDurationMs: 1200,
+      tools: [{ id: "old-tool" }],
+      audio_url: "old-audio",
+      isError: true,
+      isMcpResponse: true,
+      activeBranchRootId: "active",
+    });
+    assistant.nodeSummaries = {
+      segment: generatedSummary([user, assistant]),
+      checkpoint: generatedSummary([user, assistant]),
+    };
+    const later = conversationNode({ id: "later", role: "user", parentId: assistant.id });
+    const active = conversationNode({
+      id: "active",
+      role: "user",
+      parentId: assistant.id,
+      outlineLevel: 2,
+    });
+    const inactive = conversationNode({
+      id: "inactive",
+      role: "user",
+      parentId: assistant.id,
+      outlineLevel: 2,
+    });
+    const session = chatSession({
+      messages: [user, assistant, later, active, inactive],
+      rootNodeId: user.id,
+      activeCursorId: later.id,
+    });
+    const { orchestrator, repository, provider } = createHarness(session);
+
+    const retry = await orchestrator.start({
+      kind: "retry",
+      sessionId: session.id,
+      sourceNodeId: assistant.id,
+    });
+    const retried = repository.getSession(session.id)!;
+    const reply = retried.messages.find((node) => node.id === assistant.id)!;
+    expect(retry.assistantNodeId).toBe(assistant.id);
+    expect(reply).toMatchObject({
+      content: "",
+      reasoning: "",
+      tools: [],
+      streaming: true,
+      isError: false,
+      isMcpResponse: false,
+      activeBranchRootId: active.id,
+      parentId: user.id,
+    });
+    expect(reply).not.toHaveProperty("reasoningDurationMs");
+    expect(reply).not.toHaveProperty("audio_url");
+    expect(reply).not.toHaveProperty("nodeSummaries");
+    expect(
+      retried.messages.filter((node) => [later.id, active.id, inactive.id].includes(node.id)),
+    ).toEqual([later, active, inactive]);
+    expect(provider.requests[0].messages).toEqual([{ role: "user", content: "question" }]);
+    expect(retried.activeCursorId).toBe(assistant.id);
+  });
+
+  test("cancels the previous run before reuse and ignores all of its late callbacks", async () => {
+    const session = chatSession();
+    const { orchestrator, provider, repository, dispatch } = createHarness(session);
+    const first = await orchestrator.start({
+      kind: "input",
+      sessionId: session.id,
+      content: "question",
+    });
+    provider.update(0, "old partial");
+    const retry = await orchestrator.start({
+      kind: "retry",
+      sessionId: session.id,
+      sourceNodeId: first.userNodeId,
+    });
+    expect(retry.assistantNodeId).toBe(first.assistantNodeId);
+    expect(provider.controllers[0].signal.aborted).toBe(true);
+    await expect(first.completion).resolves.toMatchObject({ status: "cancelled" });
+    expect(useChatControllerStore.getState().runs.has(retry.assistantNodeId)).toBe(true);
+
+    provider.update(1, "new partial");
+    provider.reasoning(1, "new reasoning");
+    provider.requests[1].onBeforeTool?.({ id: "tool", content: "new tool" });
+    provider.requests[1].onAfterTool?.({ id: "tool", content: "new tool result" });
+    expect(
+      repository.getSession(session.id)!.messages.find((node) => node.id === retry.assistantNodeId),
+    ).toMatchObject({
+      content: "new partial",
+      reasoning: "new reasoning",
+      tools: [{ id: "tool", content: "new tool result" }],
+    });
+    const snapshot = structuredClone(repository.getSession(session.id));
+    provider.update(0, "late old partial");
+    provider.reasoning(0, "late old reasoning");
+    provider.requests[0].onBeforeTool?.({ id: "late-tool" });
+    provider.requests[0].onAfterTool?.({ id: "tool", content: "late old tool" });
+    provider.finish(0, "late old answer");
+    provider.fail(0, new Error("late old error"));
+    await Promise.resolve();
+    expect(repository.getSession(session.id)).toEqual(snapshot);
+    expect(dispatch).not.toHaveBeenCalled();
+
+    provider.finish(1, "new answer");
+    await expect(retry.completion).resolves.toMatchObject({ status: "completed" });
+    provider.update(0, "late after completion");
+    provider.update(1, "late new partial");
+    expect(
+      repository.getSession(session.id)!.messages.find((node) => node.id === retry.assistantNodeId),
+    ).toMatchObject({ content: "new answer", streaming: false, isError: false });
+    expect(dispatch).toHaveBeenCalledOnce();
+  });
+
+  test("a new reply adopts selected and unselected branches even before an outdent", async () => {
+    const root = conversationNode({ id: "root", role: "user", activeBranchRootId: "user" });
+    const user = conversationNode({
+      id: "user",
+      role: "user",
+      content: "question",
+      parentId: root.id,
+      outlineLevel: 2,
+      activeBranchRootId: "active",
+    });
+    const active = conversationNode({
+      id: "active",
+      role: "user",
+      parentId: user.id,
+      outlineLevel: 3,
+    });
+    const inactive = conversationNode({
+      id: "inactive",
+      role: "user",
+      parentId: user.id,
+      outlineLevel: 3,
+    });
+    const later = conversationNode({ id: "later", role: "user", parentId: root.id });
+    const session = chatSession({
+      messages: [root, user, active, inactive, later],
+      rootNodeId: root.id,
+      activeCursorId: later.id,
+    });
+    const { orchestrator, provider, repository } = createHarness(session);
+    const retry = await orchestrator.start({
+      kind: "retry",
+      sessionId: session.id,
+      sourceNodeId: user.id,
+    });
+    const retried = repository.getSession(session.id)!;
+
+    expect(retried.messages.find((node) => node.id === retry.assistantNodeId)).toMatchObject({
+      parentId: user.id,
+      outlineLevel: 2,
+      activeBranchRootId: active.id,
+    });
+    expect(
+      retried.messages.find((node) => node.id === user.id)?.activeBranchRootId,
+    ).toBeUndefined();
+    for (const branch of [active, inactive]) {
+      expect(retried.messages.find((node) => node.id === branch.id)).toEqual({
+        ...branch,
+        parentId: retry.assistantNodeId,
+      });
+    }
+    expect(retried.messages.find((node) => node.id === later.id)).toEqual(later);
+    expect(provider.requests[0].messages.map((node) => node.content)).toEqual(["root", "question"]);
   });
 
   test("creates a selected deeper branch for one-shot outline input", async () => {

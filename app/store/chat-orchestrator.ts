@@ -134,14 +134,33 @@ function startProviderRun(
     resolveCompletion(result);
   };
 
+  const whileRunning = <Args extends unknown[]>(callback?: (...args: Args) => void) => {
+    return (...args: Args) => {
+      if (!settled) callback?.(...args);
+    };
+  };
+
   try {
     const invocation = api.llm.chat({
       ...options,
+      onUpdate: whileRunning(options.onUpdate),
+      onReasoningUpdate: whileRunning(options.onReasoningUpdate),
+      onBeforeTool: whileRunning(options.onBeforeTool),
+      onAfterTool: whileRunning(options.onAfterTool),
       onFinish(message, response) {
+        if (settled) return;
+        if (!response.ok) {
+          settle({
+            status: "failed",
+            error: new Error(message || `Provider request failed (${response.status})`),
+          });
+          return;
+        }
         options.onFinish?.(message, response);
         settle(cancelRequested ? { status: "cancelled" } : { status: "completed", message });
       },
       onError(error) {
+        if (settled) return;
         options.onError?.(error);
         settle(
           cancelRequested ? { status: "cancelled" } : { status: "failed", error: asError(error) },
@@ -153,6 +172,7 @@ function startProviderRun(
         if (cancelRequested) nextController.abort();
       },
     });
+
     void Promise.resolve(invocation).catch((error) => {
       settle(
         cancelRequested ? { status: "cancelled" } : { status: "failed", error: asError(error) },
@@ -264,6 +284,21 @@ export function createChatOrchestrator(
       const modelConfig = initialSession.mask.modelConfig;
       const systemInputs = await resolveSystemInputs(modelConfig);
 
+      if (command.kind === "retry") {
+        const currentSession = dependencies.getSession(command.sessionId);
+        if (!currentSession) throw new Error("Chat session no longer exists");
+        const current = Conversation(currentSession);
+        const target = current.node(command.sourceNodeId);
+        const source =
+          target.value.role === "assistant" && target.parent
+            ? current.node(target.parent.id)
+            : target;
+        const response = source.sameLevelSuccessor;
+        if (response?.role === "assistant") {
+          await useChatControllerStore.getState().cancel(response.id);
+        }
+      }
+
       const { session, assembly, committedUser, committedAssistant } =
         await dependencies.withStructure(command.sessionId, () => {
           const session = dependencies.getSession(command.sessionId);
@@ -271,6 +306,7 @@ export function createChatOrchestrator(
 
           let conversation = Conversation(session);
           let userNode: Conversation.Node;
+          let responseNode: Conversation.Node | undefined;
 
           if (command.kind === "retry") {
             const target = conversation.node(command.sourceNodeId);
@@ -279,12 +315,19 @@ export function createChatOrchestrator(
                 ? conversation.node(target.parent.id)
                 : target;
             const response = source.sameLevelSuccessor;
-            if (source.value.role !== "user" || response?.role !== "assistant") {
-              throw new Error("Retry requires a user message followed by an assistant response");
+            if (source.value.role !== "user") {
+              throw new Error("Retry requires a user message");
             }
 
             userNode = source.value;
-            conversation = conversation.node(response.id).remove().moveCursor(userNode.id);
+            if (response?.role === "assistant") {
+              responseNode = response;
+            }
+            conversation = conversation
+              .moveCursor(userNode.id)
+              .updateNodeData(userNode.id, (node) => {
+                node.isError = false;
+              });
           } else {
             userNode = Conversation.createNode({
               role: "user",
@@ -316,6 +359,7 @@ export function createChatOrchestrator(
           }
 
           const assistantNode = Conversation.createNode({
+            id: responseNode?.id,
             role: "assistant",
             streaming: true,
             model: modelConfig.model,
@@ -342,7 +386,46 @@ export function createChatOrchestrator(
 
           dependencies.updateSession(command.sessionId, (session) => {
             if (command.kind === "retry") {
-              conversation = conversation.insertProjected(assistantNode, userNode.id);
+              if (responseNode) {
+                conversation = Conversation({
+                  ...conversation.state,
+                  messages: conversation.state.messages.map((node) =>
+                    node.id === responseNode.id
+                      ? {
+                          ...assistantNode,
+                          parentId: responseNode.parentId,
+                          outlineLevel: responseNode.outlineLevel,
+                          activeBranchRootId: responseNode.activeBranchRootId,
+                        }
+                      : node,
+                  ),
+                });
+                conversation = conversation.moveCursor(responseNode.id);
+              } else {
+                conversation = conversation.insert(assistantNode);
+                const branches = conversation.node(userNode.id).branches;
+                if (branches.length > 0) {
+                  const branchIds = new Set(branches.map((branch) => branch.id));
+                  const activeBranchRootId = conversation.node(userNode.id).value
+                    .activeBranchRootId;
+
+                  conversation = Conversation({
+                    ...conversation.state,
+                    messages: conversation.state.messages.map((node) => {
+                      if (node.id === userNode.id) {
+                        return { ...node, activeBranchRootId: undefined };
+                      }
+                      if (node.id === assistantNode.id) {
+                        return { ...node, activeBranchRootId };
+                      }
+                      if (branchIds.has(node.id)) {
+                        return { ...node, parentId: assistantNode.id };
+                      }
+                      return node;
+                    }),
+                  });
+                }
+              }
             } else {
               conversation = conversation.insert(assistantNode);
             }
@@ -447,9 +530,6 @@ export function createChatOrchestrator(
           };
         }
 
-        updateNode(command.sessionId, committedUser.id, (node) => {
-          node.isError = true;
-        });
         updateNode(command.sessionId, committedAssistant.id, (node) => {
           node.content +=
             "\n\n" +
@@ -476,7 +556,10 @@ export function createChatOrchestrator(
         cancel: () => providerRun.cancel(),
         completion,
       };
-      useChatControllerStore.getState().register(committedAssistant.id, handle.cancel);
+      useChatControllerStore.getState().register(committedAssistant.id, async () => {
+        handle.cancel();
+        await handle.completion;
+      });
       return handle;
     },
   };
