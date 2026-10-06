@@ -36,7 +36,12 @@ import { type ChatSession, DEFAULT_TOPIC, useChatStore } from "../app/store/chat
 import { useAppConfig } from "../app/store/config";
 import { StoreKey } from "../app/constant";
 import { indexedDBStorage } from "../app/utils/indexedDB-storage";
-import { getLocalAppState, mergeAppState } from "../app/utils/sync";
+import {
+  deserializeAppState,
+  getLocalAppState,
+  mergeAppState,
+  serializeAppState,
+} from "../app/utils/sync";
 import { Conversation } from "../app/utils/conversation";
 
 const initialSession = structuredClone(useChatStore.getState().sessions[0]);
@@ -47,7 +52,13 @@ function message(
   content: string,
   reasoning?: string,
 ): Conversation.Message {
-  return Conversation.createMessage({ id: `${role}-${content}`, date: "", role, content, reasoning });
+  return Conversation.createMessage({
+    id: `${role}-${content}`,
+    date: "",
+    role,
+    content,
+    reasoning,
+  });
 }
 
 function linearNodes(messages: Conversation.Message[]) {
@@ -287,14 +298,14 @@ describe("chat store persistence and owned lifecycles", () => {
     expect(fork.globalMemory).toEqual(original.globalMemory);
   });
 
-  test("opens a persisted v3.3 session as a valid v4 conversation", async () => {
+  test("opens a persisted v3.3 session as a valid v4.1 conversation", async () => {
     const legacyMask = structuredClone(initialSession.mask) as any;
     legacyMask.modelConfig.sendMemory = true;
     delete legacyMask.modelConfig.enableConversationSummaries;
     legacyMask.context = [
-      message("system", "pinned system"),
-      message("user", "preset user"),
-      message("assistant", "preset answer"),
+      { id: "preset-system", date: "", role: "system", content: "pinned system" },
+      { id: "preset-user", date: "", role: "user", content: "preset user" },
+      { id: "preset-assistant", date: "", role: "assistant", content: "preset answer" },
     ];
     legacyMask.modelConfig.historyMessageCount = 4;
     legacyMask.modelConfig.compressMessageLengthThreshold = 1000;
@@ -316,7 +327,10 @@ describe("chat store persistence and owned lifecycles", () => {
       id: initialSession.id,
       topic: initialSession.topic,
       memoryPrompt: "legacy memory",
-      messages: [message("user", "question"), message("assistant", "answer")],
+      messages: [
+        { id: "legacy-user", date: "", role: "user", content: "question" },
+        { id: "legacy-assistant", date: "", role: "assistant", content: "answer" },
+      ],
       stat: structuredClone(initialSession.stat),
       lastUpdate: initialSession.lastUpdate,
       lastSummarizeIndex: 2,
@@ -324,63 +338,150 @@ describe("chat store persistence and owned lifecycles", () => {
       mask: legacyMask,
     };
     mockPersistedChatState(3.3, [persistedSession]);
+    const write = vi.spyOn(indexedDBStorage, "setItem").mockResolvedValue();
 
     await useChatStore.persist.rehydrate();
 
     const migrated = useChatStore.getState().currentSession();
-    expect(migrated.pinnedInputs.map((item) => item.content)).toEqual(["pinned system"]);
-    expect(migrated.messages.map((item) => item.content)).toEqual([
-      "preset user",
-      "preset answer",
-      "question",
-      "answer",
-    ]);
+    expect(JSON.parse(write.mock.calls.at(-1)![1]).version).toBe(4.1);
+    expect(migrated.pinnedInputs.map((item) => [item.id, item.role, item.content])).toEqual(
+      legacyMask.context.map((item: Conversation.SerializedMessage) => [
+        item.id,
+        item.role,
+        item.content,
+      ]),
+    );
+    expect(migrated.messages.map((item) => item.content)).toEqual(["question", "answer"]);
     expect(migrated.globalMemory).toMatchObject({
       enabled: true,
       prompt: "",
       content: "legacy memory",
     });
     expect(migrated).not.toHaveProperty("clearContextIndex");
+    expect(migrated.mask.context).toEqual(legacyMask.context);
     expect(() => Conversation(migrated).validate()).not.toThrow();
   });
 
-  test("recovers interrupted assistant responses after rehydration", async () => {
-    const persistedSession = structuredClone(initialSession) as any;
-    persistedSession.messages = [
-      {
-        ...message("assistant", "", "partial reasoning"),
-        reasoningDurationMs: 65_000,
-        streaming: true,
-      },
-      { ...message("assistant", ""), id: "empty-stream", streaming: true },
-      {
-        ...message("assistant", ""),
-        id: "stale-empty",
-        date: "2000-01-01T00:00:00.000Z",
-      },
-    ];
-    mockPersistedChatState(4, [persistedSession]);
+  test.each([4, 4.1])(
+    "recovers interrupted assistant responses from version %s",
+    async (version) => {
+      const persistedSession = structuredClone(initialSession) as any;
+      persistedSession.messages = [
+        {
+          ...message("assistant", "", "partial reasoning"),
+          reasoningDurationMs: 65_000,
+          streaming: true,
+        },
+        { ...message("assistant", ""), id: "empty-stream", streaming: true },
+        {
+          ...message("assistant", ""),
+          id: "stale-empty",
+          date: "2000-01-01T00:00:00.000Z",
+        },
+      ];
+      if (version === 4) {
+        mockPersistedChatState(version, [persistedSession]);
+      } else {
+        const write = vi.spyOn(indexedDBStorage, "setItem").mockResolvedValue();
+        useChatStore.setState({ sessions: [persistedSession] });
+        vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(write.mock.calls.at(-1)![1]);
+      }
 
+      setSession([]);
+      await useChatStore.persist.rehydrate();
+
+      expect(useChatStore.getState().currentSession().messages[0]).toMatchObject({
+        content: "",
+        reasoning: "partial reasoning",
+        reasoningDurationMs: 65_000,
+        streaming: false,
+      });
+      expect(useChatStore.getState().currentSession().messages[1]).toMatchObject({
+        isError: true,
+        streaming: false,
+      });
+      expect(useChatStore.getState().currentSession().messages[1].content).toContain(
+        "empty response",
+      );
+      expect(useChatStore.getState().currentSession().messages[2]).toMatchObject({
+        isError: true,
+        streaming: false,
+      });
+    },
+  );
+
+  test("round-trips a branched conversation without changing its live state", async () => {
+    const session = setSession([message("user", "question"), message("assistant", "partial")]);
+    const [root, answer] = session.messages;
+    root.nodeSummaries = {
+      segment: {
+        content: "summary",
+        sourceNodeIds: [root.id],
+        sourceDigest: "saved-digest",
+        provenance: "user-edited",
+      },
+    };
+    answer.streaming = true;
+    answer.reasoning = "partial reasoning";
+    answer.tools = [
+      { id: "tool", function: { name: "lookup" }, content: "result", isError: false },
+    ];
+    answer.audio_url = "/audio.wav";
+    const branch = Conversation.createNode({
+      id: "branch",
+      role: "assistant",
+      content: "branch answer",
+      streaming: true,
+      parentId: root.id,
+      outlineLevel: 2,
+    });
+    root.activeBranchRootId = branch.id;
+    session.messages.push(branch);
+    session.activeCursorId = branch.id;
+    session.pinnedInputs = [Conversation.createMessage({ role: "system", content: "pinned" })];
+    const before = structuredClone(session);
+    const write = vi.spyOn(indexedDBStorage, "setItem").mockResolvedValue();
+    useChatStore.setState({ sessions: [session] });
+    const saved = write.mock.calls.at(-1)![1];
+    const savedSession = JSON.parse(saved).state.sessions[0];
+    for (const item of [...savedSession.messages, ...savedSession.pinnedInputs]) {
+      expect(item).not.toHaveProperty("streaming");
+    }
+    expect(useChatStore.getState().currentSession()).toEqual(before);
+    vi.spyOn(indexedDBStorage, "getItem").mockResolvedValue(saved);
     setSession([]);
     await useChatStore.persist.rehydrate();
+    const restored = useChatStore.getState().currentSession();
+    expect(() => Conversation(restored).validate()).not.toThrow();
+    expect(restored).toEqual({
+      ...before,
+      messages: before.messages.map((node) => ({ ...node, streaming: false })),
+    });
+  });
 
-    expect(useChatStore.getState().currentSession().messages[0]).toMatchObject({
-      content: "",
-      reasoning: "partial reasoning",
-      reasoningDurationMs: 65_000,
-      streaming: false,
+  test("restores incoming backup data while preserving a local active response during merge", () => {
+    const session = setSession([
+      message("user", "question"),
+      message("assistant", "local partial"),
+    ]);
+    session.messages[1].streaming = true;
+    const local = getLocalAppState();
+    const remote = structuredClone(local);
+    remote[StoreKey.Chat].sessions[0].messages[1].content = "remote conflict";
+    const added = Conversation.createNode({
+      id: "remote-extension",
+      role: "user",
+      content: "remote question",
+      parentId: session.messages[1].id,
+      outlineLevel: 1,
     });
-    expect(useChatStore.getState().currentSession().messages[1]).toMatchObject({
-      isError: true,
-      streaming: false,
-    });
-    expect(useChatStore.getState().currentSession().messages[1].content).toContain(
-      "empty response",
-    );
-    expect(useChatStore.getState().currentSession().messages[2]).toMatchObject({
-      isError: true,
-      streaming: false,
-    });
+    remote[StoreKey.Chat].sessions[0].messages.push(added);
+    const json = serializeAppState(remote);
+    expect(JSON.parse(json)[StoreKey.Chat].sessions[0].messages[1]).not.toHaveProperty("streaming");
+    mergeAppState(local, deserializeAppState(json));
+    const merged = local[StoreKey.Chat].sessions[0];
+    expect(merged.messages).toEqual([...session.messages, added]);
+    expect(() => Conversation(merged).validate()).not.toThrow();
   });
 
   test("does not overwrite a title edited during generation", async () => {

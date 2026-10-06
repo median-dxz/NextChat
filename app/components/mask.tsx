@@ -1,6 +1,6 @@
 import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 
 import { Conversation } from "@/app/utils/conversation";
@@ -55,6 +55,7 @@ export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
+  contextEditor: ReactNode;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {
@@ -85,14 +86,7 @@ export function MaskConfig(props: {
         <h3 id="preset-context-title" className={chatStyle["section-title"]}>
           {Locale.Context.PresetTitle}
         </h3>
-        <ContextPrompts
-          context={props.mask.context}
-          updateContext={(updater) => {
-            const context = props.mask.context.slice();
-            updater(context);
-            props.updateMask((mask) => (mask.context = context));
-          }}
-        />
+        {props.contextEditor}
       </section>
 
       <List>
@@ -230,10 +224,10 @@ export function MaskConfig(props: {
   );
 }
 
-function ContextPromptItem(props: {
+function ContextPromptItem<T extends Conversation.SerializedMessage>(props: {
   index: number;
-  prompt: Conversation.MessageData;
-  update: (prompt: Conversation.MessageData) => void;
+  prompt: T;
+  update: (prompt: T) => void;
   remove: () => void;
 }) {
   const [focusingInput, setFocusingInput] = useState(false);
@@ -294,13 +288,14 @@ function ContextPromptItem(props: {
   );
 }
 
-export function ContextPrompts(props: {
-  context: Conversation.MessageData[];
-  updateContext: (updater: (context: Conversation.MessageData[]) => void) => void;
+export function ContextPrompts<T extends Conversation.SerializedMessage>(props: {
+  context: T[];
+  updateContext: (updater: (context: T[]) => void) => void;
+  createPrompt: (input: Conversation.MessageInput & { date: string }) => T;
 }) {
   const context = props.context;
 
-  const addContextPrompt = (prompt: Conversation.MessageData, i: number) => {
+  const addContextPrompt = (prompt: T, i: number) => {
     props.updateContext((context) => context.splice(i, 0, prompt));
   };
 
@@ -308,7 +303,7 @@ export function ContextPrompts(props: {
     props.updateContext((context) => context.splice(i, 1));
   };
 
-  const updateContextPrompt = (i: number, prompt: Conversation.MessageData) => {
+  const updateContextPrompt = (i: number, prompt: T) => {
     props.updateContext((context) => {
       const images = getMessageImages(context[i].content);
       context[i] = prompt;
@@ -358,7 +353,7 @@ export function ContextPrompts(props: {
                           className={chatStyle["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
-                              Conversation.createMessageData({
+                              props.createPrompt({
                                 role: "user",
                                 content: "",
                                 date: new Date().toLocaleString(),
@@ -388,7 +383,7 @@ export function ContextPrompts(props: {
               className={chatStyle["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
-                  Conversation.createMessageData({
+                  props.createPrompt({
                     role: "user",
                     content: "",
                     date: "",
@@ -619,6 +614,19 @@ export function MaskPage() {
             <MaskConfig
               mask={editingMask}
               updateMask={(updater) => maskStore.updateMask(editingMaskId!, updater)}
+              contextEditor={
+                <ContextPrompts
+                  context={editingMask.context}
+                  createPrompt={Conversation.createSerializedMessage}
+                  updateContext={(updater) =>
+                    maskStore.updateMask(editingMaskId!, (mask) => {
+                      const context = mask.context.slice();
+                      updater(context);
+                      mask.context = context;
+                    })
+                  }
+                />
+              }
               readonly={editingMask.builtin}
             />
           </Modal>

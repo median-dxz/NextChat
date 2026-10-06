@@ -1,5 +1,5 @@
 import { useAccessStore, useAppConfig, useChatStore } from "../store";
-import { restoreChatSession } from "../store/chat";
+import { restoreChatSession, serializeChatState } from "../store/chat";
 import { useMaskStore } from "../store/mask";
 import { usePromptStore } from "../store/prompt";
 import { StoreKey } from "../constant";
@@ -72,8 +72,7 @@ const MergeStates: StateMerger = {
       }
     };
 
-    remoteState.sessions.forEach((session) => {
-      const remoteSession = restoreChatSession(session);
+    remoteState.sessions.forEach((remoteSession) => {
       if (remoteSession.messages.length === 0) return;
 
       const position = positions.get(remoteSession.id);
@@ -127,6 +126,23 @@ export function getLocalAppState() {
   ) as AppState;
 
   return appState;
+}
+
+export function serializeAppState(state: AppState): string {
+  return JSON.stringify({ ...state, [StoreKey.Chat]: serializeChatState(state[StoreKey.Chat]) });
+}
+
+export function deserializeAppState(json: string): AppState {
+  const data = JSON.parse(json) as Omit<AppState, StoreKey.Chat> & {
+    [StoreKey.Chat]: ReturnType<typeof serializeChatState>;
+  };
+  return {
+    ...data,
+    [StoreKey.Chat]: {
+      ...data[StoreKey.Chat],
+      sessions: data[StoreKey.Chat].sessions.map(restoreChatSession),
+    },
+  };
 }
 
 export function setLocalAppState(appState: AppState) {

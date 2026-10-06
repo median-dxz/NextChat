@@ -95,9 +95,9 @@ import { useAllModels } from "../../utils/hooks";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../../utils/ms_edge_tts";
 import { Avatar } from "../emoji";
 import { ExportMessageModal } from "../exporter";
-import { MaskAvatar, MaskConfig } from "../mask";
+import { ContextPrompts, MaskAvatar, MaskConfig } from "../mask";
 import { ReasoningDisclosure } from "../reasoning";
-import { Modal, Select, Selector, showConfirm, showPrompt, showToast } from "../ui-lib";
+import { Modal, Select, Selector, showConfirm, showToast } from "../ui-lib";
 
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import clsx from "clsx";
@@ -171,7 +171,10 @@ export function SessionConfigModel(props: { onClose: () => void }) {
             onClick={() => {
               navigate(Path.Masks);
               setTimeout(() => {
-                maskStore.create(session.mask);
+                maskStore.create({
+                  ...session.mask,
+                  context: session.pinnedInputs.map(Conversation.serializeMessage),
+                });
               }, 500);
             }}
           />,
@@ -179,6 +182,17 @@ export function SessionConfigModel(props: { onClose: () => void }) {
       >
         <MaskConfig
           mask={session.mask}
+          contextEditor={
+            <ContextPrompts
+              context={session.pinnedInputs}
+              createPrompt={Conversation.createMessage}
+              updateContext={(updater) =>
+                chatStore.updateSession(session.id, (draft) => {
+                  updater(draft.pinnedInputs);
+                })
+              }
+            />
+          }
           updateMask={(updater) => {
             const mask = { ...session.mask };
             updater(mask);
@@ -1560,9 +1574,7 @@ function ChatView() {
     }
   }
 
-  const context: RenderMessage[] = session.mask.hideContext
-    ? []
-    : session.mask.context.map(Conversation.createMessage);
+  const context: RenderMessage[] = session.mask.hideContext ? [] : session.pinnedInputs.slice();
 
   if (context.length === 0 && session.messages.at(0)?.content !== BOT_HELLO.content) {
     const copiedHello = Object.assign({}, BOT_HELLO);
@@ -1956,22 +1968,6 @@ function ChatView() {
                     const renderActions = showActions && actionMessageId === message.id;
                     const showTyping = message.preview || message.streaming;
                     const isCursorNode = storedNode?.id === session.activeCursorId;
-                    const editMessage = async () => {
-                      if (storedNode) {
-                        setViewingNodeId(storedNode.id);
-                        return;
-                      }
-                      const newMessage = await showPrompt(
-                        Locale.Chat.Actions.Edit,
-                        messageText,
-                        10,
-                      );
-                      const newContent = Conversation.replaceText(message.content, newMessage);
-                      chatStore.updateSession(session.id, (draft) => {
-                        const item = draft.mask.context.find((item) => item.id === message.id);
-                        if (item) item.content = newContent;
-                      });
-                    };
 
                     return (
                       <React.Fragment key={message.id}>
@@ -2003,12 +1999,12 @@ function ChatView() {
                           <div className={styles["chat-message-container"]}>
                             <div className={styles["chat-message-header"]}>
                               <div className={styles["chat-message-avatar"]}>
-                                {!message.streaming && (
+                                {storedNode && !message.streaming && (
                                   <div className={styles["chat-message-edit"]}>
                                     <IconButton
                                       icon={<EditIcon />}
                                       aria={Locale.Chat.Actions.Edit}
-                                      onClick={editMessage}
+                                      onClick={() => setViewingNodeId(storedNode.id)}
                                     />
                                   </div>
                                 )}
