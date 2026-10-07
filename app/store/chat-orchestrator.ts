@@ -493,8 +493,20 @@ export function createChatOrchestrator(
         },
       });
 
+      const toChatRunResult = (result: ProviderRunResult): ChatRunResult => ({
+        sessionId: command.sessionId,
+        userNodeId: committedUser.id,
+        assistantNodeId: committedAssistant.id,
+        ...(result.status === "failed"
+          ? { status: result.status, error: result.error }
+          : { status: result.status }),
+      });
+
       const completion = providerRun.completion.then((providerResult) => {
-        useChatControllerStore.getState().remove(committedAssistant.id);
+        // A replacement owns this node even if the old Provider already settled.
+        if (!release()) {
+          return toChatRunResult({ status: "cancelled" });
+        }
         finishReasoningTiming();
         if (providerResult.status === "completed") {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
@@ -511,23 +523,13 @@ export function createChatOrchestrator(
           } catch (error) {
             console.error("[Chat Completion Effects]", error);
           }
-          return {
-            status: "completed" as const,
-            sessionId: command.sessionId,
-            userNodeId: committedUser.id,
-            assistantNodeId: committedAssistant.id,
-          };
+          return toChatRunResult(providerResult);
         }
         if (providerResult.status === "cancelled") {
           updateNode(command.sessionId, committedAssistant.id, (node) => {
             node.streaming = false;
           });
-          return {
-            status: "cancelled" as const,
-            sessionId: command.sessionId,
-            userNodeId: committedUser.id,
-            assistantNodeId: committedAssistant.id,
-          };
+          return toChatRunResult(providerResult);
         }
 
         updateNode(command.sessionId, committedAssistant.id, (node) => {
@@ -540,13 +542,7 @@ export function createChatOrchestrator(
           node.streaming = false;
           node.isError = true;
         });
-        return {
-          status: "failed" as const,
-          sessionId: command.sessionId,
-          userNodeId: committedUser.id,
-          assistantNodeId: committedAssistant.id,
-          error: providerResult.error,
-        };
+        return toChatRunResult(providerResult);
       });
 
       const handle: ChatRunHandle = {
@@ -556,10 +552,12 @@ export function createChatOrchestrator(
         cancel: () => providerRun.cancel(),
         completion,
       };
-      useChatControllerStore.getState().register(committedAssistant.id, async () => {
-        handle.cancel();
-        await handle.completion;
-      });
+      const release = useChatControllerStore
+        .getState()
+        .register(committedAssistant.id, async () => {
+          handle.cancel();
+          await handle.completion;
+        });
       return handle;
     },
   };
