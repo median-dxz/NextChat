@@ -39,7 +39,8 @@
 
   --theme-color: var(--gray);
 
-  div:not(.no-dark) > svg {
+  div:not(.no-dark) > svg,
+  button:not(.no-dark) > svg {
     filter: invert(0.5);
   }
 }
