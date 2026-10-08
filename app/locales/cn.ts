@@ -52,8 +52,8 @@ const cn: PartialLocaleType = {
       Copy: "复制",
       Stop: "停止",
       Retry: "重试",
-      PinToastContent: "已将 1 条对话固定至预设提示词",
-      PinToastAction: "查看",
+      SaveToPinnedToastContent: "已保存到固定上下文",
+      SaveToPinnedToastAction: "查看",
       Delete: "删除",
       Edit: "编辑",
       FullScreen: "全屏",
@@ -97,7 +97,7 @@ const cn: PartialLocaleType = {
       NewBranch: "新建子分支",
       BranchTitle: "选择活动分支",
       GenerateSummary: "生成节点摘要",
-      Pin: "固定到预设提示词",
+      SaveToPinned: "保存到固定上下文",
       TemporaryMemoryModel: "本次更新模型",
       UseConfiguredMemoryModel: "使用设置中的历史记忆模型",
       GlobalMemory: "全局记忆",
@@ -122,7 +122,7 @@ const cn: PartialLocaleType = {
     Config: {
       SaveAs: "存为面具",
     },
-    IsContext: "预设提示词",
+    IsContext: "固定上下文",
     ShortcutKey: {
       Title: "键盘快捷方式",
       newChat: "打开新聊天",
@@ -682,9 +682,10 @@ const cn: PartialLocaleType = {
     Failed: "下载失败。",
   },
   Context: {
-    Toast: (x: any) => `包含 ${x} 条预设提示词`,
+    PinnedTitle: "固定上下文",
+    Toast: (x: any) => `固定上下文：${x} 条消息`,
     Edit: "当前对话设置",
-    Add: "新增一条对话",
+    Add: "新增一条消息",
     PresetTitle: "预设对话",
   },
   Discovery: {
@@ -772,8 +773,8 @@ const cn: PartialLocaleType = {
         Confirm: "当前对话的自定义设置将会被自动覆盖，确认启用全局设置？",
       },
       HideContext: {
-        Title: "隐藏预设对话",
-        SubTitle: "隐藏后预设对话不会出现在聊天界面",
+        Title: "隐藏固定上下文",
+        SubTitle: "在聊天界面隐藏固定上下文",
       },
       Artifacts: {
         Title: "启用Artifacts",

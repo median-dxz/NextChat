@@ -188,9 +188,9 @@ export function NodeViewerModal(props: {
           <div className={styles["node-viewer-secondary-action"]}>
             <IconButton
               bordered
-              text={Locale.Chat.Graph.Pin}
+              text={Locale.Chat.Graph.SaveToPinned}
               icon={<PinIcon />}
-              onClick={() => props.onPin(node)}
+              onClick={() => props.onPin(draftNode)}
             />
           </div>
           {draftNode.role === "assistant" && (

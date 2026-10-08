@@ -45,8 +45,8 @@ const de: PartialLocaleType = {
       Copy: "Kopieren",
       Stop: "Stoppen",
       Retry: "Erneut versuchen",
-      PinToastContent: "1 Gespräch an den voreingestellten Prompt angeheftet",
-      PinToastAction: "Ansehen",
+      SaveToPinnedToastContent: "Im angehefteten Kontext gespeichert",
+      SaveToPinnedToastAction: "Ansehen",
       Delete: "Löschen",
       Edit: "Bearbeiten",
       RefreshTitle: "Titel aktualisieren",
@@ -84,7 +84,8 @@ const de: PartialLocaleType = {
     Config: {
       SaveAs: "Als Maske speichern",
     },
-    IsContext: "Voreingestellter Prompt",
+    Graph: { SaveToPinned: "Im angehefteten Kontext speichern" },
+    IsContext: "Angehefteter Kontext",
   },
   Export: {
     Title: "Chatverlauf teilen",
@@ -471,9 +472,10 @@ const de: PartialLocaleType = {
     Failed: "Download fehlgeschlagen.",
   },
   Context: {
-    Toast: (x: any) => `Beinhaltet ${x} vordefinierte Eingabeaufforderungen`,
+    PinnedTitle: "Angehefteter Kontext",
+    Toast: (x: any) => `Angehefteter Kontext: ${x} Nachrichten`,
     Edit: "Aktuelle Gesprächseinstellungen",
-    Add: "Neues Gespräch hinzufügen",
+    Add: "Nachricht hinzufügen",
   },
   Plugin: {
     Name: "Plugins",
@@ -524,8 +526,8 @@ const de: PartialLocaleType = {
           "Die benutzerdefinierten Einstellungen des aktuellen Gesprächs werden automatisch überschrieben. Bestätigen Sie, dass Sie die globalen Einstellungen aktivieren möchten?",
       },
       HideContext: {
-        Title: "Vordefinierte Gespräche ausblenden",
-        SubTitle: "Nach dem Ausblenden werden vordefinierte Gespräche nicht mehr im Chat angezeigt",
+        Title: "Angehefteten Kontext ausblenden",
+        SubTitle: "Angehefteten Kontext im Chat ausblenden",
       },
       Share: {
         Title: "Diese Maske teilen",

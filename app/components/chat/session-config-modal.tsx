@@ -40,6 +40,7 @@ export function SessionConfigModel(props: { onClose: () => void }) {
       >
         <MaskConfig
           mask={session.mask}
+          contextTitle={Locale.Context.PinnedTitle}
           contextEditor={
             <ContextPrompts
               context={session.pinnedInputs}

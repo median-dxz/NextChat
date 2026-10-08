@@ -45,8 +45,8 @@ const no: PartialLocaleType = {
       Copy: "Kopier",
       Stop: "Stopp",
       Retry: "Prøv igjen",
-      PinToastContent: "1 samtale er festet til forhåndsdefinerte oppfordringer",
-      PinToastAction: "Se",
+      SaveToPinnedToastContent: "Lagra i festa kontekst",
+      SaveToPinnedToastAction: "Se",
       Delete: "Slett",
       Edit: "Rediger",
       RefreshTitle: "Oppdater tittel",
@@ -84,7 +84,8 @@ const no: PartialLocaleType = {
     Config: {
       SaveAs: "Lagre som maske",
     },
-    IsContext: "Forhåndsdefinerte oppfordringer",
+    Graph: { SaveToPinned: "Lagre i festa kontekst" },
+    IsContext: "Festa kontekst",
   },
   Export: {
     Title: "Del samtalehistorikk",
@@ -465,9 +466,10 @@ const no: PartialLocaleType = {
     Failed: "Nedlasting mislyktes.",
   },
   Context: {
-    Toast: (x: any) => `Inneholder ${x} forhåndsinnstilte oppfordringer`,
+    PinnedTitle: "Festa kontekst",
+    Toast: (x: any) => `Festa kontekst: ${x} meldingar`,
     Edit: "Nåværende samtaleinnstillinger",
-    Add: "Legg til en ny samtale",
+    Add: "Legg til ei melding",
   },
   Plugin: {
     Name: "Plugin",
@@ -518,8 +520,8 @@ const no: PartialLocaleType = {
           "De tilpassede innstillingene for den nåværende samtalen vil bli overskrevet automatisk. Bekreft at du vil bruke globale innstillinger?",
       },
       HideContext: {
-        Title: "Skjul forhåndsdefinerte samtaler",
-        SubTitle: "Når skjult, vil forhåndsdefinerte samtaler ikke vises i chat-grensesnittet",
+        Title: "Skjul festa kontekst",
+        SubTitle: "Ikkje vis festa kontekst i chatten",
       },
       Share: {
         Title: "Del denne masken",

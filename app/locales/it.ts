@@ -45,8 +45,8 @@ const it: PartialLocaleType = {
       Copy: "Copia",
       Stop: "Interrompi",
       Retry: "Riprova",
-      PinToastContent: "1 conversazione fissata ai suggerimenti predefiniti",
-      PinToastAction: "Visualizza",
+      SaveToPinnedToastContent: "Salvato nel contesto fissato",
+      SaveToPinnedToastAction: "Visualizza",
       Delete: "Elimina",
       Edit: "Modifica",
       RefreshTitle: "Aggiorna titolo",
@@ -84,7 +84,8 @@ const it: PartialLocaleType = {
     Config: {
       SaveAs: "Salva come maschera",
     },
-    IsContext: "Suggerimenti predefiniti",
+    Graph: { SaveToPinned: "Salva nel contesto fissato" },
+    IsContext: "Contesto fissato",
   },
   Export: {
     Title: "Condividi cronologia chat",
@@ -471,9 +472,10 @@ const it: PartialLocaleType = {
     Failed: "Download fallito.",
   },
   Context: {
-    Toast: (x: any) => `Include ${x} suggerimenti predefiniti`,
+    PinnedTitle: "Contesto fissato",
+    Toast: (x: any) => `Contesto fissato: ${x} messaggi`,
     Edit: "Impostazioni della conversazione attuale",
-    Add: "Aggiungi una conversazione",
+    Add: "Aggiungi un messaggio",
   },
   Plugin: {
     Name: "Plugin",
@@ -524,9 +526,8 @@ const it: PartialLocaleType = {
           "Le impostazioni personalizzate della conversazione attuale verranno sovrascritte automaticamente, confermi l'attivazione delle impostazioni globali?",
       },
       HideContext: {
-        Title: "Nascondi conversazioni predefinite",
-        SubTitle:
-          "Le conversazioni predefinite non appariranno nella finestra della chat dopo averle nascoste",
+        Title: "Nascondi il contesto fissato",
+        SubTitle: "Non mostrare il contesto fissato nella chat",
       },
       Share: {
         Title: "Condividi questa maschera",

@@ -45,8 +45,8 @@ const vi: PartialLocaleType = {
       Copy: "Sao chép",
       Stop: "Dừng lại",
       Retry: "Thử lại",
-      PinToastContent: "Đã ghim 1 cuộc trò chuyện vào lời nhắc đã đặt sẵn",
-      PinToastAction: "Xem",
+      SaveToPinnedToastContent: "Đã lưu vào ngữ cảnh được ghim",
+      SaveToPinnedToastAction: "Xem",
       Delete: "Xóa",
       Edit: "Chỉnh sửa",
       RefreshTitle: "Làm mới tiêu đề",
@@ -84,7 +84,8 @@ const vi: PartialLocaleType = {
     Config: {
       SaveAs: "Lưu dưới dạng mặt nạ",
     },
-    IsContext: "Lời nhắc đã đặt sẵn",
+    Graph: { SaveToPinned: "Lưu vào ngữ cảnh được ghim" },
+    IsContext: "Ngữ cảnh được ghim",
   },
   Export: {
     Title: "Chia sẻ ghi chép trò chuyện",
@@ -465,9 +466,10 @@ const vi: PartialLocaleType = {
     Failed: "Tải xuống thất bại.",
   },
   Context: {
-    Toast: (x: any) => `Bao gồm ${x} lệnh gợi ý đã định sẵn`,
+    PinnedTitle: "Ngữ cảnh được ghim",
+    Toast: (x: any) => `Ngữ cảnh được ghim: ${x} tin nhắn`,
     Edit: "Cài đặt cuộc trò chuyện hiện tại",
-    Add: "Thêm một cuộc trò chuyện",
+    Add: "Thêm tin nhắn",
   },
   Plugin: {
     Name: "Plugin",
@@ -517,9 +519,8 @@ const vi: PartialLocaleType = {
           "Cài đặt tùy chỉnh của cuộc trò chuyện hiện tại sẽ bị ghi đè tự động, xác nhận bật cài đặt toàn cục?",
       },
       HideContext: {
-        Title: "Ẩn cuộc trò chuyện đã định sẵn",
-        SubTitle:
-          "Sau khi ẩn, cuộc trò chuyện đã định sẵn sẽ không xuất hiện trong giao diện trò chuyện",
+        Title: "Ẩn ngữ cảnh được ghim",
+        SubTitle: "Không hiển thị ngữ cảnh được ghim trong cuộc trò chuyện",
       },
       Share: {
         Title: "Chia sẻ mặt nạ này",

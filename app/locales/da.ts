@@ -43,8 +43,8 @@ const da: PartialLocaleType = {
       Copy: "Kopiér",
       Stop: "Stop",
       Retry: "Prøv igen",
-      PinToastContent: "1 besked er nu fastgjort",
-      PinToastAction: "Se",
+      SaveToPinnedToastContent: "Gemt i fastgjort kontekst",
+      SaveToPinnedToastAction: "Se",
       Delete: "Slet",
       Edit: "Rediger",
       FullScreen: "Fuld skærm",
@@ -86,7 +86,8 @@ const da: PartialLocaleType = {
     Config: {
       SaveAs: "Gem som persona",
     },
-    IsContext: "Ekstra prompt til baggrund",
+    Graph: { SaveToPinned: "Gem i fastgjort kontekst" },
+    IsContext: "Fastgjort kontekst",
     ShortcutKey: {
       Title: "Hurtigtaster",
       newChat: "Åbn ny chat",
@@ -604,9 +605,10 @@ const da: PartialLocaleType = {
     Failed: "Download fejlede.",
   },
   Context: {
-    Toast: (x: any) => `Inkluderer ${x} ekstra prompts`,
+    PinnedTitle: "Fastgjort kontekst",
+    Toast: (x: any) => `Fastgjort kontekst: ${x} beskeder`,
     Edit: "Chatindstillinger",
-    Add: "Tilføj prompt",
+    Add: "Tilføj en besked",
   },
   Discovery: {
     Name: "Søgning og plugins",
@@ -692,8 +694,8 @@ const da: PartialLocaleType = {
         Confirm: "Erstat nuværende indstillinger med globale?",
       },
       HideContext: {
-        Title: "Skjul ekstra prompts",
-        SubTitle: "Vis dem ikke på chat-skærmen",
+        Title: "Skjul fastgjort kontekst",
+        SubTitle: "Vis ikke fastgjort kontekst i chatten",
       },
       Artifacts: {
         Title: "Brug Artefakter",

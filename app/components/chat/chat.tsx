@@ -452,8 +452,8 @@ function ChatView() {
       } as Conversation.Message);
     });
 
-    showToast(Locale.Chat.Actions.PinToastContent, {
-      text: Locale.Chat.Actions.PinToastAction,
+    showToast(Locale.Chat.Actions.SaveToPinnedToastContent, {
+      text: Locale.Chat.Actions.SaveToPinnedToastAction,
       onClick: () => {
         setShowPromptModal(true);
       },

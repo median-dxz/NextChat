@@ -45,8 +45,8 @@ const ko: PartialLocaleType = {
       Copy: "복사",
       Stop: "정지",
       Retry: "다시 시도",
-      PinToastContent: "1 개의 대화를 프롬프트에 고정했습니다.",
-      PinToastAction: "보기",
+      SaveToPinnedToastContent: "고정 컨텍스트에 저장되었습니다",
+      SaveToPinnedToastAction: "보기",
       Delete: "삭제",
       Edit: "편집",
       FullScreen: "전체 화면",
@@ -88,7 +88,8 @@ const ko: PartialLocaleType = {
     Config: {
       SaveAs: "마스크로 저장",
     },
-    IsContext: "프롬프트 설정",
+    Graph: { SaveToPinned: "고정 컨텍스트에 저장" },
+    IsContext: "고정 컨텍스트",
     ShortcutKey: {
       Title: "키보드 단축키",
       newChat: "새 채팅 열기",
@@ -632,9 +633,10 @@ const ko: PartialLocaleType = {
     Failed: "다운로드 실패.",
   },
   Context: {
-    Toast: (x: any) => ` ${x} 개의 프리셋 프롬프트 포함됨`,
+    PinnedTitle: "고정 컨텍스트",
+    Toast: (x: any) => `고정 컨텍스트: 메시지 ${x}개`,
     Edit: "현재 대화 설정",
-    Add: "대화 추가",
+    Add: "메시지 추가",
   },
   Discovery: {
     Name: "디스커버리",
@@ -722,8 +724,8 @@ const ko: PartialLocaleType = {
           "현재 대화의 사용자 정의 설정이 자동으로 덮어쓰여질 것입니다. 전역 설정을 활성화하시겠습니까?",
       },
       HideContext: {
-        Title: "프리셋 대화 숨기기",
-        SubTitle: "숨기면 프리셋 대화가 채팅 화면에 나타나지 않습니다.",
+        Title: "고정 컨텍스트 숨기기",
+        SubTitle: "채팅 화면에 고정 컨텍스트를 표시하지 않음",
       },
       Share: {
         Title: "이 마스크 공유하기",

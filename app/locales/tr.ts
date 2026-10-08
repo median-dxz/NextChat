@@ -45,8 +45,8 @@ const tr: PartialLocaleType = {
       Copy: "Kopyala",
       Stop: "Durdur",
       Retry: "Yeniden dene",
-      PinToastContent: "1 konuşma varsayılan ifadeye sabitlendi",
-      PinToastAction: "Görünüm",
+      SaveToPinnedToastContent: "Sabitlenmiş bağlama kaydedildi",
+      SaveToPinnedToastAction: "Görünüm",
       Delete: "Sil",
       Edit: "Düzenle",
       RefreshTitle: "Başlığı Yenile",
@@ -84,7 +84,8 @@ const tr: PartialLocaleType = {
     Config: {
       SaveAs: "Maske olarak kaydet",
     },
-    IsContext: "Varsayılan ifade",
+    Graph: { SaveToPinned: "Sabitlenmiş bağlama kaydet" },
+    IsContext: "Sabitlenmiş bağlam",
   },
   Export: {
     Title: "Sohbet kayıtlarını paylaş",
@@ -468,9 +469,10 @@ const tr: PartialLocaleType = {
     Failed: "İndirme başarısız.",
   },
   Context: {
-    Toast: (x: any) => `${x} tane önceden tanımlı ipucu içeriyor`,
+    PinnedTitle: "Sabitlenmiş bağlam",
+    Toast: (x: any) => `Sabitlenmiş bağlam: ${x} mesaj`,
     Edit: "Mevcut sohbet ayarları",
-    Add: "Yeni bir sohbet ekle",
+    Add: "Mesaj ekle",
   },
   Plugin: {
     Name: "Eklenti",
@@ -521,8 +523,8 @@ const tr: PartialLocaleType = {
           "Mevcut sohbetin özelleştirilmiş ayarları otomatik olarak üzerine yazılacaktır, küresel ayarları etkinleştirmek istediğinizden emin misiniz?",
       },
       HideContext: {
-        Title: "Önceden Tanımlı Sohbetleri Gizle",
-        SubTitle: "Gizlendiğinde, önceden tanımlı sohbetler sohbet ekranında görünmeyecek",
+        Title: "Sabitlenmiş bağlamı gizle",
+        SubTitle: "Sabitlenmiş bağlamı sohbette gösterme",
       },
       Share: {
         Title: "Bu Maskeyi Paylaş",

@@ -56,6 +56,7 @@ export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
   contextEditor: ReactNode;
+  contextTitle: string;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {
@@ -84,7 +85,7 @@ export function MaskConfig(props: {
     <>
       <section aria-labelledby="preset-context-title">
         <h3 id="preset-context-title" className={chatStyle["section-title"]}>
-          {Locale.Context.PresetTitle}
+          {props.contextTitle}
         </h3>
         {props.contextEditor}
       </section>
@@ -613,6 +614,7 @@ export function MaskPage() {
           >
             <MaskConfig
               mask={editingMask}
+              contextTitle={Locale.Context.PresetTitle}
               updateMask={(updater) => maskStore.updateMask(editingMaskId!, updater)}
               contextEditor={
                 <ContextPrompts

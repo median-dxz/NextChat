@@ -45,8 +45,8 @@ const tw: PartialLocaleType = {
       Copy: "複製",
       Stop: "停止",
       Retry: "重試",
-      PinToastContent: "已將 1 條對話固定至預設提示詞",
-      PinToastAction: "檢視",
+      SaveToPinnedToastContent: "已儲存到固定上下文",
+      SaveToPinnedToastAction: "檢視",
       Delete: "刪除",
       Edit: "編輯",
       RefreshTitle: "重新整理標題",
@@ -84,7 +84,8 @@ const tw: PartialLocaleType = {
     Config: {
       SaveAs: "另存新檔",
     },
-    IsContext: "預設提示詞",
+    Graph: { SaveToPinned: "儲存到固定上下文" },
+    IsContext: "固定上下文",
     ShortcutKey: {
       Title: "鍵盤快捷方式",
       newChat: "開啟新聊天",
@@ -428,9 +429,10 @@ const tw: PartialLocaleType = {
     Failed: "下載失敗。",
   },
   Context: {
-    Toast: (x: any) => `已設定 ${x} 條前置上下文`,
+    PinnedTitle: "固定上下文",
+    Toast: (x: any) => `固定上下文：${x} 則訊息`,
     Edit: "前置上下文和歷史記憶",
-    Add: "新增一則",
+    Add: "新增一則訊息",
   },
   Plugin: { Name: "外掛" },
   FineTuned: { Sysmessage: "你是一個助手" },
@@ -464,8 +466,8 @@ const tw: PartialLocaleType = {
         Confirm: "目前對話的自訂設定將會被自動覆蓋，確認啟用全域設定？",
       },
       HideContext: {
-        Title: "隱藏預設對話",
-        SubTitle: "隱藏後預設對話不會出現在聊天介面",
+        Title: "隱藏固定上下文",
+        SubTitle: "在聊天介面隱藏固定上下文",
       },
       Share: {
         Title: "分享此角色範本",

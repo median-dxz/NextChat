@@ -45,8 +45,8 @@ const id: PartialLocaleType = {
       Copy: "Salin",
       Stop: "Berhenti",
       Retry: "Coba lagi",
-      PinToastContent: "1 percakapan telah disematkan ke prompt default",
-      PinToastAction: "Lihat",
+      SaveToPinnedToastContent: "Disimpan ke konteks tersemat",
+      SaveToPinnedToastAction: "Lihat",
       Delete: "Hapus",
       Edit: "Edit",
       RefreshTitle: "Segarkan Judul",
@@ -84,7 +84,8 @@ const id: PartialLocaleType = {
     Config: {
       SaveAs: "Simpan sebagai Masker",
     },
-    IsContext: "Prompt Default",
+    Graph: { SaveToPinned: "Simpan ke konteks tersemat" },
+    IsContext: "Konteks tersemat",
   },
   Export: {
     Title: "Bagikan Riwayat Obrolan",
@@ -466,9 +467,10 @@ const id: PartialLocaleType = {
     Failed: "Unduhan gagal.",
   },
   Context: {
-    Toast: (x: any) => `Berisi ${x} prompt preset`,
+    PinnedTitle: "Konteks tersemat",
+    Toast: (x: any) => `Konteks tersemat: ${x} pesan`,
     Edit: "Pengaturan Obrolan Saat Ini",
-    Add: "Tambah Obrolan",
+    Add: "Tambah pesan",
   },
   Plugin: {
     Name: "Plugin",
@@ -518,8 +520,8 @@ const id: PartialLocaleType = {
           "Pengaturan kustom obrolan saat ini akan ditimpa secara otomatis, konfirmasi untuk mengaktifkan pengaturan global?",
       },
       HideContext: {
-        Title: "Sembunyikan Obrolan Preset",
-        SubTitle: "Setelah disembunyikan, obrolan preset tidak akan muncul di antarmuka obrolan",
+        Title: "Sembunyikan konteks tersemat",
+        SubTitle: "Jangan tampilkan konteks tersemat di obrolan",
       },
       Share: {
         Title: "Bagikan Masker Ini",
