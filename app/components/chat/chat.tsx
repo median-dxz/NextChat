@@ -3,7 +3,6 @@ import { useDebouncedCallback } from "use-debounce";
 
 import BrainIcon from "../../icons/brain.svg";
 import BranchIcon from "../../icons/branch.svg";
-import CancelIcon from "../../icons/cancel.svg";
 import SettingsIcon from "../../icons/chat-settings.svg";
 import DeleteIcon from "../../icons/clear.svg";
 import CloseIcon from "../../icons/close.svg";
@@ -15,7 +14,6 @@ import LoadingButtonIcon from "../../icons/loading.svg";
 import MaskIcon from "../../icons/mask.svg";
 import MaxIcon from "../../icons/max.svg";
 import MinIcon from "../../icons/min.svg";
-import PinIcon from "../../icons/pin.svg";
 import PromptIcon from "../../icons/prompt.svg";
 import ResetIcon from "../../icons/reload.svg";
 import { default as EditIcon, default as RenameIcon } from "../../icons/rename.svg";
@@ -82,12 +80,10 @@ import { getClientConfig } from "../../config/client";
 import {
   CHAT_PAGE_SIZE,
   DEFAULT_TTS_ENGINE,
-  isServiceProviderName,
   Path,
   ServiceProvider,
   UNFINISHED_INPUT,
 } from "../../constant";
-import { useMaskStore } from "../../store/mask";
 import { useChatControllerStore } from "../../store/chat-controller";
 import { createTTSPlayer } from "../../utils/audio";
 import { prettyObject } from "../../utils/format";
@@ -95,18 +91,22 @@ import { useAllModels } from "../../utils/hooks";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../../utils/ms_edge_tts";
 import { Avatar } from "../emoji";
 import { ExportMessageModal } from "../exporter";
-import { ContextPrompts, MaskAvatar, MaskConfig } from "../mask";
+import { MaskAvatar } from "../mask";
 import { ReasoningDisclosure } from "../reasoning";
-import { Modal, Select, Selector, showConfirm, showToast } from "../ui-lib";
+import { Selector, showConfirm, showToast } from "../ui-lib";
 
 import { getAvailableClientsCount, isMcpEnabled } from "@/app/mcp/actions";
 import clsx from "clsx";
 import { isEmpty } from "lodash-es";
 import { Conversation } from "../../utils/conversation";
 import { getModelProvider } from "../../utils/model";
+import { BranchSelectorModal } from "./branch-selector-modal";
 import { getChatScrollUpdate, useScrollToBottom } from "./chat-scroll";
-import { useSessionEditor } from "./session-editor";
 import { EditMessageModal } from "./edit-message-modal";
+import { GlobalMemoryModal } from "./global-memory-modal";
+import { NodeViewerModal } from "./node-viewer-modal";
+import { SessionConfigModel } from "./session-config-modal";
+import { ShortcutKeyModal } from "./shortcut-key-modal";
 
 const localStorage = safeLocalStorage();
 
@@ -150,62 +150,6 @@ const MCPAction = () => {
     />
   );
 };
-
-export function SessionConfigModel(props: { onClose: () => void }) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const maskStore = useMaskStore();
-  const navigate = useNavigate();
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Context.Edit}
-        onClose={() => props.onClose()}
-        actions={[
-          <IconButton
-            key="copy"
-            icon={<CopyIcon />}
-            bordered
-            text={Locale.Chat.Config.SaveAs}
-            onClick={() => {
-              navigate(Path.Masks);
-              setTimeout(() => {
-                maskStore.create({
-                  ...session.mask,
-                  context: session.pinnedInputs.map(Conversation.serializeMessage),
-                });
-              }, 500);
-            }}
-          />,
-        ]}
-      >
-        <MaskConfig
-          mask={session.mask}
-          contextEditor={
-            <ContextPrompts
-              context={session.pinnedInputs}
-              createPrompt={Conversation.createMessage}
-              updateContext={(updater) =>
-                chatStore.updateSession(session.id, (draft) => {
-                  updater(draft.pinnedInputs);
-                })
-              }
-            />
-          }
-          updateMask={(updater) => {
-            const mask = { ...session.mask };
-            updater(mask);
-            chatStore.updateSession(session.id, (draft) => {
-              draft.mask = mask;
-            });
-          }}
-          shouldSyncFromGlobal
-        />
-      </Modal>
-    </div>
-  );
-}
 
 function PromptToast(props: {
   showToast?: boolean;
@@ -784,465 +728,6 @@ export function DeleteImageButton(props: { deleteImage: () => void }) {
   return (
     <div className={styles["delete-image"]} onClick={props.deleteImage}>
       <DeleteIcon />
-    </div>
-  );
-}
-
-export function NodeViewerModal(props: {
-  nodeId: string;
-  onClose: () => void;
-  onPin: (message: Conversation.Message) => void;
-}) {
-  const {
-    session,
-    draft,
-    levelOptions,
-    dispatch,
-    close,
-    save,
-    generateSummary: requestSummary,
-    generatingKinds,
-  } = useSessionEditor(props.onClose);
-  const node = session?.messages.find((item) => item.id === props.nodeId);
-  const draftNode = draft?.conversation.findNode(props.nodeId)?.value;
-  const [segmentOpen, setSegmentOpen] = useState(() => Boolean(node?.nodeSummaries?.segment));
-  const [checkpointOpen, setCheckpointOpen] = useState(() =>
-    Boolean(node?.nodeSummaries?.checkpoint),
-  );
-  const [editingProperty, setEditingProperty] = useState<"outline-level" | "role">();
-  const hasSegment = Boolean(draftNode?.nodeSummaries?.segment?.content.trim());
-  const hasCheckpoint = Boolean(draftNode?.nodeSummaries?.checkpoint?.content.trim());
-
-  useEffect(() => {
-    if (hasSegment) setSegmentOpen(true);
-  }, [hasSegment]);
-
-  useEffect(() => {
-    if (hasCheckpoint) setCheckpointOpen(true);
-  }, [hasCheckpoint]);
-
-  if (!session || !draft || !node || !draftNode) return null;
-  const generating = generatingKinds.length > 0;
-  const outlineLevelOptions = levelOptions(draftNode.id);
-  const generateSummary = (kind: Conversation.SummaryKind) => requestSummary(draftNode.id, kind);
-  const deleteSummary = (kind: Conversation.SummaryKind) => {
-    dispatch({ type: "user-edit-summary", nodeId: draftNode.id, kind });
-  };
-  const summaryEditors = [
-    {
-      kind: "segment" as const,
-      label: Locale.Chat.Graph.Segment,
-      value: draftNode.nodeSummaries?.segment?.content ?? "",
-      open: segmentOpen,
-      setOpen: setSegmentOpen,
-    },
-    {
-      kind: "checkpoint" as const,
-      label: Locale.Chat.Graph.Checkpoint,
-      value: draftNode.nodeSummaries?.checkpoint?.content ?? "",
-      open: checkpointOpen,
-      setOpen: setCheckpointOpen,
-    },
-  ];
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Chat.Graph.Node}
-        onClose={close}
-        className={styles["node-viewer-dialog"]}
-        contentClassName={styles["node-viewer-dialog-content"]}
-        showMaximize={false}
-        actions={[
-          <IconButton key="cancel" text={Locale.UI.Cancel} icon={<CancelIcon />} onClick={close} />,
-          <IconButton
-            key="save"
-            type="primary"
-            text={Locale.Chat.Graph.Save}
-            icon={<ConfirmIcon />}
-            disabled={generating}
-            onClick={save}
-          />,
-        ]}
-      >
-        <div className={styles["node-viewer"]}>
-          <div className={styles["node-viewer-properties"]}>
-            <div className={styles["node-viewer-level"]}>
-              <span id="node-outline-level-label">{Locale.Chat.Graph.OutlineLevel}</span>
-              {editingProperty === "outline-level" ? (
-                <Select
-                  autoFocus
-                  value={draftNode.outlineLevel}
-                  aria-labelledby="node-outline-level-label"
-                  disabled={generating}
-                  onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) => {
-                    const level = Number(event.currentTarget.value);
-                    const delta = level > draftNode.outlineLevel ? 1 : -1;
-                    dispatch({
-                      type: "shift-node-level",
-                      nodeId: draftNode.id,
-                      delta,
-                    });
-                  }}
-                >
-                  {outlineLevelOptions.map((level) => (
-                    <option key={level} value={level}>
-                      L{level}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <button
-                  type="button"
-                  className={styles["node-viewer-property-tag"]}
-                  aria-label={`${Locale.Chat.Graph.OutlineLevel}: L${draftNode.outlineLevel}`}
-                  disabled={generating || outlineLevelOptions.length === 1}
-                  onClick={() => setEditingProperty("outline-level")}
-                >
-                  L{draftNode.outlineLevel}
-                </button>
-              )}
-            </div>
-            <div className={styles["node-viewer-role"]}>
-              <span id="node-role-label">{Locale.Chat.Graph.Role}</span>
-              {editingProperty === "role" ? (
-                <Select
-                  autoFocus
-                  value={draftNode.role}
-                  aria-labelledby="node-role-label"
-                  disabled={generating}
-                  onBlur={() => setEditingProperty(undefined)}
-                  onChange={(event) => {
-                    const role = event.currentTarget.value as Conversation.Message["role"];
-                    dispatch({ type: "set-node-role", nodeId: draftNode.id, role });
-                  }}
-                >
-                  {Conversation.roles.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <button
-                  type="button"
-                  className={styles["node-viewer-property-tag"]}
-                  aria-label={`${Locale.Chat.Graph.Role}: ${draftNode.role}`}
-                  disabled={generating}
-                  onClick={() => setEditingProperty("role")}
-                >
-                  {draftNode.role}
-                </button>
-              )}
-            </div>
-          </div>
-          <label className={styles["node-viewer-content"]}>
-            <span>{Locale.Chat.Actions.Edit}</span>
-            <textarea
-              rows={5}
-              value={getMessageText(draftNode.content)}
-              disabled={generating}
-              onChange={(event) => {
-                const text = event.target.value;
-                dispatch({ type: "set-node-text", nodeId: draftNode.id, text });
-              }}
-            />
-          </label>
-          <div className={styles["node-viewer-secondary-action"]}>
-            <IconButton
-              bordered
-              text={Locale.Chat.Graph.Pin}
-              icon={<PinIcon />}
-              onClick={() => props.onPin(node)}
-            />
-          </div>
-          {draftNode.role === "assistant" && (
-            <div className={styles["node-summary-editor"]}>
-              {summaryEditors.map((summaryEditor) => (
-                <details
-                  key={summaryEditor.kind}
-                  open={summaryEditor.open}
-                  onToggle={(event) => summaryEditor.setOpen(event.currentTarget.open)}
-                >
-                  <summary>
-                    <span>{summaryEditor.label}</span>
-                    <span>{summaryEditor.value ? `${summaryEditor.value.length}` : "—"}</span>
-                  </summary>
-                  <textarea
-                    rows={4}
-                    value={summaryEditor.value}
-                    disabled={generating}
-                    onChange={(event) => {
-                      const content = event.currentTarget.value;
-                      dispatch({
-                        type: "user-edit-summary",
-                        nodeId: draftNode.id,
-                        kind: summaryEditor.kind,
-                        content,
-                      });
-                    }}
-                  />
-                  <div className={styles["node-summary-actions"]}>
-                    <IconButton
-                      text={Locale.Chat.Graph.GenerateSummary}
-                      icon={
-                        generatingKinds.includes(summaryEditor.kind) ? (
-                          <LoadingButtonIcon />
-                        ) : (
-                          <BrainIcon />
-                        )
-                      }
-                      disabled={generating}
-                      onClick={() => void generateSummary(summaryEditor.kind)}
-                    />
-                    <IconButton
-                      text={Locale.Chat.Actions.Delete}
-                      icon={<DeleteIcon />}
-                      disabled={generating}
-                      onClick={() => deleteSummary(summaryEditor.kind)}
-                    />
-                  </div>
-                </details>
-              ))}
-            </div>
-          )}
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
-function BranchSelectorModal(props: {
-  parentId: string;
-  onClose: () => void;
-  onStartBranch: () => void;
-}) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const parentNode = Conversation(session).findNode(props.parentId);
-  if (!parentNode) return null;
-  const parent = parentNode.value;
-  const branches = parentNode.branches;
-  const select = (branchRootId?: string) => {
-    chatStore.selectConversationBranch(session.id, parent.id, branchRootId);
-    props.onClose();
-  };
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Chat.Graph.BranchTitle}
-        onClose={props.onClose}
-        className={styles["branch-selector-dialog"]}
-        contentClassName={styles["branch-selector-dialog-content"]}
-        showMaximize={false}
-        actions={[
-          <IconButton
-            key="new-branch"
-            type="primary"
-            text={Locale.Chat.Graph.NewBranch}
-            icon={<BranchIcon />}
-            onClick={() => {
-              chatStore.startConversationBranch(session.id, parent.id);
-              props.onStartBranch();
-              props.onClose();
-            }}
-          />,
-        ]}
-      >
-        <div className={styles["branch-selector"]}>
-          <button
-            type="button"
-            aria-pressed={!parent.activeBranchRootId}
-            onClick={() => select(undefined)}
-          >
-            <span className={styles["branch-selector-indicator"]} />
-            <span className={styles["branch-selector-copy"]}>
-              <strong>{Locale.Chat.Graph.NoBranch}</strong>
-            </span>
-          </button>
-          {branches.map((branch) => (
-            <button
-              type="button"
-              key={branch.id}
-              aria-pressed={parent.activeBranchRootId === branch.id}
-              onClick={() => select(branch.id)}
-            >
-              <span className={styles["branch-selector-indicator"]} />
-              <span className={styles["branch-selector-copy"]}>
-                <strong>{getMessageText(branch.content).slice(0, 120) || branch.id}</strong>
-              </span>
-              <span className={styles["branch-selector-level"]}>L{branch.outlineLevel}</span>
-            </button>
-          ))}
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
-function GlobalMemoryModal(props: { onClose: () => void }) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const [enabled, setEnabled] = useState(session.globalMemory.enabled);
-  const [prompt, setPrompt] = useState(session.globalMemory.prompt);
-  const [content, setContent] = useState(session.globalMemory.content);
-  const [updating, setUpdating] = useState(false);
-  const [updateModel, setUpdateModel] = useState("@");
-  const availableModels = useAllModels().filter((model) => model.available);
-
-  const save = () => {
-    chatStore.editGlobalMemory(session.id, { enabled, prompt, content });
-  };
-  const update = async () => {
-    save();
-    setUpdating(true);
-    try {
-      const [model, providerName] = getModelProvider(updateModel);
-      await chatStore.updateGlobalMemory(
-        session.id,
-        prompt,
-        updateModel === "@"
-          ? undefined
-          : {
-              model,
-              providerName:
-                providerName && isServiceProviderName(providerName)
-                  ? providerName
-                  : ServiceProvider.OpenAI,
-            },
-      );
-      setContent(useChatStore.getState().currentSession().globalMemory.content);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Chat.Graph.GlobalMemory}
-        onClose={props.onClose}
-        className={styles["global-memory-dialog"]}
-        contentClassName={styles["global-memory-dialog-content"]}
-        showMaximize={false}
-        actions={[
-          <IconButton
-            key="update"
-            text={Locale.Chat.Graph.UpdateMemory}
-            icon={updating ? <LoadingButtonIcon /> : <BrainIcon />}
-            disabled={updating || !enabled || !prompt.trim()}
-            onClick={() => void update()}
-          />,
-          <IconButton
-            key="save"
-            type="primary"
-            text={Locale.Chat.Graph.SaveMemory}
-            icon={<ConfirmIcon />}
-            onClick={() => {
-              save();
-              props.onClose();
-            }}
-          />,
-        ]}
-      >
-        <div className={styles["global-memory-editor"]}>
-          <label className={styles["global-memory-toggle"]}>
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(event) => setEnabled(event.target.checked)}
-            />
-            <span>{Locale.Chat.Graph.Enabled}</span>
-          </label>
-          <label className={styles["global-memory-field"]}>
-            <span>{Locale.Chat.Graph.Prompt}</span>
-            <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-          </label>
-          <label className={styles["global-memory-field"]}>
-            <span>{Locale.Chat.Graph.Content}</span>
-            <textarea rows={6} value={content} onChange={(e) => setContent(e.target.value)} />
-          </label>
-          <label className={styles["global-memory-model"]}>
-            <span>{Locale.Chat.Graph.TemporaryMemoryModel}</span>
-            <Select
-              value={updateModel}
-              aria-label={Locale.Chat.Graph.TemporaryMemoryModel}
-              onChange={(event) => setUpdateModel(event.currentTarget.value)}
-            >
-              <option value="@">{Locale.Chat.Graph.UseConfiguredMemoryModel}</option>
-              {availableModels.map((model) => (
-                <option
-                  key={`${model.name}@${model.provider?.providerName}`}
-                  value={`${model.name}@${model.provider?.providerName}`}
-                >
-                  {model.displayName} ({model.provider?.providerName})
-                </option>
-              ))}
-            </Select>
-          </label>
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
-export function ShortcutKeyModal(props: { onClose: () => void }) {
-  const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-  const shortcuts = [
-    {
-      title: Locale.Chat.ShortcutKey.newChat,
-      keys: isMac ? ["⌘", "Shift", "O"] : ["Ctrl", "Shift", "O"],
-    },
-    { title: Locale.Chat.ShortcutKey.focusInput, keys: ["Shift", "Esc"] },
-    {
-      title: Locale.Chat.ShortcutKey.copyLastCode,
-      keys: isMac ? ["⌘", "Shift", ";"] : ["Ctrl", "Shift", ";"],
-    },
-    {
-      title: Locale.Chat.ShortcutKey.copyLastMessage,
-      keys: isMac ? ["⌘", "Shift", "C"] : ["Ctrl", "Shift", "C"],
-    },
-    {
-      title: Locale.Chat.ShortcutKey.showShortcutKey,
-      keys: isMac ? ["⌘", "/"] : ["Ctrl", "/"],
-    },
-  ];
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Chat.ShortcutKey.Title}
-        onClose={props.onClose}
-        actions={[
-          <IconButton
-            type="primary"
-            text={Locale.UI.Confirm}
-            icon={<ConfirmIcon />}
-            key="ok"
-            onClick={() => {
-              props.onClose();
-            }}
-          />,
-        ]}
-      >
-        <div className={styles["shortcut-key-container"]}>
-          <div className={styles["shortcut-key-grid"]}>
-            {shortcuts.map((shortcut, index) => (
-              <div key={index} className={styles["shortcut-key-item"]}>
-                <div className={styles["shortcut-key-title"]}>{shortcut.title}</div>
-                <div className={styles["shortcut-key-keys"]}>
-                  {shortcut.keys.map((key, i) => (
-                    <div key={i} className={styles["shortcut-key"]}>
-                      <span>{key}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
