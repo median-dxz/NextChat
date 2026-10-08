@@ -89,7 +89,7 @@ const cn: PartialLocaleType = {
       Node: "节点详情",
       Branch: "选择分支",
       Continue: "设为续写位置",
-      OutlineLevel: "大纲等级",
+      OutlineLevel: "大纲",
       Segment: "片段摘要",
       Checkpoint: "检查点摘要",
       Save: "保存节点",
@@ -108,7 +108,7 @@ const cn: PartialLocaleType = {
       SaveMemory: "保存记忆",
       Insert: "在此处插入",
       Drag: "拖动消息",
-      Role: "消息角色",
+      Role: "角色",
     },
     Typing: "正在输入…",
     Input: (submitKey: string) => {

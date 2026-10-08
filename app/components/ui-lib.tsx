@@ -110,6 +110,7 @@ interface ModalProps {
   className?: string;
   contentClassName?: string;
   showMaximize?: boolean;
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
   footer?: React.ReactNode;
   onClose?: () => void;
 }
@@ -123,6 +124,7 @@ export function Modal(props: ModalProps) {
     if (!dialog) return;
     const trigger = document.activeElement as HTMLElement | null;
     if (!dialog.open) dialog.showModal();
+    props.initialFocusRef?.current?.focus();
     const onCancel = (event: Event) => {
       event.preventDefault();
       props.onClose?.();
@@ -385,75 +387,6 @@ export function showConfirm(content: any) {
         onClose={closeModal}
       >
         {content}
-      </Modal>,
-    );
-  });
-}
-
-function PromptInput(props: { value: string; onChange: (value: string) => void; rows?: number }) {
-  const [input, setInput] = useState(props.value);
-  const onInput = (value: string) => {
-    props.onChange(value);
-    setInput(value);
-  };
-
-  return (
-    <textarea
-      className={styles["modal-input"]}
-      autoFocus
-      value={input}
-      onInput={(e) => onInput(e.currentTarget.value)}
-      rows={props.rows ?? 3}
-    ></textarea>
-  );
-}
-
-export function showPrompt(content: any, value = "", rows = 3) {
-  const div = document.createElement("div");
-  div.className = "modal-mask";
-  document.body.appendChild(div);
-
-  const root = createRoot(div);
-  const closeModal = () => {
-    root.unmount();
-    div.remove();
-  };
-
-  return new Promise<string>((resolve) => {
-    let userInput = value;
-
-    root.render(
-      <Modal
-        title={content}
-        actions={[
-          <IconButton
-            key="cancel"
-            text={Locale.UI.Cancel}
-            onClick={() => {
-              closeModal();
-            }}
-            icon={<CancelIcon />}
-            bordered
-            shadow
-            tabIndex={0}
-          ></IconButton>,
-          <IconButton
-            key="confirm"
-            text={Locale.UI.Confirm}
-            type="primary"
-            onClick={() => {
-              resolve(userInput);
-              closeModal();
-            }}
-            icon={<ConfirmIcon />}
-            bordered
-            shadow
-            tabIndex={0}
-          ></IconButton>,
-        ]}
-        onClose={closeModal}
-      >
-        <PromptInput onChange={(val) => (userInput = val)} value={value} rows={rows}></PromptInput>
       </Modal>,
     );
   });

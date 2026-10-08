@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BrainIcon from "../../icons/brain.svg";
 import CancelIcon from "../../icons/cancel.svg";
 import DeleteIcon from "../../icons/clear.svg";
@@ -30,6 +30,7 @@ export function NodeViewerModal(props: {
   } = useSessionEditor(props.onClose);
   const node = session?.messages.find((item) => item.id === props.nodeId);
   const draftNode = draft?.conversation.findNode(props.nodeId)?.value;
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [segmentOpen, setSegmentOpen] = useState(() => Boolean(node?.nodeSummaries?.segment));
   const [checkpointOpen, setCheckpointOpen] = useState(() =>
     Boolean(node?.nodeSummaries?.checkpoint),
@@ -77,14 +78,23 @@ export function NodeViewerModal(props: {
         onClose={close}
         className={styles["node-viewer-dialog"]}
         contentClassName={styles["node-viewer-dialog-content"]}
-        showMaximize={false}
+        initialFocusRef={contentRef}
         actions={[
-          <IconButton key="cancel" text={Locale.UI.Cancel} icon={<CancelIcon />} onClick={close} />,
+          <IconButton
+            key="cancel"
+            text={Locale.UI.Cancel}
+            icon={<CancelIcon />}
+            bordered
+            shadow
+            onClick={close}
+          />,
           <IconButton
             key="save"
             type="primary"
             text={Locale.Chat.Graph.Save}
             icon={<ConfirmIcon />}
+            bordered
+            shadow
             disabled={generating}
             onClick={save}
           />,
@@ -165,6 +175,7 @@ export function NodeViewerModal(props: {
           <label className={styles["node-viewer-content"]}>
             <span>{Locale.Chat.Actions.Edit}</span>
             <textarea
+              ref={contentRef}
               rows={5}
               value={getMessageText(draftNode.content)}
               disabled={generating}
@@ -192,7 +203,7 @@ export function NodeViewerModal(props: {
                 >
                   <summary>
                     <span>{summaryEditor.label}</span>
-                    <span>{summaryEditor.value ? `${summaryEditor.value.length}` : "—"}</span>
+                    <span aria-hidden="true">{summaryEditor.open ? "−" : "+"}</span>
                   </summary>
                   <textarea
                     rows={4}
