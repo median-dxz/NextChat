@@ -20,6 +20,7 @@ const resolveOutput = (phase) => {
 /** @param {string} phase */
 const createNextConfig = (phase) => ({
   reactCompiler: true,
+  allowedDevOrigins: ["127.0.0.1"],
   env: {
     BUILD_VERSION: tauriConfig.version,
   },
