@@ -10,7 +10,7 @@ import { getMessageText } from "../../utils";
 import { Conversation } from "../../utils/conversation";
 import { IconButton } from "../button";
 import { Modal, Select } from "../ui-lib";
-import styles from "./chat.module.scss";
+import styles from "./node-viewer-modal.module.scss";
 import { useSessionEditor } from "./session-editor";
 
 export function NodeViewerModal(props: {
@@ -80,21 +80,12 @@ export function NodeViewerModal(props: {
         contentClassName={styles["node-viewer-dialog-content"]}
         initialFocusRef={contentRef}
         actions={[
-          <IconButton
-            key="cancel"
-            text={Locale.UI.Cancel}
-            icon={<CancelIcon />}
-            bordered
-            shadow
-            onClick={close}
-          />,
+          <IconButton key="cancel" text={Locale.UI.Cancel} icon={<CancelIcon />} onClick={close} />,
           <IconButton
             key="save"
             type="primary"
             text={Locale.Chat.Graph.Save}
             icon={<ConfirmIcon />}
-            bordered
-            shadow
             disabled={generating}
             onClick={save}
           />,
@@ -187,7 +178,6 @@ export function NodeViewerModal(props: {
           </label>
           <div className={styles["node-viewer-secondary-action"]}>
             <IconButton
-              bordered
               text={Locale.Chat.Graph.SaveToPinned}
               icon={<PinIcon />}
               onClick={() => props.onPin(draftNode)}

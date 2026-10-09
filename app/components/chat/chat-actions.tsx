@@ -26,7 +26,7 @@ import {
 } from "../../utils";
 import Locale from "../../locales";
 import { DalleQuality, DalleStyle, ModelSize } from "../../typing";
-import styles from "./chat.module.scss";
+import styles from "./chat-actions.module.scss";
 import { useNavigate } from "react-router";
 import { Path, ServiceProvider } from "../../constant";
 import { useChatControllerStore } from "../../store/chat-controller";

@@ -11,8 +11,6 @@ export function IconButton(props: {
   icon?: React.ReactElement;
   type?: ButtonType;
   text?: string;
-  bordered?: boolean;
-  shadow?: boolean;
   className?: string;
   title?: string;
   disabled?: boolean;
@@ -26,10 +24,6 @@ export function IconButton(props: {
       className={clsx(
         "clickable",
         styles["icon-button"],
-        {
-          [styles.border]: props.bordered,
-          [styles.shadow]: props.shadow,
-        },
         styles[props.type ?? ""],
         props.className,
       )}

@@ -363,6 +363,10 @@ pre {
   pre {
     overflow: auto;
   }
+
+  button {
+    border-width: 1px;
+  }
 }
 
 .password-input-container {
@@ -400,4 +404,11 @@ pre {
 
 .copyable {
   user-select: text;
+}
+
+.html {
+  > button {
+    border-width: 1px;
+    box-shadow: var(--card-shadow);
+  }
 }

@@ -11,6 +11,10 @@
     .actions {
       display: flex;
 
+      > button {
+        border-width: 1px;
+      }
+
       button:not(:last-child) {
         margin-right: 10px;
       }

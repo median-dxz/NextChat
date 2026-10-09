@@ -30,6 +30,11 @@
     bottom: 20px;
     box-sizing: border-box;
     padding: 0 20px;
+
+    button {
+      border-width: 1px;
+      box-shadow: var(--card-shadow);
+    }
   }
 
   .icon-left,

@@ -29,7 +29,7 @@ import {
   readFromFile,
 } from "../utils";
 import { IconButton } from "./button";
-import chatStyle from "./chat/chat.module.scss";
+import contextStyles from "./context-prompt.module.scss";
 import { Avatar, AvatarPicker } from "./emoji";
 import { ErrorBoundary } from "./error";
 import styles from "./mask.module.scss";
@@ -84,7 +84,7 @@ export function MaskConfig(props: {
   return (
     <>
       <section aria-labelledby="preset-context-title">
-        <h3 id="preset-context-title" className={chatStyle["section-title"]}>
+        <h3 id="preset-context-title" className={contextStyles["section-title"]}>
           {props.contextTitle}
         </h3>
         {props.contextEditor}
@@ -234,15 +234,15 @@ function ContextPromptItem<T extends Conversation.SerializedMessage>(props: {
   const [focusingInput, setFocusingInput] = useState(false);
 
   return (
-    <div className={chatStyle["context-prompt-row"]}>
+    <div className={contextStyles["context-prompt-row"]}>
       {!focusingInput && (
         <>
-          <div className={chatStyle["context-drag"]}>
+          <div className={contextStyles["context-drag"]}>
             <DragIcon />
           </div>
           <Select
             value={props.prompt.role}
-            className={chatStyle["context-role"]}
+            className={contextStyles["context-role"]}
             onChange={(e) =>
               props.update({
                 ...props.prompt,
@@ -261,7 +261,7 @@ function ContextPromptItem<T extends Conversation.SerializedMessage>(props: {
       <Input
         value={getMessageText(props.prompt.content)}
         type="text"
-        className={chatStyle["context-content"]}
+        className={contextStyles["context-content"]}
         rows={focusingInput ? 5 : 1}
         onFocus={() => setFocusingInput(true)}
         onBlur={() => {
@@ -280,9 +280,8 @@ function ContextPromptItem<T extends Conversation.SerializedMessage>(props: {
       {!focusingInput && (
         <IconButton
           icon={<DeleteIcon />}
-          className={chatStyle["context-delete-button"]}
+          className={contextStyles["context-delete-button"]}
           onClick={() => props.remove()}
-          bordered
         />
       )}
     </div>
@@ -331,7 +330,7 @@ export function ContextPrompts<T extends Conversation.SerializedMessage>(props: 
 
   return (
     <>
-      <div className={chatStyle["context-prompt"]} style={{ marginBottom: 20 }}>
+      <div className={contextStyles["context-prompt"]} style={{ marginBottom: 20 }}>
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="context-prompt-list">
             {(provided) => (
@@ -351,7 +350,7 @@ export function ContextPrompts<T extends Conversation.SerializedMessage>(props: 
                           remove={() => removeContextPrompt(i)}
                         />
                         <div
-                          className={chatStyle["context-prompt-insert"]}
+                          className={contextStyles["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
                               props.createPrompt({
@@ -376,12 +375,11 @@ export function ContextPrompts<T extends Conversation.SerializedMessage>(props: 
         </DragDropContext>
 
         {props.context.length === 0 && (
-          <div className={chatStyle["context-prompt-row"]}>
+          <div className={contextStyles["context-prompt-row"]}>
             <IconButton
               icon={<AddIcon />}
               text={Locale.Context.Add}
-              bordered
-              className={chatStyle["context-prompt-button"]}
+              className={contextStyles["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
                   props.createPrompt({
@@ -466,23 +464,17 @@ export function MaskPage() {
 
           <div className="window-actions">
             <div className="window-action-button">
-              <IconButton
-                icon={<DownloadIcon />}
-                bordered
-                onClick={downloadAll}
-                text={Locale.UI.Export}
-              />
+              <IconButton icon={<DownloadIcon />} onClick={downloadAll} text={Locale.UI.Export} />
             </div>
             <div className="window-action-button">
               <IconButton
                 icon={<UploadIcon />}
                 text={Locale.UI.Import}
-                bordered
                 onClick={() => importFromFile()}
               />
             </div>
             <div className="window-action-button">
-              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
+              <IconButton icon={<CloseIcon />} onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -522,7 +514,6 @@ export function MaskPage() {
               className={styles["mask-create"]}
               icon={<AddIcon />}
               text={Locale.Mask.Page.Create}
-              bordered
               onClick={() => {
                 const createdMask = maskStore.create();
                 setEditingMaskId(createdMask.id);
@@ -596,13 +587,11 @@ export function MaskPage() {
                 icon={<DownloadIcon />}
                 text={Locale.Mask.EditModal.Download}
                 key="export"
-                bordered
                 onClick={() => downloadAs(JSON.stringify(editingMask), `${editingMask.name}.json`)}
               />,
               <IconButton
                 key="copy"
                 icon={<CopyIcon />}
-                bordered
                 text={Locale.Mask.EditModal.Clone}
                 onClick={() => {
                   navigate(Path.Masks);

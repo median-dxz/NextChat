@@ -106,3 +106,9 @@
     }
   }
 }
+
+.mask-filter {
+  > .mask-create {
+    border-width: 1px;
+  }
+}

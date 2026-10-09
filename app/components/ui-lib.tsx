@@ -366,8 +366,6 @@ export function showConfirm(content: any) {
             }}
             icon={<CancelIcon />}
             tabIndex={0}
-            bordered
-            shadow
           ></IconButton>,
           <IconButton
             key="confirm"
@@ -380,8 +378,6 @@ export function showConfirm(content: any) {
             icon={<ConfirmIcon />}
             tabIndex={0}
             autoFocus
-            bordered
-            shadow
           ></IconButton>,
         ]}
         onClose={closeModal}
@@ -519,12 +515,8 @@ export function FullScreen(props: any) {
   }, []);
   return (
     <div ref={ref} style={{ position: "relative" }} {...rest}>
-      <div style={{ position: "absolute", right, top }}>
-        <IconButton
-          icon={fullScreen ? <MinIcon /> : <MaxIcon />}
-          onClick={toggleFullscreen}
-          bordered
-        />
+      <div className={styles["fullscreen-control"]} style={{ position: "absolute", right, top }}>
+        <IconButton icon={fullScreen ? <MinIcon /> : <MaxIcon />} onClick={toggleFullscreen} />
       </div>
       {children}
     </div>

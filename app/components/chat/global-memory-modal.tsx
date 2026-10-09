@@ -9,7 +9,7 @@ import { useAllModels } from "../../utils/hooks";
 import { getModelProvider } from "../../utils/model";
 import { IconButton } from "../button";
 import { Modal, Select } from "../ui-lib";
-import styles from "./chat.module.scss";
+import styles from "./global-memory-modal.module.scss";
 
 export function GlobalMemoryModal(props: { onClose: () => void }) {
   const chatStore = useChatStore();

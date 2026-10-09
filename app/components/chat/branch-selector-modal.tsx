@@ -5,7 +5,7 @@ import { getMessageText } from "../../utils";
 import { Conversation } from "../../utils/conversation";
 import { IconButton } from "../button";
 import { Modal } from "../ui-lib";
-import styles from "./chat.module.scss";
+import styles from "./branch-selector-modal.module.scss";
 
 export function BranchSelectorModal(props: {
   parentId: string;

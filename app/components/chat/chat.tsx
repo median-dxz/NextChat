@@ -49,6 +49,7 @@ import { Prompt, usePromptStore } from "../../store/prompt";
 
 import { IconButton } from "../button";
 import styles from "./chat.module.scss";
+import actionStyles from "./chat-actions.module.scss";
 
 import { useNavigate } from "react-router";
 import { ClientApi } from "../../client/api";
@@ -797,7 +798,6 @@ function ChatView() {
               <div className={"window-action-button"}>
                 <IconButton
                   icon={<ReturnIcon />}
-                  bordered
                   title={Locale.Chat.Actions.ChatList}
                   onClick={() => navigate(Path.Home)}
                 />
@@ -821,7 +821,6 @@ function ChatView() {
               <div className="window-action-button">
                 <IconButton
                   icon={<RenameIcon />}
-                  bordered
                   title={Locale.Chat.EditMessage.Title}
                   aria={Locale.Chat.EditMessage.Title}
                   onClick={() => setIsEditingMessage(true)}
@@ -831,7 +830,6 @@ function ChatView() {
             <div className="window-action-button">
               <IconButton
                 icon={<ExportIcon />}
-                bordered
                 title={Locale.Chat.Actions.Export}
                 onClick={() => {
                   setShowExport(true);
@@ -842,7 +840,6 @@ function ChatView() {
               <div className="window-action-button">
                 <IconButton
                   icon={config.tightBorder ? <MinIcon /> : <MaxIcon />}
-                  bordered
                   title={Locale.Chat.Actions.FullScreen}
                   aria={Locale.Chat.Actions.FullScreen}
                   onClick={() => {
@@ -926,7 +923,12 @@ function ChatView() {
                           }}
                         >
                           <div className={styles["chat-message-container"]}>
-                            <div className={styles["chat-message-header"]}>
+                            <div
+                              className={clsx(
+                                styles["chat-message-header"],
+                                actionStyles["chat-message-header"],
+                              )}
+                            >
                               <div className={styles["chat-message-avatar"]}>
                                 {storedNode && !message.streaming && (
                                   <div className={styles["chat-message-edit"]}>
@@ -957,8 +959,13 @@ function ChatView() {
                               )}
 
                               {renderActions && (
-                                <div className={styles["chat-message-actions"]}>
-                                  <div className={styles["chat-input-actions"]}>
+                                <div
+                                  className={clsx(
+                                    styles["chat-message-actions"],
+                                    actionStyles["chat-message-actions"],
+                                  )}
+                                >
+                                  <div className={actionStyles["chat-input-actions"]}>
                                     {message.streaming ? (
                                       <ChatAction
                                         text={Locale.Chat.Actions.Stop}
@@ -1099,7 +1106,7 @@ function ChatView() {
                                 <div
                                   className={clsx(
                                     styles["chat-message-node-actions"],
-                                    styles["chat-input-actions"],
+                                    actionStyles["chat-input-actions"],
                                     (isCursorNode || actionMessageId === message.id) &&
                                       styles["chat-message-node-actions-active"],
                                   )}
@@ -1131,7 +1138,7 @@ function ChatView() {
                   })}
               </div>
             </div>
-            <div className={styles["chat-input-panel"]}>
+            <div className={clsx(styles["chat-input-panel"], actionStyles["chat-input-panel"])}>
               <PromptHints prompts={promptHints} onPromptSelect={onPromptSelect} />
 
               <ChatActions

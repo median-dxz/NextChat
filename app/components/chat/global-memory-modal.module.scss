@@ -1,0 +1,67 @@
+.global-memory-dialog {
+  width: min(92vw, 680px);
+  --modal-padding: 16px;
+}
+
+.global-memory-dialog-content {
+  max-height: 62vh !important;
+}
+
+.global-memory-editor {
+  display: grid;
+  gap: 16px;
+  color: var(--black);
+}
+
+.global-memory-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--second);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.global-memory-field,
+.global-memory-model {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+
+  > span {
+    font-weight: 600;
+  }
+}
+
+.global-memory-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  resize: vertical;
+  border: var(--border-in-light);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--black);
+  font: inherit;
+  line-height: 1.55;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+  }
+}
+
+.global-memory-model select {
+  width: 100%;
+  text-align: start;
+}
+
+@media only screen and (max-width: 600px) {
+  .global-memory-dialog {
+    width: 100vw;
+  }
+}

@@ -79,7 +79,6 @@ export function SideBar(props: { className?: string }) {
             <div className="window-action-button">
               <IconButton
                 icon={<ReturnIcon />}
-                bordered
                 title={Locale.Sd.Actions.ReturnHome}
                 onClick={() => navigate(Path.Home)}
               />
@@ -90,7 +89,6 @@ export function SideBar(props: { className?: string }) {
             <div className="window-action-button">
               <IconButton
                 icon={<HistoryIcon />}
-                bordered
                 title={Locale.Sd.Actions.History}
                 onClick={() => navigate(Path.SdNew)}
               />
@@ -102,7 +100,6 @@ export function SideBar(props: { className?: string }) {
           title={
             <IconButton
               icon={<ReturnIcon />}
-              bordered
               title={Locale.Sd.Actions.ReturnHome}
               onClick={() => navigate(Path.Home)}
             />
@@ -116,14 +113,13 @@ export function SideBar(props: { className?: string }) {
       <SideBarTail
         primaryAction={
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-            <IconButton icon={<GithubIcon />} shadow />
+            <IconButton icon={<GithubIcon />} />
           </a>
         }
         secondaryAction={
           <IconButton
             text={Locale.SdPanel.Submit}
             type="primary"
-            shadow
             onClick={handleSubmit}
           ></IconButton>
         }

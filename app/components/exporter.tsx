@@ -268,18 +268,10 @@ export function PreviewActions(props: {
   return (
     <div className={styles["preview-actions"]}>
       {props.showCopy && (
-        <IconButton
-          text={Locale.Export.Copy}
-          bordered
-          shadow
-          icon={<CopyIcon />}
-          onClick={props.copy}
-        ></IconButton>
+        <IconButton text={Locale.Export.Copy} icon={<CopyIcon />} onClick={props.copy}></IconButton>
       )}
       <IconButton
         text={Locale.Export.Download}
-        bordered
-        shadow
         icon={<DownloadIcon />}
         onClick={props.download}
       ></IconButton>

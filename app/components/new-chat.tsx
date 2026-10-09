@@ -147,8 +147,6 @@ export function NewChat() {
           text={Locale.NewChat.More}
           onClick={() => navigate(Path.Masks)}
           icon={<EyeIcon />}
-          bordered
-          shadow
         />
 
         <IconButton
@@ -156,7 +154,6 @@ export function NewChat() {
           onClick={() => startChat()}
           icon={<LightningIcon />}
           type="primary"
-          shadow
           className={styles["skip"]}
         />
       </div>

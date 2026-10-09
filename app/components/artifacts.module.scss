@@ -9,6 +9,12 @@
     height: 36px;
     padding: 20px;
     background: var(--second);
+
+    > button,
+    > a > button {
+      border-width: 1px;
+      box-shadow: var(--card-shadow);
+    }
   }
   &-title {
     flex: 1;

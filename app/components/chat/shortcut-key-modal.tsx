@@ -2,7 +2,7 @@ import ConfirmIcon from "../../icons/confirm.svg";
 import Locale from "../../locales";
 import { IconButton } from "../button";
 import { Modal } from "../ui-lib";
-import styles from "./chat.module.scss";
+import styles from "./shortcut-key-modal.module.scss";
 
 export function ShortcutKeyModal(props: { onClose: () => void }) {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;

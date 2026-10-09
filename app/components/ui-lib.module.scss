@@ -173,6 +173,11 @@
       align-items: center;
 
       .modal-action {
+        > button {
+          border-width: 1px;
+          box-shadow: var(--card-shadow);
+        }
+
         &:not(:last-child) {
           margin-right: 20px;
         }
@@ -329,5 +334,11 @@
         }
       }
     }
+  }
+}
+
+.fullscreen-control {
+  > button {
+    border-width: 1px;
   }
 }

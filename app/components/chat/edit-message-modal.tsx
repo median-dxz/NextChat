@@ -9,7 +9,7 @@ import { List, ListItem, Modal, showToast } from "../ui-lib";
 import { EditableMessageRow } from "./editable-message-row";
 import { useSessionEditor } from "./session-editor";
 import { useTitleGeneration } from "./title-generation";
-import styles from "./chat.module.scss";
+import styles from "./edit-message-modal.module.scss";
 
 export function EditMessageModal(props: { onClose: () => void }) {
   const edit = useSessionEditor(props.onClose);
@@ -64,7 +64,6 @@ export function EditMessageModal(props: { onClose: () => void }) {
               />
               <IconButton
                 icon={generatingTitle ? <LoadingButtonIcon /> : <ReloadIcon />}
-                bordered
                 aria={Locale.Chat.Actions.RefreshTitle}
                 title={Locale.Chat.Actions.RefreshTitle}
                 disabled={generatingTitle}

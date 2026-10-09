@@ -1,0 +1,72 @@
+.section-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.context-prompt {
+  .context-prompt-insert {
+    display: flex;
+    justify-content: center;
+    padding: 4px;
+    opacity: 0.2;
+    transition: all ease 0.3s;
+    background-color: rgba(0, 0, 0, 0);
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+
+    &:hover {
+      opacity: 1;
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+  }
+
+  .context-prompt-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+
+    &:hover {
+      .context-drag {
+        opacity: 1;
+      }
+    }
+
+    .context-drag {
+      display: flex;
+      align-items: center;
+      opacity: 0.5;
+      transition: all ease 0.3s;
+    }
+
+    .context-role {
+      margin-right: 10px;
+    }
+
+    .context-content {
+      flex: 1;
+      max-width: 100%;
+      text-align: left;
+    }
+
+    .context-delete-button {
+      margin-left: 10px;
+    }
+  }
+
+  .context-prompt-button {
+    flex: 1;
+  }
+}
+
+.context-prompt-row {
+  > .context-delete-button,
+  > .context-prompt-button {
+    border-width: 1px;
+  }
+}
