@@ -45,8 +45,8 @@ const fr: PartialLocaleType = {
       Copy: "Copier",
       Stop: "Arrêter",
       Retry: "Réessayer",
-      PinToastContent: "1 conversation épinglée aux prompts prédéfinis",
-      PinToastAction: "Voir",
+      SaveToPinnedToastContent: "Enregistré dans le contexte épinglé",
+      SaveToPinnedToastAction: "Voir",
       Delete: "Supprimer",
       Edit: "Modifier",
       RefreshTitle: "Actualiser le titre",
@@ -84,7 +84,8 @@ const fr: PartialLocaleType = {
     Config: {
       SaveAs: "Enregistrer comme masque",
     },
-    IsContext: "Prompt prédéfini",
+    Graph: { SaveToPinned: "Enregistrer dans le contexte épinglé" },
+    IsContext: "Contexte épinglé",
   },
   Export: {
     Title: "Partager l'historique des discussions",
@@ -470,9 +471,10 @@ const fr: PartialLocaleType = {
     Failed: "Échec du téléchargement.",
   },
   Context: {
-    Toast: (x: any) => `Contient ${x} invites prédéfinies`,
+    PinnedTitle: "Contexte épinglé",
+    Toast: (x: any) => `Contexte épinglé : ${x} messages`,
     Edit: "Paramètres de la discussion actuelle",
-    Add: "Ajouter une discussion",
+    Add: "Ajouter un message",
   },
   Plugin: {
     Name: "Plugin",
@@ -523,9 +525,8 @@ const fr: PartialLocaleType = {
           "Les paramètres personnalisés de cette discussion seront automatiquement remplacés. Confirmer l'activation des paramètres globaux ?",
       },
       HideContext: {
-        Title: "Masquer les discussions prédéfinies",
-        SubTitle:
-          "Les discussions prédéfinies ne seront pas affichées dans l'interface de discussion après masquage",
+        Title: "Masquer le contexte épinglé",
+        SubTitle: "Ne pas afficher le contexte épinglé dans la discussion",
       },
       Share: {
         Title: "Partager ce masque",

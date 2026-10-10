@@ -1,0 +1,84 @@
+.branch-selector-dialog {
+  width: min(92vw, 520px);
+  --modal-padding: 16px;
+}
+
+.branch-selector-dialog-content {
+  max-height: 52vh !important;
+}
+
+.branch-selector-level {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--second);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.branch-selector {
+  display: grid;
+  gap: 4px;
+
+  button {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--black);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover,
+    &[aria-pressed="true"] {
+      background: var(--second);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+
+    &[aria-pressed="true"] .branch-selector-indicator {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 3px var(--white);
+      background: var(--primary);
+    }
+  }
+}
+
+.branch-selector-indicator {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: var(--border-in-light);
+  border-radius: 50%;
+}
+
+.branch-selector-copy {
+  min-width: 0;
+
+  strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  .branch-selector-dialog {
+    width: 100vw;
+  }
+}

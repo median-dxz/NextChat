@@ -121,11 +121,11 @@ export function PluginPage() {
           <div className="window-actions">
             <div className="window-action-button">
               <a href={PLUGINS_REPO_URL} target="_blank" rel="noopener noreferrer">
-                <IconButton icon={<GithubIcon />} bordered />
+                <IconButton icon={<GithubIcon />} />
               </a>
             </div>
             <div className="window-action-button">
-              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
+              <IconButton icon={<CloseIcon />} onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -144,7 +144,6 @@ export function PluginPage() {
               className={styles["mask-create"]}
               icon={<AddIcon />}
               text={Locale.Plugin.Page.Create}
-              bordered
               onClick={() => {
                 const createdPlugin = pluginStore.create();
                 setEditingPluginId(createdPlugin.id);
@@ -155,6 +154,7 @@ export function PluginPage() {
           <div>
             {plugins.length == 0 && (
               <div
+                className={pluginStyles["plugin-empty-state"]}
                 style={{
                   display: "flex",
                   margin: "60px auto",
@@ -169,7 +169,7 @@ export function PluginPage() {
                   rel="noopener noreferrer"
                   style={{ marginLeft: 16 }}
                 >
-                  <IconButton icon={<GithubIcon />} bordered />
+                  <IconButton icon={<GithubIcon />} />
                 </a>
               </div>
             )}
@@ -220,7 +220,6 @@ export function PluginPage() {
                 icon={<ConfirmIcon />}
                 text={Locale.UI.Confirm}
                 key="export"
-                bordered
                 onClick={() => setEditingPluginId("")}
               />,
             ]}
@@ -295,7 +294,6 @@ export function PluginPage() {
                   <IconButton
                     icon={<ReloadIcon />}
                     text={Locale.Plugin.EditModal.Load}
-                    bordered
                     onClick={() => loadFromUrl(loadUrl)}
                   />
                 </div>

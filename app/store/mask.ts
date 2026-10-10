@@ -16,7 +16,7 @@ export type Mask = {
   avatar: string;
   name: string;
   hideContext?: boolean;
-  context: Conversation.Message[];
+  context: Conversation.SerializedMessage[];
   syncGlobalConfig?: boolean;
   modelConfig: ModelConfig;
   lang: Lang;

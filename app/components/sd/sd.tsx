@@ -1,4 +1,5 @@
 import chatStyles from "@/app/components/chat/chat.module.scss";
+import chatActionStyles from "@/app/components/chat/chat-actions.module.scss";
 import styles from "@/app/components/sd/sd.module.scss";
 import homeStyles from "@/app/components/home.module.scss";
 
@@ -97,7 +98,6 @@ export function Sd() {
                 <div className={"window-action-button"}>
                   <IconButton
                     icon={<ReturnIcon />}
-                    bordered
                     title={Locale.Chat.Actions.ChatList}
                     onClick={() => navigate(Path.Sd)}
                   />
@@ -117,7 +117,6 @@ export function Sd() {
                   <IconButton
                     aria={Locale.Chat.Actions.FullScreen}
                     icon={config.tightBorder ? <MinIcon /> : <MaxIcon />}
-                    bordered
                     onClick={() => {
                       config.update((config) => (config.tightBorder = !config.tightBorder));
                     }}
@@ -192,7 +191,7 @@ export function Sd() {
                         {getSdTaskStatus(item)}
                         <p>{item.created_at}</p>
                         <div className={chatStyles["chat-message-actions"]}>
-                          <div className={chatStyles["chat-input-actions"]}>
+                          <div className={chatActionStyles["chat-input-actions"]}>
                             <ChatAction
                               text={Locale.Sd.Actions.Params}
                               icon={<PromptIcon />}

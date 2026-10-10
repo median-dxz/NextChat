@@ -1,6 +1,6 @@
 import { DragDropContext, Draggable, Droppable, type OnDragEndResponder } from "@hello-pangea/dnd";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 
 import { Conversation } from "@/app/utils/conversation";
@@ -29,7 +29,7 @@ import {
   readFromFile,
 } from "../utils";
 import { IconButton } from "./button";
-import chatStyle from "./chat/chat.module.scss";
+import contextStyles from "./context-prompt.module.scss";
 import { Avatar, AvatarPicker } from "./emoji";
 import { ErrorBoundary } from "./error";
 import styles from "./mask.module.scss";
@@ -55,6 +55,8 @@ export function MaskAvatar(props: { avatar: string; model?: ModelType }) {
 export function MaskConfig(props: {
   mask: Mask;
   updateMask: Updater<Mask>;
+  contextEditor: ReactNode;
+  contextTitle: string;
   readonly?: boolean;
   shouldSyncFromGlobal?: boolean;
 }) {
@@ -82,17 +84,10 @@ export function MaskConfig(props: {
   return (
     <>
       <section aria-labelledby="preset-context-title">
-        <h3 id="preset-context-title" className={chatStyle["section-title"]}>
-          {Locale.Context.PresetTitle}
+        <h3 id="preset-context-title" className={contextStyles["section-title"]}>
+          {props.contextTitle}
         </h3>
-        <ContextPrompts
-          context={props.mask.context}
-          updateContext={(updater) => {
-            const context = props.mask.context.slice();
-            updater(context);
-            props.updateMask((mask) => (mask.context = context));
-          }}
-        />
+        {props.contextEditor}
       </section>
 
       <List>
@@ -230,24 +225,24 @@ export function MaskConfig(props: {
   );
 }
 
-function ContextPromptItem(props: {
+function ContextPromptItem<T extends Conversation.SerializedMessage>(props: {
   index: number;
-  prompt: Conversation.Message;
-  update: (prompt: Conversation.Message) => void;
+  prompt: T;
+  update: (prompt: T) => void;
   remove: () => void;
 }) {
   const [focusingInput, setFocusingInput] = useState(false);
 
   return (
-    <div className={chatStyle["context-prompt-row"]}>
+    <div className={contextStyles["context-prompt-row"]}>
       {!focusingInput && (
         <>
-          <div className={chatStyle["context-drag"]}>
+          <div className={contextStyles["context-drag"]}>
             <DragIcon />
           </div>
           <Select
             value={props.prompt.role}
-            className={chatStyle["context-role"]}
+            className={contextStyles["context-role"]}
             onChange={(e) =>
               props.update({
                 ...props.prompt,
@@ -266,7 +261,7 @@ function ContextPromptItem(props: {
       <Input
         value={getMessageText(props.prompt.content)}
         type="text"
-        className={chatStyle["context-content"]}
+        className={contextStyles["context-content"]}
         rows={focusingInput ? 5 : 1}
         onFocus={() => setFocusingInput(true)}
         onBlur={() => {
@@ -285,22 +280,22 @@ function ContextPromptItem(props: {
       {!focusingInput && (
         <IconButton
           icon={<DeleteIcon />}
-          className={chatStyle["context-delete-button"]}
+          className={contextStyles["context-delete-button"]}
           onClick={() => props.remove()}
-          bordered
         />
       )}
     </div>
   );
 }
 
-export function ContextPrompts(props: {
-  context: Conversation.Message[];
-  updateContext: (updater: (context: Conversation.Message[]) => void) => void;
+export function ContextPrompts<T extends Conversation.SerializedMessage>(props: {
+  context: T[];
+  updateContext: (updater: (context: T[]) => void) => void;
+  createPrompt: (input: Conversation.MessageInput & { date: string }) => T;
 }) {
   const context = props.context;
 
-  const addContextPrompt = (prompt: Conversation.Message, i: number) => {
+  const addContextPrompt = (prompt: T, i: number) => {
     props.updateContext((context) => context.splice(i, 0, prompt));
   };
 
@@ -308,7 +303,7 @@ export function ContextPrompts(props: {
     props.updateContext((context) => context.splice(i, 1));
   };
 
-  const updateContextPrompt = (i: number, prompt: Conversation.Message) => {
+  const updateContextPrompt = (i: number, prompt: T) => {
     props.updateContext((context) => {
       const images = getMessageImages(context[i].content);
       context[i] = prompt;
@@ -335,7 +330,7 @@ export function ContextPrompts(props: {
 
   return (
     <>
-      <div className={chatStyle["context-prompt"]} style={{ marginBottom: 20 }}>
+      <div className={contextStyles["context-prompt"]} style={{ marginBottom: 20 }}>
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="context-prompt-list">
             {(provided) => (
@@ -355,10 +350,10 @@ export function ContextPrompts(props: {
                           remove={() => removeContextPrompt(i)}
                         />
                         <div
-                          className={chatStyle["context-prompt-insert"]}
+                          className={contextStyles["context-prompt-insert"]}
                           onClick={() => {
                             addContextPrompt(
-                              Conversation.createMessage({
+                              props.createPrompt({
                                 role: "user",
                                 content: "",
                                 date: new Date().toLocaleString(),
@@ -380,15 +375,14 @@ export function ContextPrompts(props: {
         </DragDropContext>
 
         {props.context.length === 0 && (
-          <div className={chatStyle["context-prompt-row"]}>
+          <div className={contextStyles["context-prompt-row"]}>
             <IconButton
               icon={<AddIcon />}
               text={Locale.Context.Add}
-              bordered
-              className={chatStyle["context-prompt-button"]}
+              className={contextStyles["context-prompt-button"]}
               onClick={() =>
                 addContextPrompt(
-                  Conversation.createMessage({
+                  props.createPrompt({
                     role: "user",
                     content: "",
                     date: "",
@@ -470,23 +464,17 @@ export function MaskPage() {
 
           <div className="window-actions">
             <div className="window-action-button">
-              <IconButton
-                icon={<DownloadIcon />}
-                bordered
-                onClick={downloadAll}
-                text={Locale.UI.Export}
-              />
+              <IconButton icon={<DownloadIcon />} onClick={downloadAll} text={Locale.UI.Export} />
             </div>
             <div className="window-action-button">
               <IconButton
                 icon={<UploadIcon />}
                 text={Locale.UI.Import}
-                bordered
                 onClick={() => importFromFile()}
               />
             </div>
             <div className="window-action-button">
-              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
+              <IconButton icon={<CloseIcon />} onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>
@@ -526,7 +514,6 @@ export function MaskPage() {
               className={styles["mask-create"]}
               icon={<AddIcon />}
               text={Locale.Mask.Page.Create}
-              bordered
               onClick={() => {
                 const createdMask = maskStore.create();
                 setEditingMaskId(createdMask.id);
@@ -600,13 +587,11 @@ export function MaskPage() {
                 icon={<DownloadIcon />}
                 text={Locale.Mask.EditModal.Download}
                 key="export"
-                bordered
                 onClick={() => downloadAs(JSON.stringify(editingMask), `${editingMask.name}.json`)}
               />,
               <IconButton
                 key="copy"
                 icon={<CopyIcon />}
-                bordered
                 text={Locale.Mask.EditModal.Clone}
                 onClick={() => {
                   navigate(Path.Masks);
@@ -618,7 +603,21 @@ export function MaskPage() {
           >
             <MaskConfig
               mask={editingMask}
+              contextTitle={Locale.Context.PresetTitle}
               updateMask={(updater) => maskStore.updateMask(editingMaskId!, updater)}
+              contextEditor={
+                <ContextPrompts
+                  context={editingMask.context}
+                  createPrompt={Conversation.createSerializedMessage}
+                  updateContext={(updater) =>
+                    maskStore.updateMask(editingMaskId!, (mask) => {
+                      const context = mask.context.slice();
+                      updater(context);
+                      mask.context = context;
+                    })
+                  }
+                />
+              }
               readonly={editingMask.builtin}
             />
           </Modal>

@@ -88,50 +88,69 @@ function createEmptySession(): ChatSession {
   };
 }
 
-function migrateMessagesToConversationNodes(messages: Conversation.Message[]): Conversation.Node[] {
+export function serializeChatSession(session: ChatSession) {
+  return {
+    ...session,
+    messages: session.messages.map((node) =>
+      Conversation.serializeNode({
+        ...node,
+        // A saved empty in-flight response must remain retryable after an immediate reload.
+        isError:
+          node.isError ||
+          (node.streaming && node.content.length === 0 && node.reasoning.length === 0),
+      }),
+    ),
+    pinnedInputs: session.pinnedInputs.map(Conversation.serializeMessage),
+  };
+}
+
+export function restoreChatSession(session: ReturnType<typeof serializeChatSession>): ChatSession {
+  const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
+  return {
+    ...session,
+    messages: session.messages.map((message) => {
+      const restored = Conversation.deserializeNode(message);
+      const isStale = new Date(message.date).getTime() < stopTiming;
+      if (
+        message.content.length === 0 &&
+        !message.reasoning &&
+        ((message as Conversation.SerializedNode & { streaming?: boolean }).streaming ||
+          message.isError ||
+          isStale)
+      ) {
+        restored.isError = true;
+        restored.content = prettyObject({ error: true, message: "empty response" });
+      }
+      return restored;
+    }),
+    pinnedInputs: session.pinnedInputs.map(Conversation.deserializeMessage),
+  };
+}
+
+function migrateMessagesToConversationNodes(
+  messages: Conversation.SerializedMessage[],
+): Conversation.Node[] {
   let parentId: string | undefined;
   return messages.map((message) => {
-    const node: Conversation.Node = {
+    const node = Conversation.createNode({
       ...message,
       parentId,
       outlineLevel: 1,
       activeBranchRootId: undefined,
-    };
+    });
     parentId = node.id;
     return node;
   });
 }
 
-function applyMaskContext(session: ChatSession) {
-  const context = session.mask.context.slice();
-  const pinnedInputs = context.filter((message) => message.role === "system");
-  const startingMessages = context.filter(
-    (message) => message.role === "user" || message.role === "assistant",
-  );
-  const nodes = migrateMessagesToConversationNodes(startingMessages);
-  session.pinnedInputs = pinnedInputs.map((message) => ({
-    ...message,
-    outlineLevel: 0,
-  }));
-  session.messages = nodes;
-  session.rootNodeId = nodes[0]?.id;
-  session.activeCursorId = nodes.at(-1)?.id;
-  session.mask = { ...session.mask, context: [] };
-}
-
 function migrateSessionToConversation(session: any) {
   const oldMessages = Array.isArray(session.messages) ? session.messages : [];
   const maskContext = Array.isArray(session.mask?.context) ? session.mask.context : [];
-  const presetNodes = maskContext.filter(
-    (message: Conversation.Message) => message.role === "user" || message.role === "assistant",
-  );
-  const nodes = migrateMessagesToConversationNodes([...presetNodes, ...oldMessages]);
+  const nodes = migrateMessagesToConversationNodes(oldMessages);
   session.messages = nodes;
   session.rootNodeId = nodes[0]?.id;
   session.activeCursorId = nodes.at(-1)?.id;
-  session.pinnedInputs = maskContext
-    .filter((message: Conversation.Message) => message.role === "system")
-    .map((message: Conversation.Message) => ({ ...message, outlineLevel: 0 }));
+  session.pinnedInputs = maskContext.map(Conversation.deserializeMessage);
   const oldMemory = String(session.memoryPrompt ?? "").trim();
 
   session.globalMemory = Conversation.createMemory();
@@ -140,7 +159,6 @@ function migrateSessionToConversation(session: any) {
     content: oldMemory,
   });
 
-  session.mask.context = [];
   session.mask.modelConfig.enableConversationSummaries =
     session.mask?.modelConfig?.sendMemory ?? true;
   session.mask.modelConfig.contextWindowTokens ??= 32_000;
@@ -205,6 +223,18 @@ const DEFAULT_CHAT_STATE = {
   currentSessionIndex: 0,
   lastInput: "",
 };
+
+export function serializeChatState(
+  state: typeof DEFAULT_CHAT_STATE & { lastUpdateTime: number; _hasHydrated: boolean },
+) {
+  return {
+    sessions: state.sessions.map(serializeChatSession),
+    currentSessionIndex: state.currentSessionIndex,
+    lastInput: state.lastInput,
+    lastUpdateTime: state.lastUpdateTime,
+    _hasHydrated: state._hasHydrated,
+  };
+}
 
 export const useChatStore = createPersistStore(
   DEFAULT_CHAT_STATE,
@@ -358,7 +388,7 @@ export const useChatStore = createPersistStore(
             },
           };
           session.topic = mask.name;
-          applyMaskContext(session);
+          session.pinnedInputs = mask.context.map(Conversation.deserializeMessage);
         }
 
         set((state) => ({
@@ -437,18 +467,6 @@ export const useChatStore = createPersistStore(
           attachImages,
           isMcpResponse,
         });
-      },
-
-      hasActiveChatRuns() {
-        return chatOrchestrator.activeRuns().length > 0;
-      },
-
-      cancelChatRun(sessionId: string, assistantNodeId: string) {
-        chatOrchestrator.cancel(sessionId, assistantNodeId);
-      },
-
-      cancelAllChatRuns() {
-        chatOrchestrator.cancelAll();
       },
 
       async requestSessionTitle(
@@ -906,33 +924,15 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 4,
+    version: 4.1,
+    partialize: serializeChatState,
 
     merge(persistedState, currentState) {
-      const restoredState = persistedState as Partial<typeof DEFAULT_CHAT_STATE> | undefined;
-      const sessions = restoredState?.sessions ?? currentState.sessions;
-      const stopTiming = Date.now() - REQUEST_TIMEOUT_MS;
-
-      sessions.forEach((session) => {
-        session.messages.forEach((message) => {
-          const wasStreaming = message.streaming === true;
-          if (wasStreaming) message.streaming = false;
-
-          const isStale = new Date(message.date).getTime() < stopTiming;
-          if (
-            message.content.length === 0 &&
-            !message.reasoning &&
-            (wasStreaming || message.isError || isStale)
-          ) {
-            message.streaming = false;
-            message.isError = true;
-            message.content = prettyObject({
-              error: true,
-              message: "empty response",
-            });
-          }
-        });
-      });
+      const restoredState = persistedState as
+        Partial<ReturnType<typeof serializeChatState>> | undefined;
+      const sessions = restoredState?.sessions
+        ? restoredState.sessions.map(restoreChatSession)
+        : currentState.sessions;
 
       return {
         ...currentState,
@@ -1001,7 +1001,12 @@ export const useChatStore = createPersistStore(
         });
       }
 
-      return newState as any;
+      return serializeChatState({
+        ...newState,
+        sessions: newState.sessions.map(restoreChatSession),
+        lastUpdateTime: state.lastUpdateTime ?? 0,
+        _hasHydrated: state._hasHydrated ?? false,
+      });
     },
   },
 );

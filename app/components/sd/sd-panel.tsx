@@ -280,7 +280,6 @@ export function SdPanel() {
                 text={item.name}
                 key={item.value}
                 type={currentModel.value == item.value ? "primary" : null}
-                shadow
                 onClick={() => handleModelChange(item)}
               />
             );

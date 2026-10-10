@@ -19,16 +19,16 @@ type SetStoreState<T> = (
   replace?: false,
 ) => void;
 
-export function createPersistStore<T extends object, M>(
+export function createPersistStore<T extends object, M, P = T & M & MakeUpdater<T>>(
   state: T,
   methods: (set: SetStoreState<T & MakeUpdater<T>>, get: () => T & MakeUpdater<T>) => M,
-  persistOptions: PersistOptions<T & M & MakeUpdater<T>>,
+  persistOptions: PersistOptions<T & M & MakeUpdater<T>, P>,
 ) {
   type Store = T & M & MakeUpdater<T>;
   const oldOnRehydrateStorage = persistOptions.onRehydrateStorage;
-  const options: PersistOptions<Store> = {
+  const options: PersistOptions<Store, P> = {
     ...persistOptions,
-    storage: createJSONStorage<Store>(() => indexedDBStorage),
+    storage: createJSONStorage<P>(() => indexedDBStorage),
     onRehydrateStorage: (state) => {
       const oldOnFinishHydration = oldOnRehydrateStorage?.(state);
       return (rehydratedState, error) => {

@@ -108,7 +108,7 @@
 
   --modal-padding: 20px;
 
-  &-max {
+  &.modal-container-max {
     width: 95vw;
     max-width: unset;
     height: 95vh;
@@ -173,6 +173,11 @@
       align-items: center;
 
       .modal-action {
+        > button {
+          border-width: 1px;
+          box-shadow: var(--card-shadow);
+        }
+
         &:not(:last-child) {
           margin-right: 20px;
         }
@@ -293,25 +298,6 @@
   }
 }
 
-.modal-input {
-  height: 100%;
-  width: 100%;
-  border-radius: 10px;
-  border: var(--border-in-light);
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.03);
-  background-color: var(--white);
-  color: var(--black);
-  font-family: inherit;
-  padding: 10px;
-  resize: none;
-  outline: none;
-  box-sizing: border-box;
-
-  &:focus {
-    border: 1px solid var(--primary);
-  }
-}
-
 .selector {
   position: fixed;
   top: 0;
@@ -348,5 +334,11 @@
         }
       }
     }
+  }
+}
+
+.fullscreen-control {
+  > button {
+    border-width: 1px;
   }
 }

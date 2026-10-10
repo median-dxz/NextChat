@@ -60,6 +60,14 @@
     justify-content: center;
     font-size: 12px;
 
+    > button {
+      box-shadow: var(--card-shadow);
+    }
+
+    > button:not(.skip) {
+      border-width: 1px;
+    }
+
     .skip {
       margin-left: 10px;
     }

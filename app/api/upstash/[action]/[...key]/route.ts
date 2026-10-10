@@ -65,5 +65,3 @@ async function handle(req: NextRequest, context: RouteContext<"/api/upstash/[act
 export const POST = handle;
 export const GET = handle;
 export const OPTIONS = handle;
-
-export const runtime = "edge";

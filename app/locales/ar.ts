@@ -45,8 +45,8 @@ const ar: PartialLocaleType = {
       Copy: "نسخ",
       Stop: "إيقاف",
       Retry: "إعادة المحاولة",
-      PinToastContent: "تم تثبيت 1 محادثة في الإشعارات المسبقة",
-      PinToastAction: "عرض",
+      SaveToPinnedToastContent: "تم الحفظ في السياق المثبّت",
+      SaveToPinnedToastAction: "عرض",
       Delete: "حذف",
       Edit: "تحرير",
       RefreshTitle: "تحديث العنوان",
@@ -84,7 +84,8 @@ const ar: PartialLocaleType = {
     Config: {
       SaveAs: "حفظ كقناع",
     },
-    IsContext: "الإشعارات المسبقة",
+    Graph: { SaveToPinned: "حفظ في السياق المثبّت" },
+    IsContext: "السياق المثبّت",
   },
   Export: {
     Title: "مشاركة سجل الدردشة",
@@ -461,9 +462,10 @@ const ar: PartialLocaleType = {
     Failed: "فشل التنزيل.",
   },
   Context: {
-    Toast: (x: any) => `يحتوي على ${x} إشعارات مخصصة`,
+    PinnedTitle: "السياق المثبّت",
+    Toast: (x: any) => `السياق المثبّت: ${x} رسائل`,
     Edit: "إعدادات الدردشة الحالية",
-    Add: "إضافة دردشة جديدة",
+    Add: "إضافة رسالة",
   },
   Plugin: {
     Name: "الإضافات",
@@ -513,8 +515,8 @@ const ar: PartialLocaleType = {
           "ستتم الكتابة فوق الإعدادات المخصصة للدردشة الحالية تلقائيًا، تأكيد تفعيل الإعدادات العالمية؟",
       },
       HideContext: {
-        Title: "إخفاء المحادثات المخصصة",
-        SubTitle: "بعد الإخفاء، لن تظهر المحادثات المخصصة في واجهة الدردشة",
+        Title: "إخفاء السياق المثبّت",
+        SubTitle: "إخفاء السياق المثبّت من واجهة الدردشة",
       },
       Share: {
         Title: "مشاركة هذا القناع",

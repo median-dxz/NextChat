@@ -1,7 +1,24 @@
-.select-compress-model {
-  width: 60%;
+.select-model {
+  width: 40%;
+  max-width: 60%;
+  min-width: 0;
+
   select {
+    width: 100%;
     max-width: 100%;
-    white-space: normal;
+    min-width: 0;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @supports (field-sizing: content) {
+    width: fit-content;
+
+    select {
+      field-sizing: content;
+      width: auto;
+    }
   }
 }

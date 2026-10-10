@@ -1,0 +1,49 @@
+.graph-editor-dialog {
+  width: min(92vw, 900px);
+  overflow: hidden;
+  --modal-padding: 16px;
+}
+
+.graph-editor-dialog-content {
+  max-height: 68vh !important;
+}
+
+.graph-editor {
+  margin-top: 10px;
+}
+
+.graph-editor-topic {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+
+  > button {
+    border-width: 1px;
+  }
+
+  input {
+    width: 240px;
+    max-width: calc(100% - 44px);
+    min-width: 120px;
+    flex: 0 1 240px;
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  .graph-editor-dialog {
+    width: 100vw;
+  }
+
+  .graph-editor-topic-row {
+    gap: 10px;
+
+    > div:first-child {
+      min-width: 104px;
+      max-width: 104px;
+      overflow: hidden;
+    }
+  }
+}

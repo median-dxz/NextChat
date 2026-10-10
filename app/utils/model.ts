@@ -72,7 +72,7 @@ export function collectModelTable(models: readonly LLMModel[], customModels: str
       name: string;
       displayName: string;
       sorted: number;
-      provider?: LLMModel["provider"]; // Marked as optional
+      provider: LLMModel["provider"];
       isDefault?: boolean;
     }
   > = {};
