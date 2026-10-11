@@ -155,6 +155,7 @@ export function Modal(props: ModalProps) {
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
+      data-maximized={isMax}
       className={clsx(
         styles["modal-container"],
         {

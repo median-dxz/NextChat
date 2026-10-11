@@ -167,7 +167,7 @@ export function NodeViewerModal(props: {
             <span>{Locale.Chat.Actions.Edit}</span>
             <textarea
               ref={contentRef}
-              rows={5}
+              rows={7}
               value={getMessageText(draftNode.content)}
               disabled={generating}
               onChange={(event) => {
