@@ -892,8 +892,47 @@ function ChatView() {
                       (hasMessageOutput || message.streaming);
                     const showActions = isActionCandidate && (!isActiveTurn || message.streaming);
                     const renderActions = showActions && actionMessageId === message.id;
-                    const showTyping = message.preview || message.streaming;
+                    const showAvatarLoading =
+                      message.role === "assistant" && (message.preview || message.streaming);
                     const isCursorNode = storedNode?.id === session.activeCursorId;
+
+                    let avatarOverlay: React.ReactNode = null;
+                    if (showAvatarLoading) {
+                      avatarOverlay = (
+                        <div
+                          className={clsx(
+                            styles["chat-message-edit"],
+                            styles["chat-message-avatar-loading"],
+                            "no-dark",
+                          )}
+                          role="progressbar"
+                          aria-label={Locale.Chat.Typing}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="9"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              pathLength="100"
+                            />
+                          </svg>
+                        </div>
+                      );
+                    } else if (storedNode && !message.streaming) {
+                      avatarOverlay = (
+                        <div className={styles["chat-message-edit"]}>
+                          <IconButton
+                            icon={<EditIcon />}
+                            aria={Locale.Chat.Actions.Edit}
+                            onClick={() => setViewingNodeId(storedNode.id)}
+                          />
+                        </div>
+                      );
+                    }
 
                     return (
                       <React.Fragment key={message.id}>
@@ -930,15 +969,7 @@ function ChatView() {
                               )}
                             >
                               <div className={styles["chat-message-avatar"]}>
-                                {storedNode && !message.streaming && (
-                                  <div className={styles["chat-message-edit"]}>
-                                    <IconButton
-                                      icon={<EditIcon />}
-                                      aria={Locale.Chat.Actions.Edit}
-                                      onClick={() => setViewingNodeId(storedNode.id)}
-                                    />
-                                  </div>
-                                )}
+                                {avatarOverlay}
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (
@@ -1009,11 +1040,6 @@ function ChatView() {
                                 </div>
                               )}
                             </div>
-                            {message.tools.length === 0 && showTyping && (
-                              <div className={styles["chat-message-status"]}>
-                                {Locale.Chat.Typing}
-                              </div>
-                            )}
                             {message.tools.length > 0 && (
                               <div className={styles["chat-message-tools"]}>
                                 {message.tools.map((tool) => (

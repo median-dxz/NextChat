@@ -208,6 +208,38 @@
     button {
       padding: 7px;
     }
+
+    &.chat-message-avatar-loading {
+      inset: 1px;
+      width: auto;
+      height: auto;
+      border-radius: 10px;
+      background-color: var(--white);
+      color: var(--black);
+      opacity: 0.9;
+      pointer-events: none;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      circle {
+        stroke-dasharray: 16 84;
+        stroke-dashoffset: 0;
+        animation:
+          avatar-loading-arc 1.5s ease-in-out infinite,
+          avatar-loading-orbit 1.5s linear infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        circle {
+          animation: none;
+          stroke-dasharray: 70 30;
+          stroke-dashoffset: 0;
+        }
+      }
+    }
   }
 
   /* Specific styles for iOS devices */
@@ -220,11 +252,21 @@
   }
 }
 
-.chat-message-status {
-  font-size: 12px;
-  color: #aaa;
-  line-height: 1.5;
-  margin-top: 5px;
+@keyframes avatar-loading-arc {
+  0%,
+  100% {
+    stroke-dasharray: 16 84;
+  }
+
+  50% {
+    stroke-dasharray: 70 30;
+  }
+}
+
+@keyframes avatar-loading-orbit {
+  to {
+    stroke-dashoffset: -200;
+  }
 }
 
 .chat-message-tools {
