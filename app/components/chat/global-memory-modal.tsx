@@ -54,8 +54,6 @@ export function GlobalMemoryModal(props: { onClose: () => void }) {
         title={Locale.Chat.Graph.GlobalMemory}
         onClose={props.onClose}
         className={styles["global-memory-dialog"]}
-        contentClassName={styles["global-memory-dialog-content"]}
-        showMaximize={false}
         actions={[
           <IconButton
             key="update"

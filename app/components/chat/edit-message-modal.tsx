@@ -36,8 +36,6 @@ export function EditMessageModal(props: { onClose: () => void }) {
         title={Locale.Chat.EditMessage.Title}
         onClose={close}
         className={styles["graph-editor-dialog"]}
-        contentClassName={styles["graph-editor-dialog-content"]}
-        showMaximize={false}
         actions={[
           <IconButton text={Locale.UI.Cancel} icon={<CancelIcon />} key="cancel" onClick={close} />,
           <IconButton
