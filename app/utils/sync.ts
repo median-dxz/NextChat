@@ -1,4 +1,5 @@
 import { useAccessStore, useAppConfig, useChatStore } from "../store";
+import { restoreChatSession, serializeChatState } from "../store/chat";
 import { useMaskStore } from "../store/mask";
 import { usePromptStore } from "../store/prompt";
 import { StoreKey } from "../constant";
@@ -125,6 +126,23 @@ export function getLocalAppState() {
   ) as AppState;
 
   return appState;
+}
+
+export function serializeAppState(state: AppState): string {
+  return JSON.stringify({ ...state, [StoreKey.Chat]: serializeChatState(state[StoreKey.Chat]) });
+}
+
+export function deserializeAppState(json: string): AppState {
+  const data = JSON.parse(json) as Omit<AppState, StoreKey.Chat> & {
+    [StoreKey.Chat]: ReturnType<typeof serializeChatState>;
+  };
+  return {
+    ...data,
+    [StoreKey.Chat]: {
+      ...data[StoreKey.Chat],
+      sessions: data[StoreKey.Chat].sessions.map(restoreChatSession),
+    },
+  };
 }
 
 export function setLocalAppState(appState: AppState) {

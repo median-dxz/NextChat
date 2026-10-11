@@ -94,6 +94,12 @@
   }
 }
 
+.sidebar-header-bar {
+  > button {
+    box-shadow: var(--card-shadow);
+  }
+}
+
 .window-content {
   width: var(--window-content-width);
   height: 100%;
@@ -158,6 +164,10 @@
   font-size: 20px;
   font-weight: bold;
   animation: slide-in ease 0.3s;
+
+  > button {
+    border-width: 1px;
+  }
 }
 
 .sidebar-sub-title {
@@ -329,10 +339,22 @@
 
 .sidebar-actions {
   display: inline-flex;
+
+  > button,
+  > a > button {
+    box-shadow: var(--card-shadow);
+  }
 }
 
-.sidebar-action:not(:last-child) {
-  margin-right: 15px;
+.sidebar-action {
+  &:not(:last-child) {
+    margin-right: 15px;
+  }
+
+  &:not(.mobile) > button,
+  > a > button {
+    box-shadow: var(--card-shadow);
+  }
 }
 
 .loading-content {

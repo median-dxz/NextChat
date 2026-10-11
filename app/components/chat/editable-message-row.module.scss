@@ -1,0 +1,182 @@
+.graph-editor-level {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--second);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.graph-editor-entry {
+  margin-left: calc(var(--outline-indent) * 18px);
+  transition: margin-left ease 0.2s;
+}
+
+.graph-editor-row {
+  display: grid;
+  grid-template-columns: 28px 138px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 6px 6px 6px 3px;
+  border-radius: 8px;
+  transition: background-color ease 0.2s;
+
+  > .graph-editor-delete {
+    border-width: 1px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.025);
+  }
+
+  &:focus-within {
+    background: rgba(0, 0, 0, 0.035);
+  }
+
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 42px;
+    max-height: 180px;
+    padding: 10px;
+    resize: none;
+    field-sizing: content;
+    overflow-y: auto;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--black);
+    font: inherit;
+    line-height: 1.45;
+
+    &:hover,
+    &:focus {
+      border-color: var(--primary);
+      background: var(--white);
+      outline: none;
+    }
+  }
+}
+
+.graph-editor-row textarea.graph-editor-content-active {
+  grid-column: 1 / -1;
+  min-height: calc(5 * 1.45em + 22px);
+}
+
+.graph-editor-role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  select {
+    min-width: 0;
+    width: 106px;
+    padding-block: 8px;
+  }
+}
+
+.graph-editor-drag,
+.graph-editor-insert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--black);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+.graph-editor-outline-divider {
+  gap: 8px;
+  opacity: 0.55;
+
+  &::before,
+  &::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--black);
+    opacity: 0.14;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+
+    &::before,
+    &::after {
+      background: var(--primary);
+      opacity: 0.45;
+    }
+  }
+}
+
+.graph-editor-drag {
+  width: 28px;
+  height: 44px;
+  opacity: 0.42;
+  touch-action: none;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
+
+.graph-editor-delete {
+  justify-self: end;
+  width: 38px;
+  height: 38px;
+  padding: 9px;
+}
+
+.graph-editor-insert {
+  width: 100%;
+  height: 28px;
+  margin: 2px 0;
+  border-radius: 6px;
+  opacity: 0.3;
+  transition:
+    opacity ease 0.2s,
+    background-color ease 0.2s;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    background: var(--hover-color);
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  .graph-editor-entry {
+    margin-left: calc(var(--outline-indent) * 10px);
+  }
+
+  .graph-editor-row {
+    grid-template-columns: 24px 104px minmax(0, 1fr) 38px;
+    gap: 5px;
+  }
+
+  .graph-editor-level {
+    display: none;
+  }
+
+  .graph-editor-role select {
+    width: 102px;
+  }
+}

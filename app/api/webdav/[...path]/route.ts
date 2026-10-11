@@ -153,5 +153,3 @@ async function handle(req: NextRequest, context: RouteContext<"/api/webdav/[...p
 export const PUT = handle;
 export const GET = handle;
 export const OPTIONS = handle;
-
-export const runtime = "edge";

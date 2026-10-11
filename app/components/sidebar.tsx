@@ -265,7 +265,6 @@ export function SideBar(props: { className?: string }) {
                 navigate(Path.Masks, { state: { fromHome: true } });
               }
             }}
-            shadow
           />
           {mcpEnabled && (
             <IconButton
@@ -275,7 +274,6 @@ export function SideBar(props: { className?: string }) {
               onClick={() => {
                 navigate(Path.McpMarket, { state: { fromHome: true } });
               }}
-              shadow
             />
           )}
           <IconButton
@@ -283,7 +281,6 @@ export function SideBar(props: { className?: string }) {
             text={shouldNarrow ? undefined : Locale.Discovery.Name}
             className={styles["sidebar-bar-button"]}
             onClick={() => setshowDiscoverySelector(true)}
-            shadow
           />
         </div>
         {showDiscoverySelector && (
@@ -339,17 +336,16 @@ export function SideBar(props: { className?: string }) {
                   )
                 }
                 onClick={nextTheme}
-                shadow
               />
             </div>
             <div className={styles["sidebar-action"]}>
               <Link to={Path.Settings}>
-                <IconButton aria={Locale.Settings.Title} icon={<SettingsIcon />} shadow />
+                <IconButton aria={Locale.Settings.Title} icon={<SettingsIcon />} />
               </Link>
             </div>
             <div className={styles["sidebar-action"]}>
               <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-                <IconButton aria={Locale.Export.MessageFromChatGPT} icon={<GithubIcon />} shadow />
+                <IconButton aria={Locale.Export.MessageFromChatGPT} icon={<GithubIcon />} />
               </a>
             </div>
           </>
@@ -366,7 +362,6 @@ export function SideBar(props: { className?: string }) {
                 navigate(Path.NewChat);
               }
             }}
-            shadow
           />
         }
       />

@@ -35,7 +35,10 @@ const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
 
-export function getExportMessageContent(message: Conversation.Message, includeReasoning: boolean) {
+export function getExportMessageContent(
+  message: Conversation.SerializedMessage,
+  includeReasoning: boolean,
+) {
   const content = getMessageText(message.content);
   if (!includeReasoning || message.role !== "assistant" || !message.reasoning) {
     return content;
@@ -165,13 +168,13 @@ export function MessageExporter() {
   const session = chatStore.currentSession();
   const { selection, updateSelection } = useMessageSelector();
   const selectedMessages = useMemo(() => {
-    const ret: Conversation.Message[] = [];
+    const ret: Conversation.SerializedMessage[] = [];
     if (exportConfig.includeContext) {
-      ret.push(...session.mask.context);
+      ret.push(...session.pinnedInputs);
     }
     ret.push(...session.messages.filter((m) => selection.has(m.id)));
     return ret;
-  }, [exportConfig.includeContext, session.messages, session.mask.context, selection]);
+  }, [exportConfig.includeContext, session.messages, session.pinnedInputs, selection]);
   function preview() {
     if (exportConfig.format === "text") {
       return (
@@ -265,18 +268,10 @@ export function PreviewActions(props: {
   return (
     <div className={styles["preview-actions"]}>
       {props.showCopy && (
-        <IconButton
-          text={Locale.Export.Copy}
-          bordered
-          shadow
-          icon={<CopyIcon />}
-          onClick={props.copy}
-        ></IconButton>
+        <IconButton text={Locale.Export.Copy} icon={<CopyIcon />} onClick={props.copy}></IconButton>
       )}
       <IconButton
         text={Locale.Export.Download}
-        bordered
-        shadow
         icon={<DownloadIcon />}
         onClick={props.download}
       ></IconButton>
@@ -285,7 +280,7 @@ export function PreviewActions(props: {
 }
 
 export function ImagePreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.SerializedMessage[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -472,7 +467,7 @@ export function ImagePreviewer(props: {
 }
 
 export function MarkdownPreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.SerializedMessage[];
   topic: string;
   includeReasoning: boolean;
 }) {
@@ -503,7 +498,7 @@ export function MarkdownPreviewer(props: {
 }
 
 export function JsonPreviewer(props: {
-  messages: Conversation.Message[];
+  messages: Conversation.SerializedMessage[];
   topic: string;
   includeReasoning: boolean;
 }) {

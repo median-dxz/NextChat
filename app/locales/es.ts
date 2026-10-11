@@ -45,8 +45,8 @@ const es: PartialLocaleType = {
       Copy: "Copiar",
       Stop: "Detener",
       Retry: "Reintentar",
-      PinToastContent: "Se ha fijado 1 conversación a los prompts predeterminados",
-      PinToastAction: "Ver",
+      SaveToPinnedToastContent: "Guardado en el contexto fijado",
+      SaveToPinnedToastAction: "Ver",
       Delete: "Eliminar",
       Edit: "Editar",
       RefreshTitle: "Actualizar título",
@@ -84,7 +84,8 @@ const es: PartialLocaleType = {
     Config: {
       SaveAs: "Guardar como máscara",
     },
-    IsContext: "Prompt predeterminado",
+    Graph: { SaveToPinned: "Guardar en el contexto fijado" },
+    IsContext: "Contexto fijado",
   },
   Export: {
     Title: "Compartir historial de chat",
@@ -470,9 +471,10 @@ const es: PartialLocaleType = {
     Failed: "Error al descargar.",
   },
   Context: {
-    Toast: (x: any) => `Contiene ${x} prompts predefinidos`,
+    PinnedTitle: "Contexto fijado",
+    Toast: (x: any) => `Contexto fijado: ${x} mensajes`,
     Edit: "Configuración del chat actual",
-    Add: "Agregar una conversación",
+    Add: "Añadir un mensaje",
   },
   Plugin: {
     Name: "Complemento",
@@ -523,8 +525,8 @@ const es: PartialLocaleType = {
           "La configuración personalizada de la conversación actual se sobrescribirá automáticamente, ¿confirmar habilitar la configuración global?",
       },
       HideContext: {
-        Title: "Ocultar conversaciones predefinidas",
-        SubTitle: "Las conversaciones predefinidas ocultas no aparecerán en la interfaz de chat",
+        Title: "Ocultar el contexto fijado",
+        SubTitle: "No mostrar el contexto fijado en el chat",
       },
       Share: {
         Title: "Compartir esta máscara",

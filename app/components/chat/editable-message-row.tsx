@@ -10,7 +10,7 @@ import { getMessageText } from "../../utils";
 import { Conversation } from "../../utils/conversation";
 import { IconButton } from "../button";
 import { Select } from "../ui-lib";
-import styles from "./chat.module.scss";
+import styles from "./editable-message-row.module.scss";
 
 interface EditableMessageRowProps {
   message: Conversation.Node;
@@ -103,7 +103,6 @@ export function EditableMessageRow({
               <IconButton
                 icon={<DeleteIcon />}
                 aria={`${Locale.Chat.Actions.Delete} ${index + 1}`}
-                bordered
                 className={styles["graph-editor-delete"]}
                 onClick={() => dispatch({ type: "remove-node", nodeId: message.id })}
               />

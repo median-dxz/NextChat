@@ -53,8 +53,8 @@ const en = {
       Copy: "Copy",
       Stop: "Stop",
       Retry: "Retry",
-      PinToastContent: "Pinned 1 messages to contextual prompts",
-      PinToastAction: "View",
+      SaveToPinnedToastContent: "Saved to pinned context",
+      SaveToPinnedToastAction: "View",
       Delete: "Delete",
       Edit: "Edit",
       FullScreen: "FullScreen",
@@ -98,7 +98,7 @@ const en = {
       NewBranch: "Create Child Branch",
       BranchTitle: "Select Active Branch",
       GenerateSummary: "Generate Node Summary",
-      Pin: "Pin to contextual prompts",
+      SaveToPinned: "Save to pinned context",
       TemporaryMemoryModel: "Model for this update",
       UseConfiguredMemoryModel: "Use the configured memory model",
       GlobalMemory: "Global Memory",
@@ -123,7 +123,7 @@ const en = {
     Config: {
       SaveAs: "Save as Mask",
     },
-    IsContext: "Contextual Prompt",
+    IsContext: "Pinned context",
     ShortcutKey: {
       Title: "Keyboard Shortcuts",
       newChat: "Open New Chat",
@@ -685,9 +685,10 @@ const en = {
     Failed: "Download failed.",
   },
   Context: {
-    Toast: (x: any) => `With ${x} contextual prompts`,
+    PinnedTitle: "Pinned context",
+    Toast: (x: any) => `Pinned context: ${x} messages`,
     Edit: "Current Chat Settings",
-    Add: "Add a Prompt",
+    Add: "Add a message",
     PresetTitle: "Preset Conversation",
   },
   Discovery: {
@@ -775,8 +776,8 @@ const en = {
         Confirm: "Confirm to override custom config with global config?",
       },
       HideContext: {
-        Title: "Hide Context Prompts",
-        SubTitle: "Do not show in-context prompts in chat",
+        Title: "Hide pinned context",
+        SubTitle: "Do not show pinned context in chat",
       },
       Artifacts: {
         Title: "Enable Artifacts",

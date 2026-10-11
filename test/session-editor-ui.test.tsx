@@ -109,7 +109,7 @@ describe("session editor lifecycle", () => {
     expect(useChatStore.getState().currentSession()).toEqual(saved);
   });
 
-  test("Pin uses saved content and survives cancelling the node draft", () => {
+  test("saving a pinned input snapshots the draft and survives cancelling node edits", () => {
     const saved = structuredClone(useChatStore.getState().currentSession());
     const onPin = vi.fn((message: Conversation.Message) =>
       useChatStore.getState().updateSession(saved.id, (session) => {
@@ -119,17 +119,29 @@ describe("session editor lifecycle", () => {
 
     const view = render(<EditorHost nodeId="a" onClose={vi.fn()} onPin={onPin} />);
     fireEvent.change(view.getByDisplayValue("saved answer"), {
+      target: { value: "prompt draft" },
+    });
+    fireEvent.click(view.getByRole("button", { name: `${Locale.Chat.Graph.Role}: assistant` }));
+    fireEvent.change(view.getByRole("combobox", { name: Locale.Chat.Graph.Role }), {
+      target: { value: "system" },
+    });
+    fireEvent.click(view.getByRole("button", { name: Locale.Chat.Graph.SaveToPinned }));
+
+    expect(onPin).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "prompt draft", role: "system" }),
+    );
+    expect(view.getByRole("dialog")).toBeInTheDocument();
+    expect(useChatStore.getState().currentSession().messages).toEqual(saved.messages);
+    fireEvent.change(view.getByDisplayValue("prompt draft"), {
       target: { value: "discarded answer" },
     });
-    fireEvent.click(view.getByRole("button", { name: Locale.Chat.Graph.Pin }));
-
-    expect(onPin).toHaveBeenCalledWith(expect.objectContaining({ content: "saved answer" }));
 
     fireEvent.click(view.getByRole("button", { name: Locale.UI.Cancel }));
 
     expect(useChatStore.getState().currentSession().pinnedInputs.at(-1)?.content).toBe(
-      "saved answer",
+      "prompt draft",
     );
+    expect(useChatStore.getState().currentSession().pinnedInputs.at(-1)?.role).toBe("system");
     expect(useChatStore.getState().currentSession().messages).toEqual(saved.messages);
   });
 

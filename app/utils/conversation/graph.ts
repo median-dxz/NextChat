@@ -314,7 +314,11 @@ function createBranch(graph: State, index: Index, parent: Node, branch: Node) {
   return setBranch(candidate, candidateIndex, parent, createdBranch);
 }
 
-function createNode(input: Node, parent?: Node, outlineLevel = parent?.outlineLevel ?? 1): Node {
+function prepareNodeForInsertion(
+  input: Node,
+  parent?: Node,
+  outlineLevel = parent?.outlineLevel ?? 1,
+): Node {
   return {
     ...input,
     parentId: parent?.id,
@@ -376,7 +380,7 @@ function insertProjected(graph: State, index: Index, input: Node, previousId?: s
   const { next, parent, branch } = projectedInsertionPosition(graph, index, previousId);
 
   if (!parent) {
-    const root = createNode(input);
+    const root = prepareNodeForInsertion(input);
 
     if (!next) return insert(graph, index, root);
 
@@ -388,7 +392,7 @@ function insertProjected(graph: State, index: Index, input: Node, previousId?: s
     });
   }
 
-  const node = createNode(input, parent);
+  const node = prepareNodeForInsertion(input, parent);
 
   let inserted = insert(graph, index, node, parent);
 
@@ -587,7 +591,7 @@ function bindGraph<TResult>(workspace: Workspace, commit: (state: State) => TRes
           if (typeof branch === "string") {
             throw new Error(`Missing conversation node ${branch}`);
           } else {
-            resolved = createNode(branch, value, value.outlineLevel + 1);
+            resolved = prepareNodeForInsertion(branch, value, value.outlineLevel + 1);
             return commit(createBranch(state, index, value, resolved));
           }
         }
@@ -642,7 +646,7 @@ function bindGraph<TResult>(workspace: Workspace, commit: (state: State) => TRes
       }
 
       const anchor = state.activeCursorId ? index.nodesById.get(state.activeCursorId)! : undefined;
-      const node = createNode(input, anchor);
+      const node = prepareNodeForInsertion(input, anchor);
 
       return commit(insert(state, index, node, anchor));
     },

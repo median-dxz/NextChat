@@ -94,7 +94,7 @@ function EditPromptModal(props: { id: string; onClose: () => void }) {
       <Modal
         title={Locale.Settings.Prompt.EditModal.Title}
         onClose={props.onClose}
-        actions={[<IconButton key="" onClick={props.onClose} text={Locale.UI.Confirm} bordered />]}
+        actions={[<IconButton key="" onClick={props.onClose} text={Locale.UI.Confirm} />]}
       >
         <div className={styles["edit-prompt-modal"]}>
           <input
@@ -152,7 +152,6 @@ function UserPromptModal(props: { onClose?: () => void }) {
               setEditingPromptId(promptId);
             }}
             icon={<AddIcon />}
-            bordered
             text={Locale.Settings.Prompt.Modal.Add}
           />,
         ]}
@@ -274,7 +273,6 @@ function CheckButton() {
   return (
     <IconButton
       text={Locale.Settings.Sync.Config.Modal.Check}
-      bordered
       onClick={check}
       icon={
         checkState === "none" ? (
@@ -307,7 +305,6 @@ function SyncConfigModal(props: { onClose?: () => void }) {
             key="confirm"
             onClick={props.onClose}
             icon={<ConfirmIcon />}
-            bordered
             text={Locale.UI.Confirm}
           />,
         ]}
@@ -1313,7 +1310,6 @@ export function Settings() {
               aria={Locale.UI.Close}
               icon={<CloseIcon />}
               onClick={() => navigate(Path.Home)}
-              bordered
             />
           </div>
         </div>

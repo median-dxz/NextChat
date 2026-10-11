@@ -30,6 +30,7 @@ import {
 } from "../app/components/chat/chat-scroll";
 import { ReasoningDisclosure } from "../app/components/reasoning";
 import { useAllModels } from "../app/utils/hooks";
+import { Conversation } from "../app/utils/conversation";
 
 const originalScrollTo = HTMLElement.prototype.scrollTo;
 const originalChatState = useChatStore.getState();
@@ -175,14 +176,14 @@ describe("chat interaction regressions", () => {
 
   test("locks both messages in a streaming turn", () => {
     const messages = [
-      { id: "u1", date: "", role: "user" as const, content: "question" },
-      {
+      Conversation.createMessage({ id: "u1", date: "", role: "user", content: "question" }),
+      Conversation.createMessage({
         id: "a1",
         date: "",
-        role: "assistant" as const,
+        role: "assistant",
         content: "partial",
         streaming: true,
-      },
+      }),
     ];
 
     expect(isMessageInStreamingTurn(messages, 0)).toBe(true);
@@ -220,10 +221,10 @@ describe("chat interaction regressions", () => {
 
   test("follows the full reasoning disclosure lifecycle without overriding a manual close", async () => {
     const { container, rerender, getByText } = render(
-      <ReasoningDisclosure reasoning="" content="" />,
+      <ReasoningDisclosure reasoning="" content="" streaming={false} />,
     );
 
-    rerender(<ReasoningDisclosure reasoning="step one" content="" />);
+    rerender(<ReasoningDisclosure reasoning="step one" content="" streaming={false} />);
     const details = container.querySelector("details");
     await waitFor(() => expect(details?.open).toBe(true));
     expect(getByText("step one")).toBeTruthy();
@@ -231,13 +232,14 @@ describe("chat interaction regressions", () => {
     if (!details) throw new Error("reasoning details was not rendered");
     details.open = false;
     fireEvent(details, new Event("toggle"));
-    rerender(<ReasoningDisclosure reasoning="step one\nstep two" content="" />);
+    rerender(<ReasoningDisclosure reasoning="step one\nstep two" content="" streaming={false} />);
     await waitFor(() => expect(details.open).toBe(false));
 
     rerender(
       <ReasoningDisclosure
         reasoning="step one\nstep two"
         content="answer"
+        streaming={false}
         reasoningDurationMs={65_000}
       />,
     );

@@ -46,8 +46,8 @@ const sk: PartialLocaleType = {
       Copy: "Kopírovať",
       Stop: "Zastaviť",
       Retry: "Skúsiť znova",
-      PinToastContent: "Pripnuté 1 správy do kontextových výziev",
-      PinToastAction: "Zobraziť",
+      SaveToPinnedToastContent: "Uložené do pripnutého kontextu",
+      SaveToPinnedToastAction: "Zobraziť",
       Delete: "Vymazať",
       Edit: "Upraviť",
       RefreshTitle: "Obnoviť názov",
@@ -84,7 +84,8 @@ const sk: PartialLocaleType = {
     Config: {
       SaveAs: "Uložiť ako masku",
     },
-    IsContext: "Kontextová výzva",
+    Graph: { SaveToPinned: "Uložiť do pripnutého kontextu" },
+    IsContext: "Pripnutý kontext",
   },
   Export: {
     Title: "Export správ",
@@ -419,9 +420,10 @@ const sk: PartialLocaleType = {
     Failed: "Stiahnutie zlyhalo.",
   },
   Context: {
-    Toast: (x: any) => `S ${x} kontextovými výzvami`,
+    PinnedTitle: "Pripnutý kontext",
+    Toast: (x: any) => `Pripnutý kontext: ${x} správ`,
     Edit: "Aktuálne nastavenia chatu",
-    Add: "Pridať výzvu",
+    Add: "Pridať správu",
   },
   Plugin: {
     Name: "Plugin",
@@ -470,8 +472,8 @@ const sk: PartialLocaleType = {
         Confirm: "Potvrdiť prepísanie vlastného nastavenia globálnym?",
       },
       HideContext: {
-        Title: "Skryť kontextové výzvy",
-        SubTitle: "Nezobrazovať kontextové výzvy v chate",
+        Title: "Skryť pripnutý kontext",
+        SubTitle: "Nezobrazovať pripnutý kontext v chate",
       },
       Share: {
         Title: "Zdieľať túto masku",

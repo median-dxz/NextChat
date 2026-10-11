@@ -45,8 +45,8 @@ const pt: PartialLocaleType = {
       Copy: "Copiar",
       Stop: "Parar",
       Retry: "Tentar Novamente",
-      PinToastContent: "Fixada 1 mensagem para prompts contextuais",
-      PinToastAction: "Visualizar",
+      SaveToPinnedToastContent: "Salvo no contexto fixado",
+      SaveToPinnedToastAction: "Visualizar",
       Delete: "Deletar",
       Edit: "Editar",
       RefreshTitle: "Atualizar Título",
@@ -83,7 +83,8 @@ const pt: PartialLocaleType = {
     Config: {
       SaveAs: "Salvar como Máscara",
     },
-    IsContext: "Prompt Contextual",
+    Graph: { SaveToPinned: "Salvar no contexto fixado" },
+    IsContext: "Contexto fixado",
   },
   Export: {
     Title: "Exportar Mensagens",
@@ -401,9 +402,10 @@ const pt: PartialLocaleType = {
     Failed: "Falha no download.",
   },
   Context: {
-    Toast: (x: any) => `Com ${x} prompts contextuais`,
+    PinnedTitle: "Contexto fixado",
+    Toast: (x: any) => `Contexto fixado: ${x} mensagens`,
     Edit: "Configurações do Chat Atual",
-    Add: "Adicionar um Prompt",
+    Add: "Adicionar mensagem",
   },
   Plugin: {
     Name: "Plugin",
@@ -453,8 +455,8 @@ const pt: PartialLocaleType = {
         Confirm: "Confirmar para substituir a configuração personalizada pela configuração global?",
       },
       HideContext: {
-        Title: "Esconder Prompts de Contexto",
-        SubTitle: "Não mostrar prompts de contexto no chat",
+        Title: "Ocultar contexto fixado",
+        SubTitle: "Não mostrar o contexto fixado no chat",
       },
       Share: {
         Title: "Compartilhar Esta Máscara",

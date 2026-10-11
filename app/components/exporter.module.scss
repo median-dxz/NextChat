@@ -92,6 +92,11 @@
   display: flex;
   justify-content: space-between;
 
+  > button {
+    border-width: 1px;
+    box-shadow: var(--card-shadow);
+  }
+
   button {
     flex-grow: 1;
 

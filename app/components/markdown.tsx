@@ -100,9 +100,7 @@ export function PreCode(props: { children?: React.ReactNode }) {
           />
           <IconButton
             style={{ position: "absolute", right: 120, top: 10 }}
-            bordered
             icon={<ReloadButtonIcon />}
-            shadow
             onClick={() => previewRef.current?.reload()}
           />
           <HTMLPreview

@@ -26,17 +26,24 @@ export interface MessageTool {
   errorMsg?: string;
 }
 
-export interface Message extends MessageInput {
+export interface SerializedMessage extends MessageInput {
   date: string;
   reasoning?: string;
   reasoningDurationMs?: number;
-  streaming?: boolean;
   isError?: boolean;
   id: string;
   model?: ModelType;
   tools?: MessageTool[];
   audio_url?: string;
   isMcpResponse?: boolean;
+}
+
+export interface Message extends SerializedMessage {
+  streaming: boolean;
+  isError: boolean;
+  reasoning: string;
+  tools: MessageTool[];
+  isMcpResponse: boolean;
 }
 
 export type SummaryKind = "segment" | "checkpoint";
@@ -57,6 +64,9 @@ export interface Node extends Message {
   nodeSummaries?: Partial<Record<SummaryKind, Summary>>;
 }
 
+export type SerializedNode = SerializedMessage &
+  Pick<Node, "parentId" | "outlineLevel" | "activeBranchRootId" | "nodeSummaries">;
+
 // This is an explicit mutation capability list: new Message fields are read-only until opted in.
 export type NodeDraft = Pick<
   Message,
@@ -73,19 +83,64 @@ export type NodeDraft = Pick<
   | "isMcpResponse"
 >;
 
-export function createMessage(override: Partial<Message>): Message {
+export function createSerializedMessage(override: Partial<SerializedMessage>): SerializedMessage {
   return {
-    id: nanoid(),
     date: new Date().toLocaleString(),
     role: "user",
     content: "",
     ...override,
+    id: override.id ?? nanoid(),
+  };
+}
+
+export function createMessage(override: Partial<Message>): Message {
+  return {
+    ...createSerializedMessage(override),
+    streaming: override.streaming ?? false,
+    isError: override.isError ?? false,
+    reasoning: override.reasoning ?? "",
+    tools: override.tools ?? [],
+    isMcpResponse: override.isMcpResponse ?? false,
   };
 }
 
 export function createNode(override: Partial<Node>): Node {
   // 在 createMessage 内本来就会展开 override，不需要再显式覆盖 Node 的独有字段
   return { outlineLevel: 1, ...createMessage(override) };
+}
+
+export function serializeMessage(message: Message): SerializedMessage {
+  return {
+    id: message.id,
+    date: message.date,
+    role: message.role,
+    content: message.content,
+    reasoning: message.reasoning,
+    reasoningDurationMs: message.reasoningDurationMs,
+    isError: message.isError,
+    model: message.model,
+    tools: message.tools,
+    audio_url: message.audio_url,
+    isMcpResponse: message.isMcpResponse,
+  };
+}
+
+export function serializeNode(node: Node): SerializedNode {
+  return {
+    ...serializeMessage(node),
+    parentId: node.parentId,
+    outlineLevel: node.outlineLevel,
+    activeBranchRootId: node.activeBranchRootId,
+    nodeSummaries: node.nodeSummaries,
+  };
+}
+
+export function deserializeMessage(data: SerializedMessage): Message {
+  return createMessage({ ...data, streaming: false });
+}
+
+export function deserializeNode(data: SerializedNode): Node {
+  return createNode({ ...data, streaming: false });
 }
 
 export function replaceText(content: Content, text: string): Content {

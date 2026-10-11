@@ -137,7 +137,6 @@ export function ArtifactsShareButton({
       <div className="window-action-button" style={style}>
         <IconButton
           icon={loading ? <LoadingButtonIcon /> : <ExportIcon />}
-          bordered
           title={Locale.Export.Artifacts.Title}
           onClick={() => {
             if (loading) return;
@@ -162,7 +161,6 @@ export function ArtifactsShareButton({
               <IconButton
                 key="download"
                 icon={<DownloadIcon />}
-                bordered
                 text={Locale.Export.Download}
                 onClick={() => {
                   downloadAs(getCode(), `${fileName || name}.html`).then(() => setShow(false));
@@ -171,7 +169,6 @@ export function ArtifactsShareButton({
               <IconButton
                 key="copy"
                 icon={<CopyIcon />}
-                bordered
                 text={Locale.Chat.Actions.Copy}
                 onClick={() => {
                   copyToClipboard(shareUrl).then(() => setShow(false));
@@ -219,13 +216,11 @@ export function Artifacts() {
     <div className={styles["artifacts"]}>
       <div className={styles["artifacts-header"]}>
         <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-          <IconButton bordered icon={<GithubIcon />} shadow />
+          <IconButton icon={<GithubIcon />} />
         </a>
         <IconButton
-          bordered
           style={{ marginLeft: 20 }}
           icon={<ReloadButtonIcon />}
-          shadow
           onClick={() => previewRef.current?.reload()}
         />
         <div className={styles["artifacts-title"]}>NextChat Artifacts</div>

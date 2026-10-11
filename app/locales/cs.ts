@@ -45,8 +45,8 @@ const cs: PartialLocaleType = {
       Copy: "Kopírovat",
       Stop: "Zastavit",
       Retry: "Zkusit znovu",
-      PinToastContent: "1 konverzace byla připnuta k přednastaveným promptům",
-      PinToastAction: "Zobrazit",
+      SaveToPinnedToastContent: "Uloženo do připnutého kontextu",
+      SaveToPinnedToastAction: "Zobrazit",
       Delete: "Smazat",
       Edit: "Upravit",
       RefreshTitle: "Obnovit název",
@@ -84,7 +84,8 @@ const cs: PartialLocaleType = {
     Config: {
       SaveAs: "Uložit jako masku",
     },
-    IsContext: "Přednastavené prompty",
+    Graph: { SaveToPinned: "Uložit do připnutého kontextu" },
+    IsContext: "Připnutý kontext",
   },
   Export: {
     Title: "Sdílet konverzace",
@@ -465,9 +466,10 @@ const cs: PartialLocaleType = {
     Failed: "Stahování selhalo.",
   },
   Context: {
-    Toast: (x: any) => `Obsahuje ${x} přednastavených promptů`,
+    PinnedTitle: "Připnutý kontext",
+    Toast: (x: any) => `Připnutý kontext: ${x} zpráv`,
     Edit: "Nastavení aktuální konverzace",
-    Add: "Přidat novou konverzaci",
+    Add: "Přidat zprávu",
   },
   Plugin: {
     Name: "Plugin",
@@ -518,8 +520,8 @@ const cs: PartialLocaleType = {
           "Vaše vlastní nastavení konverzace bude automaticky přepsáno, opravdu chcete použít globální nastavení?",
       },
       HideContext: {
-        Title: "Skrýt přednastavené konverzace",
-        SubTitle: "Po skrytí se přednastavené konverzace nebudou zobrazovat v chatovém rozhraní",
+        Title: "Skrýt připnutý kontext",
+        SubTitle: "Nezobrazovat připnutý kontext v chatu",
       },
       Share: {
         Title: "Sdílet tuto masku",

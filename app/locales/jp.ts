@@ -45,8 +45,8 @@ const jp: PartialLocaleType = {
       Copy: "コピー",
       Stop: "停止",
       Retry: "再試行",
-      PinToastContent: "1件の会話をプリセットプロンプトに固定しました",
-      PinToastAction: "見る",
+      SaveToPinnedToastContent: "固定コンテキストに保存しました",
+      SaveToPinnedToastAction: "見る",
       Delete: "削除",
       Edit: "編集",
       RefreshTitle: "タイトルを更新",
@@ -84,7 +84,8 @@ const jp: PartialLocaleType = {
     Config: {
       SaveAs: "マスクとして保存",
     },
-    IsContext: "プリセットプロンプト",
+    Graph: { SaveToPinned: "固定コンテキストに保存" },
+    IsContext: "固定コンテキスト",
   },
   Export: {
     Title: "チャット履歴を共有",
@@ -466,9 +467,10 @@ const jp: PartialLocaleType = {
     Failed: "ダウンロードに失敗しました",
   },
   Context: {
-    Toast: (x: any) => `${x} 件のプリセットプロンプトが含まれています`,
+    PinnedTitle: "固定コンテキスト",
+    Toast: (x: any) => `固定コンテキスト：${x} 件のメッセージ`,
     Edit: "現在の対話設定",
-    Add: "対話を追加",
+    Add: "メッセージを追加",
   },
   Plugin: {
     Name: "プラグイン",
@@ -521,8 +523,8 @@ const jp: PartialLocaleType = {
           "現在の対話のカスタム設定が自動的に上書きされます。グローバル設定を有効にしてもよろしいですか？",
       },
       HideContext: {
-        Title: "プリセット対話を非表示",
-        SubTitle: "非表示にすると、プリセット対話はチャット画面に表示されません",
+        Title: "固定コンテキストを非表示",
+        SubTitle: "チャット画面で固定コンテキストを表示しない",
       },
       Share: {
         Title: "このマスクを共有",

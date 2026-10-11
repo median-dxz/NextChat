@@ -99,7 +99,7 @@ export function SearchChatPage() {
 
           <div className="window-actions">
             <div className="window-action-button">
-              <IconButton icon={<CloseIcon />} bordered onClick={() => navigate(-1)} />
+              <IconButton icon={<CloseIcon />} onClick={() => navigate(-1)} />
             </div>
           </div>
         </div>

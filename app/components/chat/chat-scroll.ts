@@ -50,7 +50,10 @@ export function useScrollToBottom(bottomThreshold = 10) {
 
   const requestBottom = useCallback(
     (reason: BottomRequestReason) => {
-      if (reason === "content-resize" && stateRef.current !== "following") {
+      if (
+        reason === "content-resize" &&
+        (pointerDownRef.current || stateRef.current !== "following")
+      ) {
         updateBottomGeometry();
         return;
       }
@@ -108,7 +111,8 @@ export function useScrollToBottom(bottomThreshold = 10) {
 
   const handlePointerDown = useCallback(() => {
     pointerDownRef.current = true;
-  }, []);
+    cancelPendingScroll();
+  }, [cancelPendingScroll]);
 
   const handlePointerMove = useCallback(() => {
     if (pointerDownRef.current) beginUserScroll();

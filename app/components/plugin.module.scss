@@ -19,6 +19,10 @@
   justify-content: flex-end;
   flex-direction: row;
 
+  > button {
+    border-width: 1px;
+  }
+
   input {
     margin-right: 20px;
 
@@ -34,5 +38,11 @@
     button {
       padding: 10px;
     }
+  }
+}
+
+.plugin-empty-state {
+  > a > button {
+    border-width: 1px;
   }
 }

@@ -2,11 +2,12 @@ import { getClientConfig } from "../config/client";
 import { ApiPath, STORAGE_KEY, StoreKey } from "../constant";
 import { createPersistStore } from "../utils/store";
 import {
-  AppState,
+  deserializeAppState,
   getLocalAppState,
   GetStoreState,
   mergeAppState,
   setLocalAppState,
+  serializeAppState,
 } from "../utils/sync";
 import { downloadAs, readFromFile } from "../utils";
 import { showToast } from "../components/ui-lib";
@@ -62,14 +63,14 @@ export const useSyncStore = createPersistStore(
         : new Date().toLocaleString();
 
       const fileName = `Backup-${datePart}.json`;
-      downloadAs(JSON.stringify(state), fileName);
+      downloadAs(serializeAppState(state), fileName);
     },
 
     async import() {
       const rawContent = await readFromFile();
 
       try {
-        const remoteState = JSON.parse(rawContent) as AppState;
+        const remoteState = deserializeAppState(rawContent);
         const localState = getLocalAppState();
         mergeAppState(localState, remoteState);
         setLocalAppState(localState);
@@ -95,11 +96,11 @@ export const useSyncStore = createPersistStore(
       try {
         const remoteState = await client.get(config.username);
         if (!remoteState || remoteState === "") {
-          await client.set(config.username, JSON.stringify(localState));
+          await client.set(config.username, serializeAppState(localState));
           console.log("[Sync] Remote state is empty, using local state instead.");
           return;
         } else {
-          const parsedRemoteState = JSON.parse(await client.get(config.username)) as AppState;
+          const parsedRemoteState = deserializeAppState(remoteState);
           mergeAppState(localState, parsedRemoteState);
           setLocalAppState(localState);
         }
@@ -108,7 +109,7 @@ export const useSyncStore = createPersistStore(
         throw e;
       }
 
-      await client.set(config.username, JSON.stringify(localState));
+      await client.set(config.username, serializeAppState(localState));
 
       this.markSyncTime();
     },
