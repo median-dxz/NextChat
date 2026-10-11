@@ -683,7 +683,7 @@ const cn: PartialLocaleType = {
   },
   Context: {
     PinnedTitle: "固定上下文",
-    Toast: (x: any) => `固定上下文：${x} 条消息`,
+    Toast: (x: any) => `包含 ${x} 条固定消息`,
     Edit: "当前对话设置",
     Add: "新增一条消息",
     PresetTitle: "预设对话",

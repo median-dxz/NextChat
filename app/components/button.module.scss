@@ -47,6 +47,19 @@
     }
   }
 
+  &.tonal {
+    background-color: var(--second);
+    color: var(--primary);
+
+    &:hover:not(:disabled) {
+      background-color: color-mix(in srgb, var(--second) 90%, var(--primary));
+    }
+
+    &:active:not(:disabled) {
+      background-color: color-mix(in srgb, var(--second) 80%, var(--primary));
+    }
+  }
+
   &.danger {
     color: rgba($color: red, $alpha: 0.8);
     border-color: rgba($color: red, $alpha: 0.5);

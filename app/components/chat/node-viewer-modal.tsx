@@ -212,6 +212,7 @@ export function NodeViewerModal(props: {
                   <div className={styles["node-summary-actions"]}>
                     <IconButton
                       text={Locale.Chat.Graph.GenerateSummary}
+                      type="tonal"
                       icon={
                         generatingKinds.includes(summaryEditor.kind) ? (
                           <LoadingButtonIcon />

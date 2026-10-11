@@ -4,7 +4,7 @@ import styles from "./button.module.scss";
 import { CSSProperties } from "react";
 import clsx from "clsx";
 
-export type ButtonType = "primary" | "danger" | null;
+export type ButtonType = "primary" | "danger" | "tonal" | null;
 
 export function IconButton(props: {
   onClick?: () => void;

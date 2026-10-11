@@ -885,12 +885,8 @@ function ChatView() {
                     const isActiveTurn = isMessageInStreamingTurn(renderMessages, absoluteIndex);
                     const hasMessageOutput =
                       message.content.length > 0 || message.reasoning.length > 0;
-                    const isActionCandidate =
-                      absoluteIndex > 0 &&
-                      !message.preview &&
-                      !isContext &&
-                      (hasMessageOutput || message.streaming);
-                    const showActions = isActionCandidate && (!isActiveTurn || message.streaming);
+                    const isActionCandidate = absoluteIndex > 0 && !message.preview && !isContext;
+                    const showActions = isActionCandidate && !isActiveTurn;
                     const renderActions = showActions && actionMessageId === message.id;
                     const showAvatarLoading =
                       message.role === "assistant" && (message.preview || message.streaming);
@@ -900,11 +896,7 @@ function ChatView() {
                     if (showAvatarLoading) {
                       avatarOverlay = (
                         <div
-                          className={clsx(
-                            styles["chat-message-edit"],
-                            styles["chat-message-avatar-loading"],
-                            "no-dark",
-                          )}
+                          className={clsx(styles["chat-message-loading"], "no-dark")}
                           role="progressbar"
                           aria-label={Locale.Chat.Typing}
                         >
@@ -924,13 +916,11 @@ function ChatView() {
                       );
                     } else if (storedNode && !message.streaming) {
                       avatarOverlay = (
-                        <div className={styles["chat-message-edit"]}>
-                          <IconButton
-                            icon={<EditIcon />}
-                            aria={Locale.Chat.Actions.Edit}
-                            onClick={() => setViewingNodeId(storedNode.id)}
-                          />
-                        </div>
+                        <IconButton
+                          icon={<EditIcon />}
+                          aria={Locale.Chat.Actions.Edit}
+                          onClick={() => setViewingNodeId(storedNode.id)}
+                        />
                       );
                     }
 
@@ -957,9 +947,6 @@ function ChatView() {
                           onPointerDown={(event) => {
                             if (event.pointerType === "touch") setActionMessageId(message.id);
                           }}
-                          onPointerCancel={(event) => {
-                            if (event.pointerType === "touch") setActionMessageId(undefined);
-                          }}
                         >
                           <div className={styles["chat-message-container"]}>
                             <div
@@ -969,7 +956,9 @@ function ChatView() {
                               )}
                             >
                               <div className={styles["chat-message-avatar"]}>
-                                {avatarOverlay}
+                                <div className={styles["chat-message-overlay"]}>
+                                  {avatarOverlay}
+                                </div>
                                 {isUser ? (
                                   <Avatar avatar={config.avatar} />
                                 ) : (
